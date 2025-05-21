@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Dict, List
 from sqlmodel import Field, Relationship
-from sqlalchemy import JSON, String, ARRAY, Text
+from sqlalchemy import JSON, String, ARRAY, Text, Index
 from app.db.base import BaseModel
 from uuid import UUID
 
@@ -20,17 +20,44 @@ class User(BaseModel, table=True):
     # Relationships
     sessions: List["Session"] = Relationship(back_populates="user")
     anki_decks: List["AnkiDeck"] = Relationship(back_populates="user")
+    learning_projects: List["LearningProject"] = Relationship(back_populates="user")
+
+
+class LearningProject(BaseModel, table=True):
+    """LearningProject model for organizing learning sessions."""
+    __tablename__ = "learning_projects"
+    __table_args__ = (
+        Index('idx_learning_projects_category', 'category'),
+        Index('idx_learning_projects_status', 'status'),
+    )
+
+    user_id: UUID = Field(foreign_key="users.id", index=True)
+    name: str = Field(sa_type=String(255))
+    category: Optional[str] = Field(sa_type=String(100), default=None)
+    status: str = Field(sa_type=String(50), default="in_progress")
+    description: Optional[str] = Field(sa_type=Text, default=None)
+
+    # Relationships
+    user: User = Relationship(back_populates="learning_projects")
+    sessions: List["Session"] = Relationship(back_populates="learning_project")
 
 
 class Session(BaseModel, table=True):
     """Session model for tracking Pomodoro sessions."""
     __tablename__ = "sessions"
+    __table_args__ = (
+        Index('idx_sessions_start_time', 'start_time'),
+        Index('idx_sessions_learning_project_id', 'learning_project_id'),
+    )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
+    learning_project_id: Optional[UUID] = Field(foreign_key="learning_projects.id", index=True, default=None)
     start_time: datetime = Field()
     end_time: Optional[datetime] = Field(default=None)
     work_duration: int = Field()  # in minutes
     break_duration: int = Field()  # in minutes
+    actual_duration: Optional[int] = Field(default=None)  # in minutes
+    session_type: str = Field(sa_type=String(20), default="work")
     status: str = Field(sa_type=String(20), default="in_progress")
     category: Optional[str] = Field(sa_type=String(50), default=None)
     title: Optional[str] = Field(sa_type=String(255), default=None)
@@ -38,12 +65,17 @@ class Session(BaseModel, table=True):
 
     # Relationships
     user: User = Relationship(back_populates="sessions")
+    learning_project: Optional[LearningProject] = Relationship(back_populates="sessions")
     notes: List["Note"] = Relationship(back_populates="session")
 
 
 class Note(BaseModel, table=True):
     """Note model for storing session notes."""
     __tablename__ = "notes"
+    __table_args__ = (
+        Index('idx_notes_category', 'category'),
+        Index('idx_notes_tags', 'tags', postgresql_using='gin'),
+    )
 
     session_id: UUID = Field(foreign_key="sessions.id", index=True)
     content: str = Field(sa_type=Text)
@@ -60,6 +92,10 @@ class Note(BaseModel, table=True):
 class Flashcard(BaseModel, table=True):
     """Flashcard model for storing learning cards."""
     __tablename__ = "flashcards"
+    __table_args__ = (
+        Index('idx_flashcards_status', 'status'),
+        Index('idx_flashcards_next_review', 'next_review'),
+    )
 
     note_id: UUID = Field(foreign_key="notes.id", index=True)
     question: str = Field(sa_type=Text)
