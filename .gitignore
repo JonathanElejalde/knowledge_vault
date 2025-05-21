@@ -1,0 +1,13 @@
+# Custom
+.specstory/
+.ai_docs/
+.env
+.python-version
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
