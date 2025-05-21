@@ -9,7 +9,10 @@ dependencies = [
     "asyncpg>=0.30.0",
     "fastapi[standard]>=0.115.12",
     "loguru>=0.7.3",
+    "passlib[bcrypt]>=1.7.4",
     "pydantic-settings>=2.9.1",
+    "python-jose[cryptography]>=3.4.0",
+    "python-multipart>=0.0.20",
     "sqlmodel>=0.0.24",
     "uvicorn>=0.34.2",
 ]

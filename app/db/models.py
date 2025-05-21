@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from sqlmodel import Field, Relationship
 from sqlalchemy import JSON, String, ARRAY, Text, Index
+import sqlalchemy as sa
 from app.db.base import BaseModel
 from uuid import UUID
 
@@ -13,7 +14,7 @@ class User(BaseModel, table=True):
     email: str = Field(sa_type=String(255), unique=True, index=True)
     username: str = Field(sa_type=String(50), unique=True, index=True)
     password_hash: str = Field(sa_type=String(255))
-    last_login: Optional[datetime] = Field(default=None)
+    last_login: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
     is_active: bool = Field(default=True)
     preferences: Dict = Field(default_factory=dict, sa_type=JSON)
 
@@ -52,8 +53,8 @@ class Session(BaseModel, table=True):
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
     learning_project_id: Optional[UUID] = Field(foreign_key="learning_projects.id", index=True, default=None)
-    start_time: datetime = Field()
-    end_time: Optional[datetime] = Field(default=None)
+    start_time: datetime = Field(sa_type=sa.TIMESTAMP(timezone=True))
+    end_time: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
     work_duration: int = Field()  # in minutes
     break_duration: int = Field()  # in minutes
     actual_duration: Optional[int] = Field(default=None)  # in minutes
@@ -102,8 +103,8 @@ class Flashcard(BaseModel, table=True):
     answer: str = Field(sa_type=Text)
     status: str = Field(sa_type=String(20), default="draft")
     difficulty: int = Field(default=1)  # 1-5 scale
-    last_reviewed: Optional[datetime] = Field(default=None)
-    next_review: Optional[datetime] = Field(default=None)
+    last_reviewed: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
+    next_review: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
     review_count: int = Field(default=0)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
@@ -119,7 +120,7 @@ class AnkiDeck(BaseModel, table=True):
     user_id: UUID = Field(foreign_key="users.id", index=True)
     name: str = Field(sa_type=String(255))
     description: Optional[str] = Field(sa_type=Text, default=None)
-    last_exported: Optional[datetime] = Field(default=None)
+    last_exported: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
     export_settings: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
