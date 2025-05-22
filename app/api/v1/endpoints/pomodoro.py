@@ -13,9 +13,9 @@ from app.schemas.pomodoro import (
     SessionComplete,
     SessionAbandon,
     SessionResponse,
-    LearningProjectResponse,
     SessionResponseWithProject
 )
+from app.schemas.learning_projects import LearningProjectResponse
 
 router = APIRouter(
     tags=["Pomodoro & Sessions"]

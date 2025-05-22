@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from loguru import logger
 
 from app.db.models import LearningProject # Removed User, Session as they are not directly used here
-from app.schemas.pomodoro import LearningProjectCreate, LearningProjectUpdate
+from app.schemas.learning_projects import LearningProjectCreate, LearningProjectUpdate
 
 
 async def create_learning_project(

@@ -8,7 +8,7 @@ from app.api.dependencies import get_current_active_user
 from app.db.models import User, LearningProject
 from app.db.session import get_db
 from app.crud import learning_projects as crud_lp
-from app.schemas.pomodoro import (
+from app.schemas.learning_projects import (
     LearningProjectCreate,
     LearningProjectUpdate,
     LearningProjectResponse,
