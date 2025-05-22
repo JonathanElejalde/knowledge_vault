@@ -1,8 +1,6 @@
 # Custom
 .specstory/
 .ai_docs/
-.env
-.python-version
 todos.md
 
 # Python
@@ -12,3 +10,41 @@ __pycache__/
 *.pyd
 *.pyw
 *.pyz
+
+# → Node modules
+/node_modules/
+
+# → Build output (Vite default)
+/dist/
+/build/
+/.vite/
+
+# → Local environment files
+#    – you can commit .env.example, but ignore any secrets
+.env
+.env.local
+.env.*.local
+
+# → Log files
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# → Testing coverage (if you add Vitest/Jest)
+/coverage/
+
+# → OS metadata
+.DS_Store
+Thumbs.db
+
+# → IDE / editor settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# → Misc
+*.cache/
