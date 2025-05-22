@@ -1,6 +1,6 @@
 from typing import Annotated, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 from app.api.dependencies import get_current_active_user
@@ -12,10 +12,14 @@ from app.schemas.pomodoro import (
     SessionStart,
     SessionComplete,
     SessionAbandon,
-    SessionResponse
+    SessionResponse,
+    LearningProjectResponse,
+    SessionResponseWithProject
 )
 
-router = APIRouter()
+router = APIRouter(
+    tags=["Pomodoro & Sessions"]
+)
 
 
 @router.get("/preferences", response_model=PomodoroPreferences)
@@ -94,7 +98,7 @@ async def start_session(
     
     Creates a new Pomodoro session (work or break) for the current user. The session
     is created with an 'in_progress' status and the current UTC timestamp as the
-    start time.
+    start time. Prevents creation if the linked learning project is archived.
     
     Args:
         session_in: The session data including type, durations, and optional learning project
@@ -104,6 +108,7 @@ async def start_session(
         
     Raises:
         HTTPException: 
+            - 400: If the session is linked to an archived learning project
             - 401: If the user is not authenticated
             - 422: If the request data is invalid
     """
@@ -112,6 +117,12 @@ async def start_session(
         user_id=current_user.id,
         session_in=session_in
     )
+    if not session:
+        # This occurs if the learning project is archived
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot create session for an archived learning project."
+        )
     return session
 
 
@@ -195,7 +206,7 @@ async def abandon_session(
     return session
 
 
-@router.get("/sessions", response_model=List[SessionResponse])
+@router.get("/sessions", response_model=List[SessionResponseWithProject])
 async def list_sessions(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -204,11 +215,12 @@ async def list_sessions(
     learning_project_id: Optional[UUID] = None,
     session_type: Optional[str] = Query(None, pattern="^(work|break)$"),
     status: Optional[str] = Query(None, pattern="^(in_progress|completed|abandoned)$")
-) -> List[SessionResponse]:
+) -> List[SessionResponseWithProject]:
     """List user's Pomodoro sessions with optional filters.
     
     Retrieves a paginated list of Pomodoro sessions for the current user, with
     optional filtering by learning project, session type, and status.
+    Includes learning project details if available.
     
     Args:
         skip: Number of records to skip (for pagination)
@@ -218,14 +230,14 @@ async def list_sessions(
         status: Optional filter for session status ("in_progress", "completed", "abandoned")
         
     Returns:
-        List[SessionResponse]: List of matching sessions
+        List[SessionResponseWithProject]: List of matching sessions with project details
         
     Raises:
         HTTPException: 
             - 401: If the user is not authenticated
             - 422: If any query parameters are invalid
     """
-    sessions = await crud.get_user_sessions(
+    sessions_db = await crud.get_user_sessions(
         db=db,
         user_id=current_user.id,
         skip=skip,
@@ -234,4 +246,17 @@ async def list_sessions(
         session_type=session_type,
         status=status
     )
-    return sessions 
+    # Manually construct the response to include nested learning project data
+    response_list = []
+    for session_db in sessions_db:
+        project_response = None
+        if session_db.learning_project:
+            # If the associated learning project is archived, skip this session
+            if session_db.learning_project.status == "archived":
+                continue
+            project_response = LearningProjectResponse.model_validate(session_db.learning_project)
+        
+        session_data = SessionResponse.model_validate(session_db).model_dump()
+        response_list.append(SessionResponseWithProject(**session_data, learning_project=project_response))
+    return response_list
+

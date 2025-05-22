@@ -3,6 +3,7 @@
 .ai_docs/
 .env
 .python-version
+todos.md
 
 # Python
 __pycache__/

@@ -60,7 +60,6 @@ class Session(BaseModel, table=True):
     actual_duration: Optional[int] = Field(default=None)  # in minutes
     session_type: str = Field(sa_type=String(20), default="work")
     status: str = Field(sa_type=String(20), default="in_progress")
-    category: Optional[str] = Field(sa_type=String(50), default=None)
     title: Optional[str] = Field(sa_type=String(255), default=None)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
