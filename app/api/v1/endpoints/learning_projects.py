@@ -16,7 +16,6 @@ from app.schemas.learning_projects import (
 )
 
 router = APIRouter(
-    prefix="/learning-projects",
     tags=["Learning Projects"]
 )
 

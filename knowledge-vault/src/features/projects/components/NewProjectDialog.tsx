@@ -17,7 +17,7 @@ interface NewProjectDialogProps {
 export interface ProjectFormData {
   name: string
   category: string
-  description: string
+  description?: string
 }
 
 // Default categories if none are provided
