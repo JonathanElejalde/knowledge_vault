@@ -40,7 +40,7 @@ export default function DashboardPage() {
   // TODO: Implement data fetching logic here
 
   return (
-    <div className="max-w-7xl mx-auto px-1 mt-6 space-y-4">
+    <>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <QuickActions />
@@ -132,6 +132,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </>
   );
 } 
