@@ -1,13 +1,11 @@
-import MainLayout from "@/components/organisms/MainLayout";
-import AppRouter from "@/app/Router";
+import { Router } from "@/app/router";
+import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 // import './App.css'; // Remove default App.css, styling is handled by Tailwind via index.css
 
-function App() {
+export default function App() {
   return (
-    <MainLayout>
-      <AppRouter />
-    </MainLayout>
+    <ErrorBoundary>
+      <Router />
+    </ErrorBoundary>
   );
 }
-
-export default App;

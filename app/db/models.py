@@ -22,6 +22,7 @@ class User(BaseModel, table=True):
     sessions: List["Session"] = Relationship(back_populates="user")
     anki_decks: List["AnkiDeck"] = Relationship(back_populates="user")
     learning_projects: List["LearningProject"] = Relationship(back_populates="user")
+    refresh_tokens: List["RefreshToken"] = Relationship(back_populates="user")
 
 
 class LearningProject(BaseModel, table=True):
@@ -136,4 +137,22 @@ class AnkiDeckFlashcard(BaseModel, table=True):
 
     # Relationships
     deck: AnkiDeck = Relationship(back_populates="anki_deck_flashcards")
-    flashcard: Flashcard = Relationship(back_populates="anki_deck_flashcards") 
+    flashcard: Flashcard = Relationship(back_populates="anki_deck_flashcards")
+
+
+class RefreshToken(BaseModel, table=True):
+    """Refresh token model for managing long-lived refresh tokens."""
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        Index('idx_refresh_tokens_user_id', 'user_id'),
+        Index('idx_refresh_tokens_expires_at', 'expires_at'),
+    )
+
+    user_id: UUID = Field(foreign_key="users.id", index=True)
+    token: str = Field(sa_type=String(255), unique=True, index=True)
+    expires_at: datetime = Field(sa_type=sa.TIMESTAMP(timezone=True))
+    is_revoked: bool = Field(default=False)
+    meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
+
+    # Relationships
+    user: User = Relationship(back_populates="refresh_tokens") 

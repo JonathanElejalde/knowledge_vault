@@ -3,7 +3,7 @@ from typing import Optional, List, Dict
 from uuid import UUID
 from pydantic import BaseModel, Field
 
-from .pomodoro import SessionResponse
+from .shared import LearningProjectResponseBase, SessionResponseBase
 
 class LearningProjectBase(BaseModel):
     """Base schema for learning project."""
@@ -23,20 +23,14 @@ class LearningProjectUpdate(LearningProjectBase):
     status: Optional[str] = Field(default=None, max_length=50, pattern="^(in_progress|completed|on_hold|abandoned|archived)$")
 
 
-class LearningProjectResponse(LearningProjectBase):
+class LearningProjectResponse(LearningProjectResponseBase):
     """Schema for learning project response."""
-    id: UUID
-    user_id: UUID
-    status: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    pass
 
-    class Config:
-        from_attributes = True
 
 class LearningProjectDetailResponse(LearningProjectResponse):
     """Schema for detailed learning project response, including its sessions."""
-    sessions: List[SessionResponse] = [] # This will now use the imported SessionResponse
+    sessions: List[SessionResponseBase] = []
 
     class Config:
         from_attributes = True 

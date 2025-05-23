@@ -3,7 +3,7 @@ from typing import Optional, Dict, List
 from uuid import UUID
 from pydantic import BaseModel, Field
 
-from .learning_projects import LearningProjectResponse
+from .shared import SessionResponseBase, LearningProjectResponseBase
 
 
 class PomodoroPreferences(BaseModel):
@@ -34,26 +34,12 @@ class SessionAbandon(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=255, description="Reason for abandoning the session")
 
 
-class SessionResponse(BaseModel):
+class SessionResponse(SessionResponseBase):
     """Schema for Pomodoro session response."""
-    id: UUID
-    user_id: UUID
-    learning_project_id: Optional[UUID]
-    start_time: datetime
-    end_time: Optional[datetime]
-    work_duration: int
-    break_duration: int
-    actual_duration: Optional[int]
-    session_type: str
-    status: str
-    title: Optional[str]
-    meta_data: Dict
-
-    class Config:
-        from_attributes = True 
+    pass
 
 
 class SessionResponseWithProject(SessionResponse):
     """Schema for Pomodoro session response including learning project details."""
-    learning_project: Optional[LearningProjectResponse] = None 
+    learning_project: Optional[LearningProjectResponseBase] = None 
     
