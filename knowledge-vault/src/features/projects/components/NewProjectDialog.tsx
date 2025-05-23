@@ -6,12 +6,12 @@ import { Input } from "@/components/atoms/Input"
 import { Label } from "@/components/atoms/Label"
 import { Textarea } from "@/components/atoms/Textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/Select"
+import { learningProjectsApi } from "@/services/api/learningProjects"
 
 interface NewProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (data: ProjectFormData) => void
-  existingCategories?: string[]
 }
 
 export interface ProjectFormData {
@@ -20,21 +20,10 @@ export interface ProjectFormData {
   description?: string
 }
 
-// Default categories if none are provided
-const DEFAULT_CATEGORIES = [
-  "Web Development",
-  "Data Science",
-  "Programming",
-  "Design",
-  "Business",
-  "Other"
-]
-
 export function NewProjectDialog({ 
   open, 
   onOpenChange, 
   onSubmit,
-  existingCategories = DEFAULT_CATEGORIES 
 }: NewProjectDialogProps) {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
@@ -43,15 +32,37 @@ export function NewProjectDialog({
   })
   const [isCustomCategory, setIsCustomCategory] = useState(false)
   const [customCategory, setCustomCategory] = useState("")
+  const [categories, setCategories] = useState<string[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+
+  // Load unique categories from existing projects
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setIsLoadingCategories(true)
+        const projects = await learningProjectsApi.list()
+        const uniqueCategories = Array.from(new Set(projects.map(p => p.category).filter(Boolean)))
+        setCategories(uniqueCategories)
+      } catch (error) {
+        console.error('Failed to load categories:', error)
+      } finally {
+        setIsLoadingCategories(false)
+      }
+    }
+
+    if (open) {
+      loadCategories()
+    }
+  }, [open])
 
   // Show input field by default if there are no categories
   useEffect(() => {
-    if (!existingCategories || existingCategories.length === 0) {
+    if (!categories || categories.length === 0) {
       setIsCustomCategory(true)
     } else {
       setIsCustomCategory(false)
     }
-  }, [existingCategories, open])
+  }, [categories, open])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,7 +70,7 @@ export function NewProjectDialog({
     onSubmit({ ...formData, category: finalCategory })
     setFormData({ name: "", category: "", description: "" })
     setCustomCategory("")
-    setIsCustomCategory(existingCategories.length === 0)
+    setIsCustomCategory(categories.length === 0)
     onOpenChange(false)
   }
 
@@ -89,7 +100,7 @@ export function NewProjectDialog({
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              {(!existingCategories || existingCategories.length === 0 || isCustomCategory) ? (
+              {(!categories || categories.length === 0 || isCustomCategory) ? (
                 <div className="flex gap-2">
                   <Input
                     value={customCategory}
@@ -98,7 +109,7 @@ export function NewProjectDialog({
                     required
                     className="flex-1"
                   />
-                  {existingCategories && existingCategories.length > 0 && (
+                  {categories && categories.length > 0 && (
                     <Button
                       type="button"
                       variant="outline"
@@ -111,7 +122,7 @@ export function NewProjectDialog({
                     </Button>
                   )}
                 </div>
-              ) : (
+              ) :
                 <div className="flex gap-2">
                   <Select
                     value={formData.category}
@@ -125,7 +136,7 @@ export function NewProjectDialog({
                     required
                   >
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select a category"} />
                     </SelectTrigger>
                     <SelectContent>
                       {/* Add Custom Category as the first item */}
@@ -138,7 +149,7 @@ export function NewProjectDialog({
                           Add Custom Category
                         </span>
                       </SelectItem>
-                      {existingCategories.map((category) => (
+                      {categories.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -146,7 +157,7 @@ export function NewProjectDialog({
                     </SelectContent>
                   </Select>
                 </div>
-              )}
+              }
             </div>
 
             <div className="space-y-2">

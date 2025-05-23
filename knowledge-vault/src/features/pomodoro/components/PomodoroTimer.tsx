@@ -1,114 +1,84 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useRef, useEffect } from "react"
 import { createRoot } from "react-dom/client"
-import { Settings, Play, Pause, RotateCcw, StickyNote, X } from "lucide-react"
+import { Settings, Play, Pause, RotateCcw, StickyNote, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/atoms/Button"
 import { Slider } from "@/components/atoms/Slider"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/atoms/Dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/atoms/Dialog"
 import NotesEditor from "@/features/notes/components/NotesEditor"
+import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
 import { cn } from "@/lib/utils"
 
-type TimerState = "idle" | "work" | "break" | "longBreak"
+interface PomodoroTimerProps {
+  selectedProjectId?: string | null;
+}
 
-export function PomodoroTimer() {
-  const [timerState, setTimerState] = useState<TimerState>("idle")
-  const [isRunning, setIsRunning] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(25 * 60) // 25 minutes in seconds
-  const [completedIntervals, setCompletedIntervals] = useState(0)
+export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
+  const {
+    timerState,
+    isRunning,
+    timeLeft,
+    completedIntervals,
+    preferences,
+    startTimer,
+    pauseTimer,
+    resetTimer,
+    updatePreferences,
+    abandonSession,
+  } = usePomodoro()
+
   const [showSettings, setShowSettings] = useState(false)
+  const [showProjectPrompt, setShowProjectPrompt] = useState(false)
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false)
   
   // State to track if the user intends the notes window to be open
   const [showNotesWindow, setShowNotesWindow] = useState(false);
   const notesWindowRef = useRef<Window | null>(null);
 
-  // Timer settings
-  const [workTime, setWorkTime] = useState(25)
-  const [breakTime, setBreakTime] = useState(5)
-  const [longBreakTime, setLongBreakTime] = useState(15)
-  const [intervalsBeforeLongBreak, setIntervalsBeforeLongBreak] = useState(4)
+  // Local settings state for the dialog
+  const [localWorkTime, setLocalWorkTime] = useState(preferences.work_duration)
+  const [localBreakTime, setLocalBreakTime] = useState(preferences.break_duration)
+  const [localLongBreakTime, setLocalLongBreakTime] = useState(preferences.long_break_duration)
+  const [localIntervalsBeforeLongBreak, setLocalIntervalsBeforeLongBreak] = useState(preferences.long_break_interval)
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  const handleTimerComplete = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-
-    if (timerState === "work") {
-      const newCompletedIntervals = completedIntervals + 1
-      setCompletedIntervals(newCompletedIntervals)
-
-      if (newCompletedIntervals % intervalsBeforeLongBreak === 0) {
-        setTimerState("longBreak")
-        setTimeLeft(longBreakTime * 60)
-      } else {
-        setTimerState("break")
-        setTimeLeft(breakTime * 60)
-      }
-    } else {
-      setTimerState("work")
-      setTimeLeft(workTime * 60)
-    }
-  }, [timerState, completedIntervals, intervalsBeforeLongBreak, longBreakTime, breakTime, workTime])
-
+  // Update local settings when preferences change
   useEffect(() => {
-    if (isRunning) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prevTime) => {
-          if (prevTime <= 1) {
-            handleTimerComplete()
-            return 0
-          }
-          return prevTime - 1
-        })
-      }, 1000)
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
+    setLocalWorkTime(preferences.work_duration)
+    setLocalBreakTime(preferences.break_duration)
+    setLocalLongBreakTime(preferences.long_break_duration)
+    setLocalIntervalsBeforeLongBreak(preferences.long_break_interval)
+  }, [preferences])
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-      }
+  // Show project prompt when timer is idle and no project is selected
+  useEffect(() => {
+    if (timerState === 'idle' && !selectedProjectId) {
+      setShowProjectPrompt(true)
+    } else {
+      setShowProjectPrompt(false)
     }
-  }, [isRunning, handleTimerComplete])
+  }, [timerState, selectedProjectId])
+
+  // Handle start timer with project ID
+  const handleStartTimer = () => {
+    if (selectedProjectId) {
+      startTimer(selectedProjectId)
+    }
+  }
 
   // Calculate progress for the circular timer
   const totalTime =
     timerState === "work"
-      ? workTime * 60
+      ? preferences.work_duration * 60
       : timerState === "break"
-        ? breakTime * 60
+        ? preferences.break_duration * 60
         : timerState === "longBreak"
-          ? longBreakTime * 60
-          : workTime * 60
+          ? preferences.long_break_duration * 60
+          : preferences.work_duration * 60
 
   const progress = (timeLeft / totalTime) * 100
   const circumference = 2 * Math.PI * 45 // 45 is the radius of the circle
   const strokeDashoffset = circumference - (progress / 100) * circumference
-
-  const startTimer = () => {
-    if (timerState === "idle") {
-      setTimerState("work")
-      if (timeLeft !== workTime * 60) setTimeLeft(workTime * 60)
-    }
-    setIsRunning(true)
-  }
-
-  const pauseTimer = () => {
-    setIsRunning(false)
-  }
-
-  const resetTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-    setIsRunning(false)
-    setTimerState("idle")
-    setTimeLeft(workTime * 60)
-    setCompletedIntervals(0)
-  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -116,11 +86,18 @@ export function PomodoroTimer() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  const applySettings = () => {
-    setTimeLeft(workTime * 60)
-    setIsRunning(false)
-    if (timerState !== "idle") setTimerState("idle")
-    setShowSettings(false)
+  const applySettings = async () => {
+    try {
+      await updatePreferences({
+        work_duration: localWorkTime,
+        break_duration: localBreakTime,
+        long_break_duration: localLongBreakTime,
+        long_break_interval: localIntervalsBeforeLongBreak,
+      })
+      setShowSettings(false)
+    } catch (error) {
+      console.error('Failed to update preferences:', error)
+    }
   }
 
   const openNotesNewWindow = () => {
@@ -206,13 +183,7 @@ export function PomodoroTimer() {
     }
   };
 
-  const closeNotesNewWindow = () => {
-    if (notesWindowRef.current && !notesWindowRef.current.closed) {
-      notesWindowRef.current.close();
-    }
-    // The onbeforeunload handler in the new window will set setShowNotesWindow(false)
-    // and notesWindowRef.current = null
-  };
+
 
   const toggleNotesWindow = () => {
     if (showNotesWindow && notesWindowRef.current && !notesWindowRef.current.closed) {
@@ -233,6 +204,15 @@ export function PomodoroTimer() {
       }
     };
   }, []);
+
+  const handleAbandonSession = async () => {
+    try {
+      await abandonSession();
+      setShowAbandonConfirm(false);
+    } catch (error) {
+      console.error('Failed to abandon session:', error);
+    }
+  }
 
   return (
     <div className="flex flex-col items-center">
@@ -270,60 +250,152 @@ export function PomodoroTimer() {
             {timerState === "idle" ? "Ready" : timerState.replace(/([A-Z])/g, " $1").trim()}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            {completedIntervals} / {intervalsBeforeLongBreak} intervals
+            {completedIntervals} / {preferences.long_break_interval} intervals
           </div>
         </div>
       </div>
 
+      {showProjectPrompt && (
+        <div className="mb-4 text-sm text-muted-foreground animate-pulse">
+          Please select a project to start your session
+        </div>
+      )}
+
       <div className="flex space-x-2 mb-4">
         {!isRunning ? (
-          <Button onClick={startTimer} size="icon" variant="default">
+          <Button 
+            onClick={handleStartTimer} 
+            size="icon" 
+            variant="default"
+            disabled={!selectedProjectId}
+            title={!selectedProjectId ? "Please select a project first" : "Start timer"}
+          >
             <Play className="h-5 w-5" />
             <span className="sr-only">Start</span>
           </Button>
         ) : (
-          <Button onClick={pauseTimer} size="icon" variant="default">
+          <Button 
+            onClick={pauseTimer} 
+            size="icon" 
+            variant="default"
+            title="Pause current session"
+          >
             <Pause className="h-5 w-5" />
             <span className="sr-only">Pause</span>
           </Button>
         )}
 
-        <Button onClick={resetTimer} size="icon" variant="outline">
-          <RotateCcw className="h-5 w-5" />
-          <span className="sr-only">Reset</span>
-        </Button>
+        <Dialog open={showAbandonConfirm} onOpenChange={setShowAbandonConfirm}>
+          <DialogTrigger asChild>
+            <Button 
+              onClick={() => setShowAbandonConfirm(true)} 
+              size="icon" 
+              variant="destructive"
+              title="Abandon current session"
+            >
+              <AlertTriangle className="h-5 w-5" />
+              <span className="sr-only">Abandon</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Abandon Session?</DialogTitle>
+              <DialogDescription>
+                This will mark your current session as abandoned. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowAbandonConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleAbandonSession}>
+                Abandon Session
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogTrigger asChild>
-            <Button size="icon" variant="outline">
+            <Button 
+              size="icon" 
+              variant="outline"
+              title="Configure Pomodoro settings"
+            >
               <Settings className="h-5 w-5" />
               <span className="sr-only">Settings</span>
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Timer Settings</DialogTitle>
+              <DialogTitle>Pomodoro Settings</DialogTitle>
+              <DialogDescription>
+                Customize your work and break durations
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Work Time: {workTime} minutes</label>
-                <Slider defaultValue={[workTime]} min={1} max={60} step={1} onValueChange={(value) => setWorkTime(value[0])} />
+                <div className="flex justify-between">
+                  <label className="text-sm font-medium">Work Duration</label>
+                  <span className="text-sm text-muted-foreground">{localWorkTime} minutes</span>
+                </div>
+                <Slider
+                  value={[localWorkTime]}
+                  onValueChange={([value]) => setLocalWorkTime(value)}
+                  min={1}
+                  max={60}
+                  step={1}
+                />
               </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Break Time: {breakTime} minutes</label>
-                <Slider defaultValue={[breakTime]} min={1} max={30} step={1} onValueChange={(value) => setBreakTime(value[0])} />
+                <div className="flex justify-between">
+                  <label className="text-sm font-medium">Break Duration</label>
+                  <span className="text-sm text-muted-foreground">{localBreakTime} minutes</span>
+                </div>
+                <Slider
+                  value={[localBreakTime]}
+                  onValueChange={([value]) => setLocalBreakTime(value)}
+                  min={1}
+                  max={30}
+                  step={1}
+                />
               </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Long Break Time: {longBreakTime} minutes</label>
-                <Slider defaultValue={[longBreakTime]} min={5} max={60} step={1} onValueChange={(value) => setLongBreakTime(value[0])} />
+                <div className="flex justify-between">
+                  <label className="text-sm font-medium">Long Break Duration</label>
+                  <span className="text-sm text-muted-foreground">{localLongBreakTime} minutes</span>
+                </div>
+                <Slider
+                  value={[localLongBreakTime]}
+                  onValueChange={([value]) => setLocalLongBreakTime(value)}
+                  min={1}
+                  max={60}
+                  step={1}
+                />
               </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Intervals Before Long Break: {intervalsBeforeLongBreak}</label>
-                <Slider defaultValue={[intervalsBeforeLongBreak]} min={1} max={10} step={1} onValueChange={(value) => setIntervalsBeforeLongBreak(value[0])} />
+                <div className="flex justify-between">
+                  <label className="text-sm font-medium">Intervals Before Long Break</label>
+                  <span className="text-sm text-muted-foreground">{localIntervalsBeforeLongBreak}</span>
+                </div>
+                <Slider
+                  value={[localIntervalsBeforeLongBreak]}
+                  onValueChange={([value]) => setLocalIntervalsBeforeLongBreak(value)}
+                  min={1}
+                  max={10}
+                  step={1}
+                />
               </div>
-              <Button onClick={applySettings} className="w-full">
-                Apply Settings
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowSettings(false)}>
+                Cancel
               </Button>
+              <Button onClick={applySettings}>Save Changes</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -337,7 +409,6 @@ export function PomodoroTimer() {
           <StickyNote className="h-5 w-5" />
           <span className="sr-only">Quick Notes</span>
         </Button>
-
       </div>
     </div>
   )

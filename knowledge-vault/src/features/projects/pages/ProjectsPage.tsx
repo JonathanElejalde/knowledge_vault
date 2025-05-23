@@ -265,7 +265,7 @@ export default function ProjectsPage() {
                   <CardHeader className="p-0 pb-2">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category}</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{project.category}</div>
                         <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
                         <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
                       </div>
@@ -320,15 +320,15 @@ export default function ProjectsPage() {
                         <div>
                           <span className="font-medium">0</span>
                           <span className="text-muted-foreground ml-1">sessions</span>
-                        </div>
-                        <div>
+                      </div>
+                      <div>
                           <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">notes</span>
+                        <span className="text-muted-foreground ml-1">notes</span>
                         </div>
                       </div>
                     </div>
                   </CardContent>
-                </div>
+                  </div>
                 <CardFooter className="p-0 pt-4">
                   <Button variant="outline" className="w-full font-bold text-base py-2 border-2 border-gray-200" asChild>
                     <Link to={`/projects/${project.id}`}>View Project</Link>
