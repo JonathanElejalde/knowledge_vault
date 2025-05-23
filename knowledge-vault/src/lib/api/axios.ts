@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { useAuth } from '@/features/auth/hooks/useAuth';
 import { authApi } from '@/features/auth/api/auth.api';
+import { clearAuthState } from '@/features/auth/hooks/useAuth';
 
 // Extend the AxiosRequestConfig type to include our custom properties
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
@@ -30,6 +30,20 @@ const addRefreshSubscriber = (callback: (token: string) => void) => {
 const onRefreshComplete = (token: string) => {
   refreshSubscribers.forEach(callback => callback(token));
   refreshSubscribers = [];
+};
+
+// Function to handle failed refresh
+const handleFailedRefresh = () => {
+  // Clear tokens and auth state using the store method
+  clearAuthState();
+  
+  // Clear the queue
+  refreshSubscribers = [];
+  
+  // Redirect to login
+  if (window.location.pathname !== '/auth/login') {
+    window.location.href = '/auth/login';
+  }
 };
 
 // Request interceptor for adding auth token
@@ -65,7 +79,8 @@ api.interceptors.response.use(
       try {
         const tokens = authApi.getStoredTokens();
         if (!tokens?.refresh_token) {
-          throw new Error('No refresh token available');
+          handleFailedRefresh();
+          return Promise.reject(error);
         }
 
         // Try to refresh the token
@@ -81,9 +96,7 @@ api.interceptors.response.use(
         // Return the original request with the new token
         return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, clear tokens and redirect to login
-        authApi.logout(authApi.getStoredTokens()?.refresh_token || '');
-        window.location.href = '/auth/login';
+        handleFailedRefresh();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

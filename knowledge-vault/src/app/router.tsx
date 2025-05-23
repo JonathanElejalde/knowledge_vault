@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import { LoginPage } from './routes/auth/login';
 import { SignupPage } from './routes/auth/signup';
+import { NotFoundPage } from './routes/NotFoundPage';
 import { ProtectedRoute } from '@/components/providers/ProtectedRoute';
 import MainLayout from '@/components/organisms/MainLayout';
 
@@ -126,7 +127,7 @@ const router = createBrowserRouter([
       },
       {
         path: '*',
-        element: <Navigate to="/dashboard" replace />,
+        element: <NotFoundPage />,
       },
     ],
   },

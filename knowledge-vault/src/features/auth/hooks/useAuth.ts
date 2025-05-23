@@ -9,7 +9,11 @@ import type {
   User,
 } from '../types/auth.types';
 
-export const useAuth = create<AuthStore>((set, get) => ({
+// Flag to prevent multiple auth initializations
+let isInitializing = false;
+
+// Create the store
+const authStore = create<AuthStore>((set, get) => ({
   user: null,
   token: null,
   refreshToken: null,
@@ -20,56 +24,86 @@ export const useAuth = create<AuthStore>((set, get) => ({
   isRefreshing: false,
 
   initializeAuth: async () => {
-    const tokens = authApi.getStoredTokens();
-    if (!tokens) {
-      set({ isLoading: false });
+    // Prevent multiple initializations
+    if (isInitializing) {
       return;
     }
+    isInitializing = true;
 
-    if (authApi.isTokenExpired(tokens.expires_at)) {
-      try {
-        const response = await authApi.refreshToken(tokens.refresh_token);
-        authApi.saveTokens(response);
-        set({
-          token: response.access_token,
-          refreshToken: response.refresh_token,
-          tokenExpiry: Date.now() + response.expires_in * 1000,
-          isAuthenticated: true,
+    try {
+      const tokens = authApi.getStoredTokens();
+      if (!tokens) {
+        set({ 
           isLoading: false,
-        });
-      } catch (error) {
-        authApi.logout(tokens.refresh_token);
-        set({
+          isAuthenticated: false,
           user: null,
           token: null,
           refreshToken: null,
           tokenExpiry: null,
-          isAuthenticated: false,
-          isLoading: false,
         });
+        return;
       }
-    } else {
-      try {
-        const user = await authApi.getCurrentUser();
-        set({
-          user,
-          token: tokens.access_token,
-          refreshToken: tokens.refresh_token,
-          tokenExpiry: tokens.expires_at,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } catch (error) {
-        authApi.logout(tokens.refresh_token);
-        set({
-          user: null,
-          token: null,
-          refreshToken: null,
-          tokenExpiry: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
+
+      if (authApi.isTokenExpired(tokens.expires_at)) {
+        try {
+          const response = await authApi.refreshToken(tokens.refresh_token);
+          authApi.saveTokens(response);
+          set({
+            token: response.access_token,
+            refreshToken: response.refresh_token,
+            tokenExpiry: Date.now() + response.expires_in * 1000,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          // Clear everything on refresh failure
+          localStorage.removeItem('auth_tokens');
+          set({
+            user: null,
+            token: null,
+            refreshToken: null,
+            tokenExpiry: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
+      } else {
+        try {
+          const user = await authApi.getCurrentUser();
+          set({
+            user,
+            token: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            tokenExpiry: tokens.expires_at,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+                  } catch (error) {
+            // Clear everything on user fetch failure
+            localStorage.removeItem('auth_tokens');
+            set({
+              user: null,
+              token: null,
+              refreshToken: null,
+              tokenExpiry: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          }
       }
+    } catch (error) {
+      // Clear everything on any error
+      localStorage.removeItem('auth_tokens');
+      set({
+        user: null,
+        token: null,
+        refreshToken: null,
+        tokenExpiry: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    } finally {
+      isInitializing = false;
     }
   },
 
@@ -130,6 +164,7 @@ export const useAuth = create<AuthStore>((set, get) => ({
       refreshToken: null,
       tokenExpiry: null,
       isAuthenticated: false,
+      isLoading: false,
     });
   },
 
@@ -167,4 +202,50 @@ export const useAuth = create<AuthStore>((set, get) => ({
       });
     }
   },
-})); 
+}));
+
+// Export the hook for use in React components
+export const useAuth = authStore;
+
+// Export the store instance for use outside React components
+export const authStoreInstance = authStore;
+
+// Helper function to clear auth state from outside React (for axios interceptor)
+export const clearAuthState = () => {
+  // Always clear localStorage
+  localStorage.removeItem('auth_tokens');
+  
+  // Directly update store state without API call
+  authStoreInstance.setState({
+    user: null,
+    token: null,
+    refreshToken: null,
+    tokenExpiry: null,
+    isAuthenticated: false,
+    isLoading: false,
+    isRefreshing: false,
+    error: null,
+  });
+};
+
+// Utility function to forcefully reset everything (for debugging)
+export const forceResetAuth = () => {
+  // Clear all possible auth-related localStorage keys
+  localStorage.removeItem('auth_tokens');
+  localStorage.clear(); // Nuclear option - clears everything
+  
+  // Reset store state
+  authStoreInstance.setState({
+    user: null,
+    token: null,
+    refreshToken: null,
+    tokenExpiry: null,
+    isAuthenticated: false,
+    isLoading: false,
+    isRefreshing: false,
+    error: null,
+  });
+  
+  // Reload the page to start fresh
+  window.location.href = '/auth/login';
+}; 
