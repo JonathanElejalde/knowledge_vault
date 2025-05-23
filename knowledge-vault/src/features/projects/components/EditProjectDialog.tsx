@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/Dialog"
 import { Button } from "@/components/atoms/Button"
 import { Input } from "@/components/atoms/Input"
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/atoms/Textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/Select"
 import { PlusCircle, X } from "lucide-react"
 import type { LearningProject } from "@/services/api/types/learningProjects"
+import { learningProjectsApi } from "@/services/api/learningProjects"
 
 export interface ProjectFormData {
   name: string
@@ -19,7 +20,6 @@ interface EditProjectDialogProps {
   onOpenChange: (open: boolean) => void
   onSubmit: (data: ProjectFormData) => void
   project: LearningProject
-  existingCategories: string[]
 }
 
 export function EditProjectDialog({
@@ -27,17 +27,33 @@ export function EditProjectDialog({
   onOpenChange,
   onSubmit,
   project,
-  existingCategories,
 }: EditProjectDialogProps) {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: project.name,
     category: project.category,
     description: project.description || "",
   })
-  const [isCustomCategory, setIsCustomCategory] = useState(!existingCategories.includes(project.category))
-  const [customCategory, setCustomCategory] = useState(
-    !existingCategories.includes(project.category) ? project.category : ""
-  )
+  const [categories, setCategories] = useState<string[]>([])
+  const [isCustomCategory, setIsCustomCategory] = useState(false)
+  const [customCategory, setCustomCategory] = useState("")
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const projects = await learningProjectsApi.list()
+        const uniqueCategories = Array.from(new Set(projects.map(p => p.category).filter(Boolean)))
+        setCategories(uniqueCategories)
+        setIsCustomCategory(!uniqueCategories.includes(project.category))
+        setCustomCategory(!uniqueCategories.includes(project.category) ? project.category : "")
+      } catch (error) {
+        console.error('Failed to load categories:', error)
+      }
+    }
+
+    if (open) {
+      loadCategories()
+    }
+  }, [open, project.category])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,14 +104,20 @@ export function EditProjectDialog({
               <div className="flex gap-2">
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      setIsCustomCategory(true)
+                    } else {
+                      setFormData({ ...formData, category: value })
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="custom">Add Custom Category</SelectItem>
-                    {existingCategories.map((category) => (
+                    {categories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>

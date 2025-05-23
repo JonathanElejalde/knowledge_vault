@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
-import { PlusCircle, Search, MoreVertical, Edit, Archive, CheckCircle, XCircle, Trash2 } from "lucide-react"
+import { PlusCircle, Search, MoreVertical, Edit, CheckCircle, XCircle, Trash2 } from "lucide-react"
 import { Button } from "@/components/atoms/Button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/atoms/Card"
 import { Input } from "@/components/atoms/Input"
@@ -10,9 +10,8 @@ import { EditProjectDialog } from "../components/EditProjectDialog"
 import type { ProjectFormData } from "../components/NewProjectDialog"
 import { learningProjectsApi } from "@/services/api/learningProjects"
 import type { LearningProject } from "@/services/api/types/learningProjects"
-import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
+import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/atoms/DropdownMenu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/Select"
 import ProjectsLoading from "./ProjectsLoading"
 
 type TabValue = "all" | "in_progress" | "completed" | "abandoned"
@@ -36,17 +35,11 @@ export default function ProjectsPage() {
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<LearningProject | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState<TabValue>("all")
+  const [activeTab, setActiveTab] = useState<TabValue>("in_progress")
   const [projects, setProjects] = useState<LearningProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-
-  // Extract unique categories from existing projects
-  const existingCategories = useMemo(() => {
-    const categories = new Set(projects.map(project => project.category))
-    return Array.from(categories)
-  }, [projects])
 
   // Fetch projects on mount and when filters change
   useEffect(() => {
@@ -155,9 +148,15 @@ export default function ProjectsPage() {
   const handleStatusChange = async (projectId: string, newStatus: string) => {
     try {
       await learningProjectsApi.update(projectId, { status: newStatus as any })
-      setProjects(prev => prev.map(p => 
-        p.id === projectId ? { ...p, status: newStatus as any } : p
-      ))
+      setProjects(prev => {
+        const updatedProjects = prev.map(p => 
+          p.id === projectId ? { ...p, status: newStatus as any } : p
+        )
+        if (activeTab !== "all") {
+          return updatedProjects.filter(p => p.status === activeTab)
+        }
+        return updatedProjects
+      })
       toast({
         children: (
           <>
@@ -295,6 +294,18 @@ export default function ProjectsPage() {
                               </DropdownMenuItem>
                             </>
                           )}
+                          {project.status === 'abandoned' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Resume Project
+                            </DropdownMenuItem>
+                          )}
+                          {project.status === 'completed' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Reopen Project
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             onClick={() => handleDeleteProject(project.id)}
                             className="text-destructive"
@@ -376,6 +387,18 @@ export default function ProjectsPage() {
                                 Mark as Abandoned
                               </DropdownMenuItem>
                             </>
+                          )}
+                          {project.status === 'abandoned' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Resume Project
+                            </DropdownMenuItem>
+                          )}
+                          {project.status === 'completed' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Reopen Project
+                            </DropdownMenuItem>
                           )}
                           <DropdownMenuItem 
                             onClick={() => handleDeleteProject(project.id)}
@@ -459,6 +482,18 @@ export default function ProjectsPage() {
                               </DropdownMenuItem>
                             </>
                           )}
+                          {project.status === 'abandoned' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Resume Project
+                            </DropdownMenuItem>
+                          )}
+                          {project.status === 'completed' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Reopen Project
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             onClick={() => handleDeleteProject(project.id)}
                             className="text-destructive"
@@ -541,6 +576,18 @@ export default function ProjectsPage() {
                               </DropdownMenuItem>
                             </>
                           )}
+                          {project.status === 'abandoned' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Resume Project
+                            </DropdownMenuItem>
+                          )}
+                          {project.status === 'completed' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Reopen Project
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             onClick={() => handleDeleteProject(project.id)}
                             className="text-destructive"
@@ -590,7 +637,6 @@ export default function ProjectsPage() {
         open={isNewProjectOpen}
         onOpenChange={setIsNewProjectOpen}
         onSubmit={handleCreateProject}
-        existingCategories={existingCategories}
       />
 
       {selectedProject && (
@@ -599,7 +645,6 @@ export default function ProjectsPage() {
           onOpenChange={setIsEditProjectOpen}
           onSubmit={handleEditProject}
           project={selectedProject}
-          existingCategories={existingCategories}
         />
       )}
     </div>
