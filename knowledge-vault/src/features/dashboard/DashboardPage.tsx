@@ -40,34 +40,38 @@ export default function DashboardPage() {
   // TODO: Implement data fetching logic here
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="max-w-7xl mx-auto px-1 mt-6 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <QuickActions />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Summary cards: always 4 in a row on xl+ screens */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryStats.map((stat) => (
-            <SummaryCard 
-                key={stat.id}
-                title={stat.title}
-                value={stat.value}
-                icon={stat.icon}
-                description={stat.description}
+          <div className="w-full" key={stat.id}>
+            <SummaryCard
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              description={stat.description}
             />
+          </div>
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+      {/* Main content: 2 columns, Recent Activity spans both */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        {/* Weekly Focus Time */}
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Weekly Focus Time</CardTitle>
             <CardDescription>Your productivity over the past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer
-              className="aspect-[4/3]"
-              data={chartData} // Using placeholder data
+              className="h-40"
+              data={chartData}
               xField="name"
               yField="value"
             >
@@ -75,16 +79,17 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
-        <Card>
+        {/* Project Progress */}
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Project Progress</CardTitle>
             <CardDescription>Completion status of your active projects</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {projectProgressData.length > 0 ? (
                 projectProgressData.map((project) => (
-                  <div key={project.id} className="space-y-2">
+                  <div key={project.id} className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-medium">{project.name}</div>
                       <div className="text-sm text-muted-foreground">{project.progress}%</div>
@@ -98,19 +103,17 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      <div>
-        <Card>
+        {/* Recent Activity: spans both columns on large screens */}
+        <Card className="w-full lg:col-span-2">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Your latest learning sessions and notes</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentActivityData.length > 0 ? (
                 recentActivityData.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-4 rounded-lg border p-3">
+                  <div key={activity.id} className="flex items-start gap-3 rounded-lg border p-2">
                     {activity.type === "focus" && <Clock className="h-5 w-5 mt-0.5 text-muted-foreground" />}
                     {activity.type === "note" && <FileText className="h-5 w-5 mt-0.5 text-muted-foreground" />}
                     {activity.type === "anki" && <BookOpen className="h-5 w-5 mt-0.5 text-muted-foreground" />}
