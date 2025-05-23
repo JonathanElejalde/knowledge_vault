@@ -3,12 +3,18 @@
 import type React from "react"
 
 import { useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+// import remarkBreaks from 'remark-breaks'; // Optional: for single newline breaks
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
+import { okaidia } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { Button } from "@/components/atoms/Button"
 import { Textarea } from "@/components/atoms/Textarea"
 import { Input } from "@/components/atoms/Input"
-import { X, Save, Sparkles, Maximize2, Minimize2 } from "lucide-react"
+import { X, Save, Sparkles, Eye, Pencil } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/atoms/Dialog"
 import { Badge } from "@/components/atoms/Badge"
+import { cn } from "@/lib/utils"
 
 interface NotesEditorProps {
   projectId?: string
@@ -18,8 +24,8 @@ export default function NotesEditor({ projectId }: NotesEditorProps) {
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [currentTag, setCurrentTag] = useState("")
-  const [isDetached, setIsDetached] = useState(false)
   const [showAiSuggestions, setShowAiSuggestions] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const addTag = () => {
     if (currentTag && !tags.includes(currentTag)) {
@@ -49,26 +55,70 @@ export default function NotesEditor({ projectId }: NotesEditorProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-background">
       <div className="flex items-center justify-between p-3 border-b">
         <h3 className="font-medium">Quick Notes</h3>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setIsDetached(!isDetached)}>
-            {isDetached ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
-          <Button variant="ghost" size="icon">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
+          {showPreview ? <Pencil className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+          {showPreview ? "Edit" : "Preview"}
+        </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-3">
-        <Textarea
-          placeholder="Take notes here... Use Markdown for formatting."
-          className="min-h-[200px] resize-none border-muted bg-background/50 font-mono text-sm"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
+      <div className="flex-1 p-3 overflow-y-auto">
+        {showPreview ? (
+          <div className="prose dark:prose-invert max-w-none h-full w-full">
+            <ReactMarkdown 
+              remarkPlugins={[
+                remarkGfm,
+                // remarkBreaks // Optional: uncomment if single newlines should be <br>
+              ]}
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-3xl font-bold my-4 border-b pb-2" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-2xl font-semibold my-3 border-b pb-1" {...props} />,
+                p: ({node, ...props}) => <p className="mb-2 leading-relaxed" {...props} />,
+                pre: ({node, children, ...props }) => (
+                  <pre 
+                    className="rounded-md overflow-x-auto my-4 text-sm"
+                    {...props} 
+                  >
+                    {children}
+                  </pre>
+                ),
+                code: ({node, className, children, ...props}) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const codeString = String(children).replace(/\n$/, '');
+
+                  if (!match && !className?.includes('language-')) {
+                    return <code className="bg-muted text-primary px-1.5 py-1 rounded-md text-sm font-mono" {...props}>{children}</code>;
+                  }
+                  
+                  return match ? (
+                    <SyntaxHighlighter
+                      style={okaidia as any}
+                      language={match[1]}
+                      PreTag="div"
+                    >
+                      {codeString}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={`block w-full ${className || ''} font-mono bg-gray-800 p-2 rounded`} {...props}>
+                      {codeString}
+                    </code>
+                  );
+                }
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <Textarea
+            placeholder="Take notes here... Use Markdown for formatting."
+            className="flex-grow resize-none border-muted bg-background/50 font-mono text-sm h-full w-full focus:outline-none"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+        )}
       </div>
 
       <div className="p-3 border-t">

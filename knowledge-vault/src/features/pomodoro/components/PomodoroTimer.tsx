@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { createRoot } from "react-dom/client"
 import { Settings, Play, Pause, RotateCcw, StickyNote, X } from "lucide-react"
 import { Button } from "@/components/atoms/Button"
 import { Slider } from "@/components/atoms/Slider"
@@ -16,7 +17,10 @@ export function PomodoroTimer() {
   const [timeLeft, setTimeLeft] = useState(25 * 60) // 25 minutes in seconds
   const [completedIntervals, setCompletedIntervals] = useState(0)
   const [showSettings, setShowSettings] = useState(false)
-  const [showNotes, setShowNotes] = useState(false)
+  
+  // State to track if the user intends the notes window to be open
+  const [showNotesWindow, setShowNotesWindow] = useState(false);
+  const notesWindowRef = useRef<Window | null>(null);
 
   // Timer settings
   const [workTime, setWorkTime] = useState(25)
@@ -119,6 +123,117 @@ export function PomodoroTimer() {
     setShowSettings(false)
   }
 
+  const openNotesNewWindow = () => {
+    if (notesWindowRef.current && !notesWindowRef.current.closed) {
+      notesWindowRef.current.focus();
+      return;
+    }
+
+    const newWindow = window.open("", "pomodoroNotesWindow", "width=450,height=550,left=200,top=200,resizable,scrollbars");
+
+    if (newWindow) {
+      notesWindowRef.current = newWindow;
+      newWindow.document.title = "Quick Session Notes";
+
+      // Create a root div for React
+      const rootDiv = newWindow.document.createElement('div');
+      rootDiv.id = 'notes-editor-root';
+      newWindow.document.body.appendChild(rootDiv);
+      
+      // Apply some basic styling to the new window's body for better appearance
+      newWindow.document.body.style.margin = '0';
+      newWindow.document.body.style.overflow = 'hidden'; // NotesEditor should handle its own scrolling
+      rootDiv.style.height = '100vh'; // Ensure root div takes full height
+
+      // Copy stylesheets from parent to new window
+      // This is a common method but can have limitations with complex CSS setups or dynamic loading.
+      // A more robust solution might involve a dedicated HTML entry point for the notes window.
+      Array.from(document.styleSheets).forEach(styleSheet => {
+        try {
+          if (styleSheet.href) {
+            const link = newWindow.document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = styleSheet.href;
+            newWindow.document.head.appendChild(link);
+          } else if (styleSheet.ownerNode instanceof HTMLStyleElement && styleSheet.ownerNode.textContent) {
+            const style = newWindow.document.createElement('style');
+            style.textContent = styleSheet.ownerNode.textContent;
+            newWindow.document.head.appendChild(style);
+          }
+        } catch (e) {
+          console.warn("Could not copy stylesheet:", styleSheet, e);
+        }
+      });
+      
+      // Ensure the new window has a body and head, if not, create them
+      if (!newWindow.document.head) {
+        const head = newWindow.document.createElement('head');
+        newWindow.document.documentElement.insertBefore(head, newWindow.document.body);
+      }
+       if (!newWindow.document.body) {
+        const body = newWindow.document.createElement('body');
+        newWindow.document.documentElement.appendChild(body);
+        body.appendChild(rootDiv); // Re-append rootDiv if body was just created
+      }
+
+
+      // Render the NotesEditor component into the new window
+      // Ensure createRoot is imported from 'react-dom/client'
+      const root = createRoot(rootDiv);
+      // If NotesEditor requires context, wrap it here with necessary providers
+      // For now, assuming NotesEditor is self-contained or uses global state
+      root.render(
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {/* It's good practice to provide a minimal structure if NotesEditor expects to be in one */}
+          {/* We can add a simple header inside the window if needed, or let NotesEditor be full-window */}
+          {/* <div style={{ padding: '8px', borderBottom: '1px solid #ccc', background: '#f0f0f0' }}>Quick Notes Header</div> */}
+          <NotesEditor />
+        </div>
+      );
+      
+      setShowNotesWindow(true);
+
+      // When the new window is closed by the user
+      newWindow.onbeforeunload = () => {
+        setShowNotesWindow(false);
+        notesWindowRef.current = null;
+        root.unmount(); // Clean up React root
+      };
+    } else {
+      // Handle popup blocker
+      alert("Popup window blocked. Please allow popups for this site to use Quick Notes.");
+      setShowNotesWindow(false);
+    }
+  };
+
+  const closeNotesNewWindow = () => {
+    if (notesWindowRef.current && !notesWindowRef.current.closed) {
+      notesWindowRef.current.close();
+    }
+    // The onbeforeunload handler in the new window will set setShowNotesWindow(false)
+    // and notesWindowRef.current = null
+  };
+
+  const toggleNotesWindow = () => {
+    if (showNotesWindow && notesWindowRef.current && !notesWindowRef.current.closed) {
+      // If window is open and user clicks button, focus or close it.
+      // For now, let's make it focus. A close action could also be here.
+      notesWindowRef.current.focus();
+      // Or: closeNotesNewWindow();
+    } else {
+      openNotesNewWindow();
+    }
+  };
+
+  // Effect to close the notes window if the main component unmounts
+  useEffect(() => {
+    return () => {
+      if (notesWindowRef.current && !notesWindowRef.current.closed) {
+        notesWindowRef.current.close();
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-64 h-64 mb-6">
@@ -216,38 +331,14 @@ export function PomodoroTimer() {
         <Button 
           variant="outline" 
           size="icon" 
-          onClick={() => setShowNotes(prev => !prev)}
-          title="Open Quick Notes (for current session)"
+          onClick={toggleNotesWindow}
+          title="Open Quick Notes (for current session) in a new window"
         >
           <StickyNote className="h-5 w-5" />
           <span className="sr-only">Quick Notes</span>
         </Button>
 
       </div>
-      {showNotes && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            width: '400px',
-            height: '500px',
-            zIndex: 100,
-          }}
-          className="bg-background border rounded-lg shadow-xl flex flex-col"
-        >
-          <div className="flex items-center justify-between p-3 border-b cursor-grab active:cursor-grabbing"
-          >
-            <h3 className="font-medium">Quick Session Notes</h3>
-            <Button variant="ghost" size="icon" onClick={() => setShowNotes(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-auto">
-            <NotesEditor />
-          </div>
-        </div>
-      )}
     </div>
   )
 } 
