@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
+import { usePomodoroStore } from '@/store/pomodoroStore';
 import type {
   PomodoroPreferences,
   PomodoroSession,
@@ -45,15 +46,22 @@ interface UsePomodoroState {
 }
 
 export function usePomodoro(): UsePomodoroState {
-  // Timer state
-  const [timerState, setTimerState] = useState<TimerState>('idle');
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
-  const [completedIntervals, setCompletedIntervals] = useState(0);
+  // Get timer state from global store
+  const {
+    timerState,
+    isRunning,
+    timeLeft,
+    completedIntervals,
+    selectedProjectId,
+    setSelectedProjectId: setGlobalSelectedProjectId,
+    startTimer: startGlobalTimer,
+    pauseTimer: pauseGlobalTimer,
+    resetTimer: resetGlobalTimer,
+    setPreferences: setGlobalPreferences,
+  } = usePomodoroStore();
   
-  // Current session
+  // Current session (still local since it's API-specific)
   const [currentSession, setCurrentSession] = useState<PomodoroSession | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   
   // Preferences
   const [preferences, setPreferences] = useState<PomodoroPreferences>({
@@ -77,8 +85,6 @@ export function usePomodoro(): UsePomodoroState {
     weekly_progress: 0,
   });
   const [isLoadingStatistics, setIsLoadingStatistics] = useState(true);
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -93,7 +99,13 @@ export function usePomodoro(): UsePomodoroState {
       setIsLoadingPreferences(true);
       const prefs = await pomodoroApi.getPreferences();
       setPreferences(prefs);
-      setTimeLeft(prefs.work_duration * 60);
+      // Sync preferences with global store
+      setGlobalPreferences({
+        workDuration: prefs.work_duration,
+        breakDuration: prefs.break_duration,
+        longBreakDuration: prefs.long_break_duration,
+        longBreakInterval: prefs.long_break_interval,
+      });
     } catch (error) {
       console.error('Failed to load preferences:', error);
     } finally {
@@ -127,77 +139,29 @@ export function usePomodoro(): UsePomodoroState {
     }
   }, []);
 
-  // Timer completion handler
-  const handleTimerComplete = useCallback(async () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-
-    // Complete current session if exists
-    if (currentSession) {
-      try {
-        const actualDuration = Math.round((currentSession.work_duration * 60 - timeLeft) / 60);
-        await pomodoroApi.completeSession(currentSession.id, { actual_duration: actualDuration });
-        setCurrentSession(null);
-      } catch (error) {
-        console.error('Failed to complete session:', error);
-      }
-    }
-
-    if (timerState === 'work') {
-      const newCompletedIntervals = completedIntervals + 1;
-      setCompletedIntervals(newCompletedIntervals);
-
-      if (newCompletedIntervals % preferences.long_break_interval === 0) {
-        setTimerState('longBreak');
-        setTimeLeft(preferences.long_break_duration * 60);
-      } else {
-        setTimerState('break');
-        setTimeLeft(preferences.break_duration * 60);
-      }
-    } else {
-      setTimerState('work');
-      setTimeLeft(preferences.work_duration * 60);
-    }
-
-    // Refresh data after completion
-    refreshSessions();
-    refreshStatistics();
-  }, [timerState, completedIntervals, preferences, currentSession, timeLeft, refreshSessions, refreshStatistics]);
-
-  // Timer effect
+  // Handle session completion when timer completes
   useEffect(() => {
-    if (isRunning) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prevTime) => {
-          if (prevTime <= 1) {
-            handleTimerComplete();
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
+    // Listen for timer completion to handle API session completion
+    if (timeLeft === 0 && currentSession && timerState === 'work') {
+      const completeCurrentSession = async () => {
+        try {
+          const actualDuration = Math.round(currentSession.work_duration);
+          await pomodoroApi.completeSession(currentSession.id, { actual_duration: actualDuration });
+          setCurrentSession(null);
+          // Refresh data after completion
+          refreshSessions();
+          refreshStatistics();
+        } catch (error) {
+          console.error('Failed to complete session:', error);
+        }
+      };
+      completeCurrentSession();
     }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isRunning, handleTimerComplete]);
+  }, [timeLeft, currentSession, timerState, refreshSessions, refreshStatistics]);
 
   // Start timer
   const startTimer = useCallback(async (projectId?: string) => {
     try {
-      if (timerState === 'idle') {
-        setTimerState('work');
-        if (timeLeft !== preferences.work_duration * 60) {
-          setTimeLeft(preferences.work_duration * 60);
-        }
-      }
-
       // Start a new session if in work mode
       if (timerState === 'idle' || timerState === 'work') {
         const sessionData = {
@@ -209,28 +173,27 @@ export function usePomodoro(): UsePomodoroState {
 
         const session = await pomodoroApi.startSession(sessionData);
         setCurrentSession(session);
+        
+        // Start the global timer with session ID
+        startGlobalTimer(session.id, projectId);
+      } else {
+        // Resume existing timer for breaks
+        startGlobalTimer('', projectId);
       }
-
-      setIsRunning(true);
     } catch (error) {
       console.error('Failed to start session:', error);
       // Still allow timer to start locally even if API fails
-      setIsRunning(true);
+      startGlobalTimer('fallback-session', projectId);
     }
-  }, [timerState, timeLeft, preferences, selectedProjectId]);
+  }, [timerState, preferences, selectedProjectId, startGlobalTimer]);
 
   // Pause timer
   const pauseTimer = useCallback(() => {
-    setIsRunning(false);
-  }, []);
+    pauseGlobalTimer();
+  }, [pauseGlobalTimer]);
 
   // Reset timer
   const resetTimer = useCallback(async () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    setIsRunning(false);
-
     // Abandon current session if exists
     if (currentSession) {
       try {
@@ -245,14 +208,13 @@ export function usePomodoro(): UsePomodoroState {
       }
     }
 
-    setTimerState('idle');
-    setTimeLeft(preferences.work_duration * 60);
-    setCompletedIntervals(0);
+    // Reset global timer
+    resetGlobalTimer();
 
     // Refresh data after reset
     refreshSessions();
     refreshStatistics();
-  }, [currentSession, timeLeft, preferences.work_duration, refreshSessions, refreshStatistics]);
+  }, [currentSession, timeLeft, resetGlobalTimer, refreshSessions, refreshStatistics]);
 
   // Update preferences
   const updatePreferences = useCallback(async (newPreferences: Partial<PomodoroPreferences>) => {
@@ -260,15 +222,23 @@ export function usePomodoro(): UsePomodoroState {
       const updatedPrefs = await pomodoroApi.updatePreferences(newPreferences);
       setPreferences(updatedPrefs);
       
-      // Reset timer to use new preferences
-      if (timerState === 'idle') {
-        setTimeLeft(updatedPrefs.work_duration * 60);
-      }
+      // Update global store preferences
+      setGlobalPreferences({
+        workDuration: updatedPrefs.work_duration,
+        breakDuration: updatedPrefs.break_duration,
+        longBreakDuration: updatedPrefs.long_break_duration,
+        longBreakInterval: updatedPrefs.long_break_interval,
+      });
     } catch (error) {
       console.error('Failed to update preferences:', error);
       throw error;
     }
-  }, [timerState]);
+  }, [setGlobalPreferences]);
+
+  // Set selected project ID
+  const setSelectedProjectId = useCallback((projectId: string | null) => {
+    setGlobalSelectedProjectId(projectId);
+  }, [setGlobalSelectedProjectId]);
 
   // Refresh projects list
   const refreshProjects = useCallback(async () => {
@@ -294,10 +264,9 @@ export function usePomodoro(): UsePomodoroState {
         reason: 'User abandoned session'
       });
       setCurrentSession(null);
-      setTimerState('idle');
-      setTimeLeft(preferences.work_duration * 60);
-      setCompletedIntervals(0);
-      setIsRunning(false);
+      
+      // Reset global timer
+      resetGlobalTimer();
       
       // Refresh data after abandonment
       refreshSessions();
@@ -306,10 +275,10 @@ export function usePomodoro(): UsePomodoroState {
       console.error('Failed to abandon session:', error);
       throw error;
     }
-  }, [currentSession, timeLeft, preferences, refreshSessions, refreshStatistics]);
+  }, [currentSession, timeLeft, resetGlobalTimer, refreshSessions, refreshStatistics]);
 
   return {
-    // Timer state
+    // Timer state (from global store)
     timerState,
     isRunning,
     timeLeft,
