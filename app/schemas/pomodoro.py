@@ -42,4 +42,17 @@ class SessionResponse(SessionResponseBase):
 class SessionResponseWithProject(SessionResponse):
     """Schema for Pomodoro session response including learning project details."""
     learning_project: Optional[LearningProjectResponseBase] = None 
+
+
+class SessionSummaryResponse(BaseModel):
+    """Schema for Pomodoro session summary response."""
+    project_id: Optional[UUID] = Field(default=None, description="The unique ID of the project (nullable if session not linked to a project)")
+    project_name: str = Field(description="The name of the project (or 'No Project' if not linked)")
+    total_duration_minutes: int = Field(description="Sum of all session durations (in minutes) for this project in the period")
+    first_session_date: datetime = Field(description="The datetime of the earliest session for this project in the period")
+    last_session_date: datetime = Field(description="The datetime of the latest session for this project in the period")
+    session_count: int = Field(description="Number of sessions for this project in the period")
+
+    class Config:
+        from_attributes = True 
     

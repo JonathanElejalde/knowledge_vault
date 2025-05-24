@@ -1,12 +1,12 @@
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from typing import Optional, List
 from uuid import UUID
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from loguru import logger
 from app.db.models import Session, User, LearningProject
-from app.schemas.pomodoro import SessionStart, SessionComplete, SessionAbandon
+from app.schemas.pomodoro import SessionStart, SessionComplete, SessionAbandon, SessionSummaryResponse
 
 
 async def create_session(
@@ -309,4 +309,124 @@ async def update_user_preferences(
     # Refresh to verify the changes were saved
     await db.refresh(user)
     return user
+
+
+async def get_session_summaries(
+    db: AsyncSession,
+    user_id: UUID,
+    period: str = "week",
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    limit: int = 10
+) -> List[SessionSummaryResponse]:
+    """Get summaries of Pomodoro sessions grouped by project.
+    
+    Retrieves summaries of completed Pomodoro sessions for the specified user,
+    grouped by learning project. Each summary includes total duration, session count,
+    and date range of activity.
+    
+    Args:
+        db: The database session to use for the operation
+        user_id: The UUID of the user whose sessions to summarize
+        period: Time period to summarize ("week" or "month")
+        start_date: Optional start date for custom date range
+        end_date: Optional end date for custom date range
+        limit: Maximum number of project summaries to return
+        
+    Returns:
+        List[SessionSummaryResponse]: List of project summaries
+        
+    Note:
+        - If period is "week", returns data for the current week (Monday-Sunday)
+        - If period is "month", returns data for the current month
+        - If start_date and end_date are provided, uses that range instead
+        - Only includes completed sessions
+        - Uses actual_duration if available, otherwise work_duration
+        - Sessions without a project are grouped under "No Project"
+    """
+    # Build the base query
+    query = (
+        select(
+            Session.learning_project_id.label("project_id"),
+            func.coalesce(LearningProject.name, "No Project").label("project_name"),
+            func.sum(
+                case(
+                    (Session.actual_duration.isnot(None), Session.actual_duration),
+                    else_=Session.work_duration
+                )
+            ).label("total_duration_minutes"),
+            func.min(Session.start_time).label("first_session_date"),
+            func.max(Session.start_time).label("last_session_date"),
+            func.count(Session.id).label("session_count")
+        )
+        .outerjoin(LearningProject, Session.learning_project_id == LearningProject.id)
+        .where(
+            and_(
+                Session.user_id == user_id,
+                Session.status == "completed",
+                or_(
+                    LearningProject.status.is_(None),  # No project
+                    LearningProject.status != "archived"  # Project not archived
+                )
+            )
+        )
+        .group_by(Session.learning_project_id, LearningProject.name)
+    )
+    
+    # Handle date filtering
+    now = datetime.now(UTC)
+    if start_date and end_date:
+        query = query.where(
+            and_(
+                Session.start_time >= start_date,
+                Session.start_time <= end_date
+            )
+        )
+    elif period == "week":
+        # Get start of current week (Monday)
+        start_of_week = now - timedelta(days=now.weekday())
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Get end of current week (Sunday)
+        end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        query = query.where(
+            and_(
+                Session.start_time >= start_of_week,
+                Session.start_time <= end_of_week
+            )
+        )
+    elif period == "month":
+        # Get start of current month
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Get end of current month
+        if now.month == 12:
+            end_of_month = now.replace(year=now.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_of_month = now.replace(month=now.month + 1, day=1) - timedelta(days=1)
+        end_of_month = end_of_month.replace(hour=23, minute=59, second=59, microsecond=999999)
+        query = query.where(
+            and_(
+                Session.start_time >= start_of_month,
+                Session.start_time <= end_of_month
+            )
+        )
+    
+    # Order by most recent activity and limit results
+    query = query.order_by(func.max(Session.start_time).desc()).limit(limit)
+    
+    # Execute query
+    result = await db.execute(query)
+    summaries = result.all()
+    
+    # Convert to response model
+    return [
+        SessionSummaryResponse(
+            project_id=summary.project_id,
+            project_name=summary.project_name,
+            total_duration_minutes=summary.total_duration_minutes or 0,
+            first_session_date=summary.first_session_date,
+            last_session_date=summary.last_session_date,
+            session_count=summary.session_count
+        )
+        for summary in summaries
+    ]
 

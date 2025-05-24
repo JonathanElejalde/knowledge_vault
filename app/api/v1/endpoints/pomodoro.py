@@ -14,9 +14,11 @@ from app.schemas.pomodoro import (
     SessionComplete,
     SessionAbandon,
     SessionResponse,
-    SessionResponseWithProject
+    SessionResponseWithProject,
+    SessionSummaryResponse
 )
 from app.schemas.learning_projects import LearningProjectResponse
+from datetime import datetime
 
 router = APIRouter(
     tags=["Pomodoro & Sessions"]
@@ -260,4 +262,51 @@ async def list_sessions(
         session_data = SessionResponse.model_validate(session_db).model_dump()
         response_list.append(SessionResponseWithProject(**session_data, learning_project=project_response_data))
     return response_list
+
+
+@router.get("/sessions/summary", response_model=List[SessionSummaryResponse])
+async def get_session_summaries(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    period: str = Query("week", pattern="^(week|month)$", description="Time period to summarize"),
+    start_date: Optional[datetime] = Query(None, description="Start date for custom date range (ISO 8601)"),
+    end_date: Optional[datetime] = Query(None, description="End date for custom date range (ISO 8601)"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of project summaries to return")
+) -> List[SessionSummaryResponse]:
+    """Get summaries of Pomodoro sessions grouped by project.
+    
+    Retrieves summaries of completed Pomodoro sessions for the current user,
+    grouped by learning project. Each summary includes total duration, session count,
+    and date range of activity.
+    
+    Args:
+        period: Time period to summarize ("week" or "month")
+        start_date: Optional start date for custom date range
+        end_date: Optional end date for custom date range
+        limit: Maximum number of project summaries to return
+        
+    Returns:
+        List[SessionSummaryResponse]: List of project summaries
+        
+    Raises:
+        HTTPException: 
+            - 401: If the user is not authenticated
+            - 422: If any query parameters are invalid
+            
+    Note:
+        - If period is "week", returns data for the current week (Monday-Sunday)
+        - If period is "month", returns data for the current month
+        - If start_date and end_date are provided, uses that range instead
+        - Only includes completed sessions
+        - Uses actual_duration if available, otherwise work_duration
+        - Sessions without a project are grouped under "No Project"
+    """
+    return await crud.get_session_summaries(
+        db=db,
+        user_id=current_user.id,
+        period=period,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit
+    )
 
