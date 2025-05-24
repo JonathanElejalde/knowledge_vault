@@ -25,23 +25,40 @@ class User(BaseModel, table=True):
     refresh_tokens: List["RefreshToken"] = Relationship(back_populates="user")
 
 
+class Category(BaseModel, table=True):
+    """Category model for organizing learning projects."""
+    __tablename__ = "categories"
+    __table_args__ = (
+        Index('idx_categories_name', 'name'),
+    )
+
+    name: str = Field(sa_type=String(100), unique=True, index=True)
+    description: Optional[str] = Field(sa_type=Text, default=None)
+    meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
+
+    # Relationships
+    learning_projects: List["LearningProject"] = Relationship(back_populates="category")
+
+
 class LearningProject(BaseModel, table=True):
     """LearningProject model for organizing learning sessions."""
     __tablename__ = "learning_projects"
     __table_args__ = (
-        Index('idx_learning_projects_category', 'category'),
+        Index('idx_learning_projects_category_id', 'category_id'),
         Index('idx_learning_projects_status', 'status'),
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
     name: str = Field(sa_type=String(255))
-    category: Optional[str] = Field(sa_type=String(100), default=None)
+    category_id: Optional[UUID] = Field(foreign_key="categories.id", index=True, default=None)
     status: str = Field(sa_type=String(50), default="in_progress")
     description: Optional[str] = Field(sa_type=Text, default=None)
 
     # Relationships
     user: User = Relationship(back_populates="learning_projects")
     sessions: List["Session"] = Relationship(back_populates="learning_project")
+    notes: List["Note"] = Relationship(back_populates="learning_project")
+    category: Optional["Category"] = Relationship(back_populates="learning_projects")
 
 
 class Session(BaseModel, table=True):
@@ -74,19 +91,19 @@ class Note(BaseModel, table=True):
     """Note model for storing session notes."""
     __tablename__ = "notes"
     __table_args__ = (
-        Index('idx_notes_category', 'category'),
         Index('idx_notes_tags', 'tags', postgresql_using='gin'),
     )
 
-    session_id: UUID = Field(foreign_key="sessions.id", index=True)
+    session_id: Optional[UUID] = Field(foreign_key="sessions.id", index=True, default=None)
+    learning_project_id: Optional[UUID] = Field(foreign_key="learning_projects.id", index=True, default=None)
     content: str = Field(sa_type=Text)
-    category: Optional[str] = Field(sa_type=String(50), default=None)
     title: Optional[str] = Field(sa_type=String(255), default=None)
     tags: List[str] = Field(sa_type=ARRAY(String), default_factory=list)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
-    session: Session = Relationship(back_populates="notes")
+    session: Optional[Session] = Relationship(back_populates="notes")
+    learning_project: Optional[LearningProject] = Relationship(back_populates="notes")
     flashcards: List["Flashcard"] = Relationship(back_populates="note")
 
 

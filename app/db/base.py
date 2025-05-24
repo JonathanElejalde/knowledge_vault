@@ -13,6 +13,6 @@ class BaseModel(SQLModel):
         sa_type=sa.TIMESTAMP(timezone=True)
     )
     updated_at: Optional[datetime] = Field(
-        default=None,
+        default_factory=lambda: datetime.now(UTC),
         sa_type=sa.TIMESTAMP(timezone=True)
     ) 

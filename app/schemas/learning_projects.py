@@ -8,7 +8,7 @@ from .shared import LearningProjectResponseBase, SessionResponseBase
 class LearningProjectBase(BaseModel):
     """Base schema for learning project."""
     name: str = Field(max_length=255)
-    category: Optional[str] = Field(default=None, max_length=100)
+    category_name: Optional[str] = Field(default=None, max_length=100)
     description: Optional[str] = Field(default=None)
 
 
@@ -17,9 +17,11 @@ class LearningProjectCreate(LearningProjectBase):
     pass
 
 
-class LearningProjectUpdate(LearningProjectBase):
+class LearningProjectUpdate(BaseModel):
     """Schema for updating an existing learning project."""
     name: Optional[str] = Field(default=None, max_length=255)
+    category_name: Optional[str] = Field(default=None, max_length=100)
+    description: Optional[str] = Field(default=None)
     status: Optional[str] = Field(default=None, max_length=50, pattern="^(in_progress|completed|on_hold|abandoned|archived)$")
 
 

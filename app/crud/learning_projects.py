@@ -6,29 +6,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from loguru import logger
 
-from app.db.models import LearningProject # Removed User, Session as they are not directly used here
+from app.db.models import LearningProject, Category # Added Category
 from app.schemas.learning_projects import LearningProjectCreate, LearningProjectUpdate
 
 
 async def create_learning_project(
-    db: AsyncSession, user_id: UUID, project_in: LearningProjectCreate
+    db: AsyncSession, user_id: UUID, project_in: LearningProjectCreate, category_id: Optional[UUID] = None
 ) -> LearningProject:
     """Create a new learning project for the user.
 
     Args:
         db: The database session.
         user_id: The ID of the user creating the project.
-        project_in: The data for the new learning project.
+        project_in: The data for the new learning project (expects category_name, not category_id).
+        category_id: The ID of the category to associate with the project.
 
     Returns:
         The created learning project.
     """
+    project_data = project_in.model_dump()
+    project_data.pop('category_name', None) # Remove category_name if present, as we use category_id
+
     project = LearningProject(
-        **project_in.model_dump(), user_id=user_id, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)
+        **project_data, 
+        user_id=user_id, 
+        category_id=category_id, 
+        created_at=datetime.now(UTC), 
+        updated_at=datetime.now(UTC)
     )
     db.add(project)
     await db.commit()
-    await db.refresh(project)
+    await db.refresh(project, attribute_names=['category']) # Eager load category
     return project
 
 
@@ -50,7 +58,10 @@ async def get_learning_project(
     result = await db.execute(
         select(LearningProject)
         .where(and_(LearningProject.id == project_id, LearningProject.user_id == user_id))
-        .options(selectinload(LearningProject.sessions))  # Eager load sessions for detail view
+        .options(
+            selectinload(LearningProject.sessions), 
+            selectinload(LearningProject.category) # Eager load category
+        )
     )
     project = result.scalars().first()
 
@@ -66,7 +77,7 @@ async def get_user_learning_projects(
     user_id: UUID,
     skip: int = 0,
     limit: int = 100,
-    category: Optional[str] = None,
+    category_name: Optional[str] = None, # Changed from category to category_name
     status: Optional[str] = None,
     include_archived: bool = False
 ) -> List[LearningProject]:
@@ -80,7 +91,7 @@ async def get_user_learning_projects(
         user_id: The ID of the user whose projects to retrieve.
         skip: Number of records to skip (for pagination).
         limit: Maximum number of records to return (for pagination).
-        category: Optional filter for project category.
+        category_name: Optional filter for project category name.
         status: Optional filter for project status. If provided, this takes precedence.
         include_archived: If True and no specific status is given, archived projects are included.
 
@@ -88,9 +99,10 @@ async def get_user_learning_projects(
         A list of learning projects.
     """
     query = select(LearningProject).where(LearningProject.user_id == user_id)
+    query = query.options(selectinload(LearningProject.category)) # Eager load category for all
 
-    if category:
-        query = query.where(LearningProject.category == category)
+    if category_name:
+        query = query.join(Category).where(Category.name == category_name) # Join and filter by Category.name
     
     # Handle status filtering logic
     if status:  # If a specific status is requested, use that
@@ -104,7 +116,7 @@ async def get_user_learning_projects(
 
 
 async def update_learning_project(
-    db: AsyncSession, project_id: UUID, user_id: UUID, project_in: LearningProjectUpdate
+    db: AsyncSession, project_id: UUID, user_id: UUID, project_in: LearningProjectUpdate, category_id: Optional[UUID] = None
 ) -> Optional[LearningProject]:
     """Update an existing learning project.
 
@@ -112,13 +124,12 @@ async def update_learning_project(
         db: The database session.
         project_id: The ID of the project to update.
         user_id: The ID of the user who owns the project.
-        project_in: The data to update the project with.
+        project_in: The data to update the project with (expects category_name).
+        category_id: The ID of the new category if category_name was provided and resolved.
 
     Returns:
         The updated learning project if found and updated, otherwise None.
     """
-    # Use a separate query for the update to avoid issues with get_learning_project
-    # if it has different eager loading options in the future.
     stmt = select(LearningProject).where(
         and_(LearningProject.id == project_id, LearningProject.user_id == user_id)
     )
@@ -128,7 +139,6 @@ async def update_learning_project(
     if not project:
         return None
 
-    # Prevent updates to archived projects
     if project.status == "archived":
         logger.warning(
             f"Attempt to update archived learning project {project_id} for user {user_id}. Operation denied."
@@ -136,12 +146,19 @@ async def update_learning_project(
         return None
 
     update_data = project_in.model_dump(exclude_unset=True)
+    update_data.pop('category_name', None) # Remove category_name as we use category_id
+
+    if category_id is not None: # If a new category_id is provided (even if it's to set to None implicitly by not finding a category_name)
+        project.category_id = category_id
+    elif project_in.category_name is None and 'category_name' in project_in.model_fields_set: # Explicitly setting category to None
+        project.category_id = None
+
     for key, value in update_data.items():
         setattr(project, key, value)
     project.updated_at = datetime.now(UTC)
 
     await db.commit()
-    await db.refresh(project)
+    await db.refresh(project, attribute_names=['category']) # Eager load category
     return project
 
 
@@ -159,7 +176,10 @@ async def delete_learning_project(db: AsyncSession, project_id: UUID, user_id: U
     stmt = (
         select(LearningProject)
         .where(and_(LearningProject.id == project_id, LearningProject.user_id == user_id))
-        .options(selectinload(LearningProject.sessions)) # Kept for now, can be reviewed for removal if sessions not needed here
+        .options(
+            selectinload(LearningProject.sessions), 
+            selectinload(LearningProject.category) # Eager load category
+        )
     )
     result = await db.execute(stmt)
     project = result.scalars().first()
@@ -177,6 +197,6 @@ async def delete_learning_project(db: AsyncSession, project_id: UUID, user_id: U
     project.updated_at = datetime.now(UTC)
     
     await db.commit()
-    await db.refresh(project)
+    await db.refresh(project, attribute_names=['category'])
     logger.info(f"Successfully soft-deleted (archived) learning project {project_id}.")
     return project 

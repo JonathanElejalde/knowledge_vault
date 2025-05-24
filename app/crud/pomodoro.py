@@ -211,6 +211,7 @@ async def get_user_sessions(
     
     Retrieves a paginated list of Pomodoro sessions for the specified user,
     with optional filtering by learning project, session type, and status.
+    Eagerly loads the associated learning project and its category.
     
     Args:
         db: The database session to use for the operation
@@ -231,7 +232,7 @@ async def get_user_sessions(
     query = (
         select(Session)
         .where(Session.user_id == user_id)
-        .options(selectinload(Session.learning_project))
+        .options(selectinload(Session.learning_project).selectinload(LearningProject.category))
     )
     
     if learning_project_id:

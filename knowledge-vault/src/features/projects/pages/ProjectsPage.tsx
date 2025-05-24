@@ -83,7 +83,7 @@ export default function ProjectsPage() {
     try {
       const newProject = await learningProjectsApi.create({
         name: data.name,
-        category: data.category,
+        category_name: data.category_name,
         description: data.description,
         status: "in_progress",
       })
@@ -116,7 +116,7 @@ export default function ProjectsPage() {
     try {
       const updatedProject = await learningProjectsApi.update(selectedProject.id, {
         name: data.name,
-        category: data.category,
+        category_name: data.category_name,
         description: data.description,
       })
       setProjects(prev => prev.map(p => 
@@ -264,7 +264,7 @@ export default function ProjectsPage() {
                   <CardHeader className="p-0 pb-2">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{project.category}</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
                         <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
                         <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
                       </div>
@@ -358,7 +358,7 @@ export default function ProjectsPage() {
                   <CardHeader className="p-0 pb-2">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category}</div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
                         <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
                         <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
                       </div>
@@ -452,7 +452,7 @@ export default function ProjectsPage() {
                   <CardHeader className="p-0 pb-2">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category}</div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
                         <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
                         <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
                       </div>
@@ -546,7 +546,7 @@ export default function ProjectsPage() {
                   <CardHeader className="p-0 pb-2">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category}</div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
                         <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
                         <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
                       </div>

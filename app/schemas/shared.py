@@ -26,7 +26,7 @@ class LearningProjectResponseBase(BaseModel):
     id: UUID
     user_id: UUID
     name: str
-    category: Optional[str]
+    category_name: Optional[str] = None
     description: Optional[str]
     status: str
     created_at: Optional[datetime]

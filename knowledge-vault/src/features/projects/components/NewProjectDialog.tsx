@@ -7,6 +7,7 @@ import { Label } from "@/components/atoms/Label"
 import { Textarea } from "@/components/atoms/Textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/Select"
 import { learningProjectsApi } from "@/services/api/learningProjects"
+import { categoriesApi } from "@/services/api/categories"
 
 interface NewProjectDialogProps {
   open: boolean
@@ -16,7 +17,7 @@ interface NewProjectDialogProps {
 
 export interface ProjectFormData {
   name: string
-  category: string
+  category_name: string
   description?: string
 }
 
@@ -27,7 +28,7 @@ export function NewProjectDialog({
 }: NewProjectDialogProps) {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
-    category: "",
+    category_name: "",
     description: ""
   })
   const [isCustomCategory, setIsCustomCategory] = useState(false)
@@ -35,16 +36,24 @@ export function NewProjectDialog({
   const [categories, setCategories] = useState<string[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
 
-  // Load unique categories from existing projects
+  // Load categories from the categories API
   useEffect(() => {
     const loadCategories = async () => {
       try {
         setIsLoadingCategories(true)
-        const projects = await learningProjectsApi.list()
-        const uniqueCategories = Array.from(new Set(projects.map(p => p.category).filter(Boolean)))
-        setCategories(uniqueCategories)
+        const categoriesData = await categoriesApi.list()
+        const categoryNames = categoriesData.map(c => c.name)
+        setCategories(categoryNames)
       } catch (error) {
         console.error('Failed to load categories:', error)
+        // Fallback to extracting from existing projects if categories API fails
+        try {
+          const projects = await learningProjectsApi.list()
+          const uniqueCategories = Array.from(new Set(projects.map(p => p.category_name).filter(Boolean))) as string[]
+          setCategories(uniqueCategories)
+        } catch (fallbackError) {
+          console.error('Failed to load categories from projects:', fallbackError)
+        }
       } finally {
         setIsLoadingCategories(false)
       }
@@ -66,9 +75,9 @@ export function NewProjectDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const finalCategory = isCustomCategory ? customCategory : formData.category
-    onSubmit({ ...formData, category: finalCategory })
-    setFormData({ name: "", category: "", description: "" })
+    const finalCategory = isCustomCategory ? customCategory : formData.category_name
+    onSubmit({ ...formData, category_name: finalCategory })
+    setFormData({ name: "", category_name: "", description: "" })
     setCustomCategory("")
     setIsCustomCategory(categories.length === 0)
     onOpenChange(false)
@@ -125,12 +134,12 @@ export function NewProjectDialog({
               ) :
                 <div className="flex gap-2">
                   <Select
-                    value={formData.category}
+                    value={formData.category_name}
                     onValueChange={(value) => {
                       if (value === "custom") {
                         setIsCustomCategory(true)
                       } else {
-                        setFormData({ ...formData, category: value })
+                        setFormData({ ...formData, category_name: value })
                       }
                     }}
                     required

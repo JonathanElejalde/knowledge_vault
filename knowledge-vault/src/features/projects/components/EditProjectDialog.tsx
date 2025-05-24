@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/Dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/atoms/Dialog"
 import { Button } from "@/components/atoms/Button"
 import { Input } from "@/components/atoms/Input"
 import { Label } from "@/components/atoms/Label"
@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, X } from "lucide-react"
 import type { LearningProject } from "@/services/api/types/learningProjects"
 import { learningProjectsApi } from "@/services/api/learningProjects"
+import { categoriesApi } from "@/services/api/categories"
 
 export interface ProjectFormData {
   name: string
-  category: string
+  category_name: string | null
   description?: string
 }
 
@@ -30,7 +31,7 @@ export function EditProjectDialog({
 }: EditProjectDialogProps) {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: project.name,
-    category: project.category,
+    category_name: project.category_name || null,
     description: project.description || "",
   })
   const [categories, setCategories] = useState<string[]>([])
@@ -38,28 +39,96 @@ export function EditProjectDialog({
   const [customCategory, setCustomCategory] = useState("")
 
   useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const projects = await learningProjectsApi.list()
-        const uniqueCategories = Array.from(new Set(projects.map(p => p.category).filter(Boolean)))
-        setCategories(uniqueCategories)
-        setIsCustomCategory(!uniqueCategories.includes(project.category))
-        setCustomCategory(!uniqueCategories.includes(project.category) ? project.category : "")
-      } catch (error) {
-        console.error('Failed to load categories:', error)
-      }
-    }
-
     if (open) {
-      loadCategories()
+      // Initialize form data based on the current project when the dialog opens
+      setFormData({
+        name: project.name,
+        category_name: null,
+        description: project.description || "",
+      })
+      setIsCustomCategory(false)
+      setCustomCategory("")
+
+      const loadCategoriesAndSetDisplayLogic = async () => {
+        let fetchedCategoryNames: string[] = []
+        try {
+          const categoriesData = await categoriesApi.list()
+          fetchedCategoryNames = categoriesData.map(c => c.name)
+        } catch (error) {
+          console.error('Failed to load categories:', error)
+          // Fallback to extracting from existing projects if categories API fails
+          try {
+            const projectsResponse = await learningProjectsApi.list()
+            fetchedCategoryNames = Array.from(new Set(projectsResponse.map(p => p.category_name).filter(Boolean))) as string[]
+          } catch (fallbackError) {
+            console.error('Failed to load categories from projects (fallback):', fallbackError)
+            // Ensure fetchedCategoryNames is an empty array if all fails
+            fetchedCategoryNames = []
+          }
+        }
+
+        // Filter out any empty or whitespace-only category names
+        fetchedCategoryNames = fetchedCategoryNames.filter(name => name && name.trim() !== "")
+
+        setCategories(fetchedCategoryNames)
+        const currentProjectCategory = project.category_name || null
+
+        if (fetchedCategoryNames.length === 0) {
+          // No categories globally: default to custom input.
+          setIsCustomCategory(true)
+          setCustomCategory(project.category_name || "")
+          // formData.category_name remains null
+        } else {
+          // Categories exist globally: default to dropdown.
+          setIsCustomCategory(false) // Ensure dropdown is shown
+          if (currentProjectCategory && fetchedCategoryNames.includes(currentProjectCategory)) {
+            // Project's category exists in the fetched list, pre-select it.
+            setFormData(prev => ({ ...prev, category_name: currentProjectCategory }))
+            setCustomCategory("") // Clear any lingering custom category text
+          } else {
+            // Project's category is not in the list (e.g., it's new/custom) or project has no category.
+            // Dropdown will be shown, formData.category_name remains null.
+            // Pre-fill the customCategory state so if user clicks "+", project's current category name is there.
+            setCustomCategory(project.category_name || "")
+          }
+        }
+      }
+
+      loadCategoriesAndSetDisplayLogic()
     }
-  }, [open, project.category])
+    // Not strictly necessary to clear on close if re-init on open is robust,
+    // but can be added if desired for cleanup.
+    // else {
+    //   setIsCustomCategory(false)
+    //   setCustomCategory("")
+    //   setCategories([])
+    // }
+  }, [open, project])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    let finalCategoryValue: string | null
+
+    if (isCustomCategory) {
+      const trimmedCustomCategory = customCategory.trim()
+      finalCategoryValue = trimmedCustomCategory === "" ? null : trimmedCustomCategory
+    } else {
+      // formData.category_name is already string | null
+      if (typeof formData.category_name === 'string') {
+        const trimmedSelectedCategory = formData.category_name.trim()
+        finalCategoryValue = trimmedSelectedCategory === "" ? null : trimmedSelectedCategory
+      } else {
+        finalCategoryValue = null // It was already null
+      }
+    }
+
+    const finalName = formData.name.trim()
+    const finalDescription = typeof formData.description === 'string' ? formData.description.trim() : undefined
+
     onSubmit({
-      ...formData,
-      category: isCustomCategory ? customCategory : formData.category,
+      name: finalName,
+      description: finalDescription,
+      category_name: finalCategoryValue,
     })
   }
 
@@ -68,6 +137,9 @@ export function EditProjectDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
+          <DialogDescription>
+            Make changes to your project here. Click save when you're done.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -89,7 +161,6 @@ export function EditProjectDialog({
                   value={customCategory}
                   onChange={(e) => setCustomCategory(e.target.value)}
                   placeholder="Enter custom category"
-                  required
                 />
                 <Button
                   type="button"
@@ -103,12 +174,13 @@ export function EditProjectDialog({
             ) : (
               <div className="flex gap-2">
                 <Select
-                  value={formData.category}
+                  value={formData.category_name === null ? "" : formData.category_name}
                   onValueChange={(value) => {
                     if (value === "custom") {
                       setIsCustomCategory(true)
+                      setFormData(prev => ({ ...prev, category_name: null }))
                     } else {
-                      setFormData({ ...formData, category: value })
+                      setFormData({ ...formData, category_name: value === "" ? null : value })
                     }
                   }}
                 >

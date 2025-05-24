@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 from app.api.dependencies import get_current_active_user
+from app.api.v1.endpoints.learning_projects import _map_project_to_response
 from app.db.models import User
 from app.db.session import get_db
 from app.crud import pomodoro as crud
@@ -214,7 +215,7 @@ async def list_sessions(
     limit: int = Query(100, ge=1, le=100),
     learning_project_id: Optional[UUID] = None,
     session_type: Optional[str] = Query(None, pattern="^(work|break)$"),
-    status: Optional[str] = Query(None, pattern="^(in_progress|completed|abandoned)$")
+    status_filter: Optional[str] = Query(None, alias="status", pattern="^(in_progress|completed|abandoned)$")
 ) -> List[SessionResponseWithProject]:
     """List user's Pomodoro sessions with optional filters.
     
@@ -227,7 +228,7 @@ async def list_sessions(
         limit: Maximum number of records to return (for pagination)
         learning_project_id: Optional UUID to filter by learning project
         session_type: Optional filter for session type ("work" or "break")
-        status: Optional filter for session status ("in_progress", "completed", "abandoned")
+        status_filter: Optional filter for session status ("in_progress", "completed", "abandoned")
         
     Returns:
         List[SessionResponseWithProject]: List of matching sessions with project details
@@ -244,19 +245,19 @@ async def list_sessions(
         limit=limit,
         learning_project_id=learning_project_id,
         session_type=session_type,
-        status=status
+        status=status_filter
     )
-    # Manually construct the response to include nested learning project data
     response_list = []
     for session_db in sessions_db:
-        project_response = None
+        project_response_data = None
         if session_db.learning_project:
-            # If the associated learning project is archived, skip this session
             if session_db.learning_project.status == "archived":
                 continue
-            project_response = LearningProjectResponse.model_validate(session_db.learning_project)
+            project_response_data = LearningProjectResponse.model_validate(
+                _map_project_to_response(session_db.learning_project)
+            )
         
         session_data = SessionResponse.model_validate(session_db).model_dump()
-        response_list.append(SessionResponseWithProject(**session_data, learning_project=project_response))
+        response_list.append(SessionResponseWithProject(**session_data, learning_project=project_response_data))
     return response_list
 
