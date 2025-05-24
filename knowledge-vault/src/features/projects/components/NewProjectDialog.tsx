@@ -158,7 +158,9 @@ export function NewProjectDialog({
                           Add Custom Category
                         </span>
                       </SelectItem>
-                      {categories.map((category) => (
+                      {categories
+                        .filter(category => category && category.trim() !== "")
+                        .map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
