@@ -162,8 +162,10 @@ export function usePomodoro(): UsePomodoroState {
           const plannedDurationSeconds = safePreferences.work_duration * 60;
           actualDurationSeconds = plannedDurationSeconds - storeTimeLeft;
         }
+        // Ensure at least 1 minute is sent
+        const actualDurationMinutes = Math.max(1, Math.round(actualDurationSeconds / 60));
         await pomodoroApi.abandonSession(currentSessionHook.id, {
-          actual_duration: Math.max(0, Math.round(actualDurationSeconds / 60)),
+          actual_duration: actualDurationMinutes,
           reason: 'User reset timer'
         });
         setCurrentSessionHook(null);
@@ -191,8 +193,10 @@ export function usePomodoro(): UsePomodoroState {
             const plannedDurationSeconds = safePreferences.work_duration * 60;
             actualDurationSeconds = plannedDurationSeconds - timeLeft; 
         }
+        // Ensure at least 1 minute is sent
+        const actualDurationMinutes = Math.max(1, Math.round(actualDurationSeconds / 60));
         await pomodoroApi.abandonSession(currentSessionHook.id, {
-          actual_duration: Math.max(0, Math.round(actualDurationSeconds / 60)),
+          actual_duration: actualDurationMinutes,
           reason: 'User abandoned session'
         });
         setCurrentSessionHook(null);
