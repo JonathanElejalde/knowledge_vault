@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { PlusCircle } from "lucide-react"
 import { PomodoroTimer } from "@/features/pomodoro/components/PomodoroTimer"
 import { ProjectSelector } from "@/features/pomodoro/components/ProjectSelector"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/Card"
 import { Button } from "@/components/atoms/Button"
 import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
+import { usePomodoroSummary } from "@/features/pomodoro/hooks/usePomodoroSummary"
 import { NewProjectDialog } from "@/features/projects/components/NewProjectDialog"
 import type { ProjectFormData } from "@/features/projects/components/NewProjectDialog"
 import { learningProjectsApi } from "@/services/api/learningProjects"
@@ -65,33 +66,16 @@ function formatSessionDateRange(first: string, last: string) {
 export default function PomodoroPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
   const { toast } = useToast()
-  
-  // ✅ CORRECT: Use centralized hook for ALL data - no duplicate state management
+
+  // Only usePomodoro for timer and preferences
   const {
-    // Timer state
     timerState,
     isRunning,
     timeLeft,
     completedIntervals,
-    
-    // Current session
     selectedProjectId,
-    
-    // Preferences
     preferences,
     isLoadingPreferences,
-    
-    // Sessions & statistics
-    sessions,
-    isLoadingSessions,
-    statistics,
-    isLoadingStatistics,
-    
-    // ✅ FIXED: Get session summary from centralized hook
-    sessionSummary,
-    isLoadingSessionSummary,
-    
-    // Actions
     startTimer,
     pauseTimer,
     resumeTimer,
@@ -99,10 +83,11 @@ export default function PomodoroPage() {
     startNextSession,
     updatePreferences,
     setSelectedProjectId,
-    refreshSessions,
-    refreshStatistics,
     abandonSession,
   } = usePomodoro()
+
+  // Use the new summary hook for session history
+  const { summary: sessionSummary, isLoading: isLoadingSessionSummary } = usePomodoroSummary()
 
   const handleCreateProject = async (data: ProjectFormData) => {
     try {
@@ -211,62 +196,46 @@ export default function PomodoroPage() {
             <CardDescription>Your focus time this week</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingStatistics ? (
-              <div className="text-center text-muted-foreground">Loading statistics...</div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Total focus time</span>
-                    <span className="font-medium">
-                      {Math.floor(statistics.total_focus_time / 60)}h {statistics.total_focus_time % 60}m
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="bg-primary h-full transition-all duration-300" 
-                      style={{ 
-                        width: `${Math.min((statistics.weekly_progress / statistics.weekly_goal) * 100, 100)}%` 
-                      }} 
-                    />
-                  </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Total focus time</span>
+                  <span className="font-medium">0h 0m</span>
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Completed sessions</span>
-                    <span className="font-medium">
-                      {statistics.completed_sessions} / {statistics.total_sessions}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="bg-primary h-full transition-all duration-300" 
-                      style={{ 
-                        width: `${statistics.total_sessions > 0 ? (statistics.completed_sessions / statistics.total_sessions) * 100 : 0}%` 
-                      }} 
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Weekly goal</span>
-                    <span className="font-medium">
-                      {Math.floor(statistics.weekly_progress / 60)}h {statistics.weekly_progress % 60}m / {Math.floor(statistics.weekly_goal / 60)}h
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="bg-primary h-full transition-all duration-300" 
-                      style={{ 
-                        width: `${Math.min((statistics.weekly_progress / statistics.weekly_goal) * 100, 100)}%` 
-                      }} 
-                    />
-                  </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300" 
+                    style={{ width: `0%` }} 
+                  />
                 </div>
               </div>
-            )}
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Completed sessions</span>
+                  <span className="font-medium">0 / 0</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300" 
+                    style={{ width: `0%` }} 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Weekly goal</span>
+                  <span className="font-medium">0h 0m / 15h</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300" 
+                    style={{ width: `0%` }} 
+                  />
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

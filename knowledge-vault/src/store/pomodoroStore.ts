@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PomodoroSessionSummary } from '@/services/api/types/pomodoro';
 
 type TimerState = 'idle' | 'work' | 'break' | 'longBreak';
 
@@ -25,10 +24,6 @@ export interface PomodoroStoreState {
   // UI state
   showGlobalTimer: boolean; // Whether to show the persistent timer bar
   
-  // ✅ NEW: Session summary state (shared across all components)
-  sessionSummary: PomodoroSessionSummary[] | null;
-  isLoadingSessionSummary: boolean;
-  
   // Actions
   startTimer: (sessionId: string, projectId?: string) => void;
   pauseTimer: () => void;
@@ -46,10 +41,6 @@ export interface PomodoroStoreState {
   setSelectedProjectId: (projectId: string | null) => void;
   setShowGlobalTimer: (show: boolean) => void;
   
-  // ✅ NEW: Session summary actions
-  setSessionSummary: (summary: PomodoroSessionSummary[] | null) => void;
-  setIsLoadingSessionSummary: (loading: boolean) => void;
-  
   // Internal timer management
   _intervalId: NodeJS.Timeout | null;
   _startInterval: () => void;
@@ -60,7 +51,7 @@ export interface PomodoroStoreState {
 const playSoundGlobally = (soundFile: string) => {
   try {
     const audio = new Audio(soundFile);
-    audio.play().catch(error => console.warn('Audio play failed:', error)); // Catch promise rejection
+    audio.play().catch(error => console.warn('Audio play failed:', error));
   } catch (error) {
     console.error('Failed to play sound:', error);
   }
@@ -72,7 +63,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       // Initial state
       timerState: 'idle',
       isRunning: false,
-      timeLeft: 25 * 60, // 25 minutes default
+      timeLeft: 25 * 60,
       completedIntervals: 0,
       startTime: null,
       currentSessionId: null,
@@ -82,8 +73,6 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       longBreakDuration: 15,
       longBreakInterval: 4,
       showGlobalTimer: true,
-      sessionSummary: null,
-      isLoadingSessionSummary: true,
       _intervalId: null,
 
       // Actions
@@ -125,18 +114,15 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           timeLeft: state.workDuration * 60,
           completedIntervals: 0,
           startTime: null,
-          currentSessionId: null, // Also clear current session ID on full reset
-          // selectedProjectId: null, // Keep project ID
+          currentSessionId: null,
         });
       },
 
       completeInterval: () => {
         const state = get();
         state._clearInterval();
-        // const previousStartTime = state.startTime; // Not strictly needed for current logic but can be kept for debugging
 
         if (state.timerState === 'work') {
-          // Work session just finished
           state._playSound('/sounds/positive-notification.wav');
 
           const newCompletedIntervals = state.completedIntervals + 1;
@@ -146,31 +132,27 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
             completedIntervals: newCompletedIntervals,
             timerState: isLongBreak ? 'longBreak' : 'break',
             timeLeft: isLongBreak ? state.longBreakDuration * 60 : state.breakDuration * 60,
-            isRunning: true, // << AUTOMATICALLY START BREAK
-            startTime: Date.now(), // << SET START TIME FOR BREAK
-            // currentSessionId remains, it's for the work session that just completed.
-            // The API call for this work session happens in usePomodoro.ts based on its local currentSessionHook.
+            isRunning: true,
+            startTime: Date.now(),
           });
-          state._startInterval(); // << START THE INTERVAL FOR THE BREAK
+          state._startInterval();
 
         } else if (state.timerState === 'break' || state.timerState === 'longBreak') {
-          // Break session just finished
           state._playSound('/sounds/bell-notification.wav');
           
           set({
-            timerState: 'work', // Set up for the next work session
+            timerState: 'work',
             timeLeft: state.workDuration * 60,
-            isRunning: false, // << DO NOT AUTO-START NEXT WORK SESSION
+            isRunning: false,
             startTime: null,
-            currentSessionId: null, // Clear session ID, previous work-break cycle is done.
+            currentSessionId: null,
           });
-          // DO NOT call state._startInterval() here. User must manually start.
         }
       },
 
       startNextSession: () => {
         const state = get();
-        if (state.isRunning) return; // Prevent starting if already running
+        if (state.isRunning) return;
 
         set({
           isRunning: true,
@@ -190,7 +172,6 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           breakDuration: prefs.breakDuration,
           longBreakDuration: prefs.longBreakDuration,
           longBreakInterval: prefs.longBreakInterval,
-          // Update timeLeft if timer is idle
           timeLeft: state.timerState === 'idle' ? prefs.workDuration * 60 : state.timeLeft,
         });
       },
@@ -204,8 +185,6 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       },
 
       _playSound: (soundFile: string) => {
-        // This function will be called internally but uses a global player
-        // to avoid issues with Audio context in Zustand setters if any.
         playSoundGlobally(soundFile);
       },
 
@@ -220,25 +199,22 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           const currentState = get();
           if (!currentState.isRunning) return;
 
-          // Use timestamp-based calculation for accuracy
           if (currentState.startTime) {
             const elapsed = Math.floor((Date.now() - currentState.startTime) / 1000);
             const originalTime = 
               currentState.timerState === 'work' ? currentState.workDuration * 60 :
               currentState.timerState === 'break' ? currentState.breakDuration * 60 :
               currentState.timerState === 'longBreak' ? currentState.longBreakDuration * 60 :
-              currentState.timeLeft; // Fallback if state is unexpected, use timeLeft
+              currentState.timeLeft;
             
             const newTimeLeft = Math.max(0, originalTime - elapsed);
             
             if (newTimeLeft <= 0) {
-              // Timer completed
               currentState.completeInterval();
             } else {
               set({ timeLeft: newTimeLeft });
             }
           } else {
-            // Fallback to simple countdown if no startTime
             const newTimeLeft = currentState.timeLeft - 1;
             if (newTimeLeft <= 0) {
               currentState.completeInterval();
@@ -258,18 +234,9 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           set({ _intervalId: null });
         }
       },
-
-      // ✅ NEW: Session summary actions
-      setSessionSummary: (summary) => {
-        set({ sessionSummary: summary });
-      },
-      setIsLoadingSessionSummary: (loading) => {
-        set({ isLoadingSessionSummary: loading });
-      },
     }),
     {
       name: 'pomodoro-timer-store',
-      // Only persist essential state, not the interval
       partialize: (state) => ({
         timerState: state.timerState,
         isRunning: state.isRunning,
@@ -283,13 +250,9 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         longBreakDuration: state.longBreakDuration,
         longBreakInterval: state.longBreakInterval,
         showGlobalTimer: state.showGlobalTimer,
-        sessionSummary: state.sessionSummary,
-        isLoadingSessionSummary: state.isLoadingSessionSummary,
       }),
-      // Resume timer on hydration if it was running
       onRehydrateStorage: () => (state) => {
         if (state?.isRunning) {
-          // Resume the interval after rehydration
           state._startInterval();
         }
       },

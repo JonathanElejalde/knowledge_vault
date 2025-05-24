@@ -4,10 +4,9 @@ import { usePomodoroStore, type PomodoroStoreState } from '@/store/pomodoroStore
 import type {
   PomodoroPreferences,
   PomodoroSession,
-  PomodoroSessionWithProject,
-  PomodoroStatistics,
-  PomodoroSessionSummary,
 } from '@/services/api/types/pomodoro';
+import { usePomodoroPreferences } from './usePomodoroPreferences';
+import { triggerSummaryRefresh } from './usePomodoroSummary';
 
 // Use TimerState from the store directly
 // No, it's better to use PomodoroStoreState['timerState'] for clarity
@@ -28,28 +27,14 @@ interface UsePomodoroState {
   preferences: PomodoroPreferences;
   isLoadingPreferences: boolean;
 
-  // Sessions history
-  sessions: PomodoroSessionWithProject[];
-  isLoadingSessions: boolean;
-
-  // Statistics
-  statistics: PomodoroStatistics;
-  isLoadingStatistics: boolean;
-
-  // Session Summary (from shared store)
-  sessionSummary: PomodoroSessionSummary[] | null;
-  isLoadingSessionSummary: boolean;
-
   // Actions
   startTimer: (projectId?: string) => Promise<void>;
   pauseTimer: () => void;
-  resumeTimer: () => void; // From store
+  resumeTimer: () => void;
   resetTimer: () => Promise<void>;
-  startNextSession: () => void; // New from store
+  startNextSession: () => void;
   updatePreferences: (newPreferences: Partial<PomodoroPreferences>) => Promise<void>;
   setSelectedProjectId: (projectId: string | null) => void;
-  refreshSessions: () => Promise<void>;
-  refreshStatistics: () => Promise<void>;
   abandonSession: () => Promise<void>;
 }
 
@@ -63,135 +48,36 @@ export function usePomodoro(): UsePomodoroState {
     setSelectedProjectId: setGlobalSelectedProjectId,
     startTimer: startGlobalTimer,
     pauseTimer: pauseGlobalTimer,
-    resumeTimer: resumeGlobalTimer, // New from store
+    resumeTimer: resumeGlobalTimer,
     resetTimer: resetGlobalTimer,
-    startNextSession: startGlobalNextSession, // New from store
-    setPreferences: setGlobalPreferences,
-    // ✅ NEW: Get session summary from shared store
-    sessionSummary,
-    isLoadingSessionSummary,
-    setSessionSummary,
-    setIsLoadingSessionSummary,
+    startNextSession: startGlobalNextSession,
   } = usePomodoroStore();
 
   const [currentSessionHook, setCurrentSessionHook] = useState<PomodoroSession | null>(null);
+  const { preferences, isLoading: isLoadingPreferences, updatePreferences: updatePreferencesRaw } = usePomodoroPreferences();
 
-  const [preferences, setPreferences] = useState<PomodoroPreferences>({
-    work_duration: usePomodoroStore.getState().workDuration,
-    break_duration: usePomodoroStore.getState().breakDuration,
-    long_break_duration: usePomodoroStore.getState().longBreakDuration,
-    long_break_interval: usePomodoroStore.getState().longBreakInterval,
-  });
-  const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
+  // Null-safe fallback for preferences
+  const safePreferences = preferences ?? {
+    work_duration: 25,
+    break_duration: 5,
+    long_break_duration: 15,
+    long_break_interval: 4,
+  };
 
-  const [sessions, setSessions] = useState<PomodoroSessionWithProject[]>([]);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  // Wrap updatePreferences to match expected return type (Promise<void>)
+  const updatePreferences = async (newPreferences: Partial<PomodoroPreferences>) => {
+    await updatePreferencesRaw(newPreferences);
+  };
 
-  const [statistics, setStatistics] = useState<PomodoroStatistics>({
-    total_focus_time: 0,
-    completed_sessions: 0,
-    total_sessions: 0,
-    weekly_goal: 900, // TODO: This could come from preferences or be fixed
-    weekly_progress: 0,
-  });
-  const [isLoadingStatistics, setIsLoadingStatistics] = useState(true);
-
-  // Define refresh functions first
-  const refreshSessions = useCallback(async () => {
-    try {
-      setIsLoadingSessions(true);
-      const sessionsData = await pomodoroApi.getSessions({ limit: 10 });
-      setSessions(sessionsData);
-    } catch (error) {
-      console.error('Failed to load sessions:', error);
-      setSessions([]); // Set to empty array on error
-    } finally {
-      setIsLoadingSessions(false);
-    }
-  }, []);
-
-  const refreshStatistics = useCallback(async () => {
-    try {
-      setIsLoadingStatistics(true);
-      const stats = await pomodoroApi.getStatistics();
-      setStatistics(stats);
-    } catch (error) {
-      console.error('Failed to load statistics:', error);
-      // Keep existing/default stats on error or set to a default error state
-    } finally {
-      setIsLoadingStatistics(false);
-    }
-  }, []);
-
-  // ✅ FIXED: Initial data load without circular dependencies
-  useEffect(() => {
-    const loadInitialData = async () => {
-      // Load preferences first
-      try {
-        setIsLoadingPreferences(true);
-        const prefs = await pomodoroApi.getPreferences();
-        setPreferences(prefs);
-        setGlobalPreferences({
-          workDuration: prefs.work_duration,
-          breakDuration: prefs.break_duration,
-          longBreakDuration: prefs.long_break_duration,
-          longBreakInterval: prefs.long_break_interval,
-        });
-      } catch (error) {
-        console.error('Failed to load preferences:', error);
-      } finally {
-        setIsLoadingPreferences(false);
-      }
-
-      // Load sessions
-      try {
-        setIsLoadingSessions(true);
-        const sessionsData = await pomodoroApi.getSessions({ limit: 10 });
-        setSessions(sessionsData);
-      } catch (error) {
-        console.error('Failed to load sessions:', error);
-        setSessions([]);
-      } finally {
-        setIsLoadingSessions(false);
-      }
-
-      // Load statistics
-      try {
-        setIsLoadingStatistics(true);
-        const stats = await pomodoroApi.getStatistics();
-        setStatistics(stats);
-      } catch (error) {
-        console.error('Failed to load statistics:', error);
-      } finally {
-        setIsLoadingStatistics(false);
-      }
-
-      // Load session summary
-      try {
-        setIsLoadingSessionSummary(true);
-        const summaryData = await pomodoroApi.getSessionSummary();
-        setSessionSummary(summaryData);
-      } catch (error) {
-        console.error('Failed to load session summary:', error);
-        setSessionSummary([]);
-      } finally {
-        setIsLoadingSessionSummary(false);
-      }
-    };
-
-    loadInitialData();
-  }, []); // ✅ FIXED: No dependencies = no circular issues
-
-  // ✅ FIXED: Session completion useEffect with direct state updates
+  // Session completion effect - only handle session completion, no summary refresh
   const previousCompletedIntervalsRef = useRef(completedIntervals);
   const previousTimerStateRef = useRef(timerState);
   const completionInProgressRef = useRef(false);
   
   useEffect(() => {
-    // Prevent multiple simultaneous completions
     if (
       completedIntervals > previousCompletedIntervalsRef.current &&
-      previousTimerStateRef.current === 'work' && // Check PREVIOUS timerState
+      previousTimerStateRef.current === 'work' &&
       !completionInProgressRef.current
     ) {
       previousCompletedIntervalsRef.current = completedIntervals;
@@ -199,28 +85,15 @@ export function usePomodoro(): UsePomodoroState {
 
       const completeWorkSession = async () => {
         try {
-          // 1. Complete the session on the backend (only if we have a session)
           if (currentSessionHook?.id) {
             await pomodoroApi.completeSession(currentSessionHook.id, {
-              actual_duration: currentSessionHook.work_duration, // Use the session's planned duration
+              actual_duration: currentSessionHook.work_duration,
             });
+            // Trigger summary refresh after successful completion
+            triggerSummaryRefresh();
           }
-
-          // 2. Refresh all data immediately
-          const [newSessions, newStats, newSummary] = await Promise.all([
-            pomodoroApi.getSessions({ limit: 10 }),
-            pomodoroApi.getStatistics(),
-            pomodoroApi.getSessionSummary(),
-          ]);
-
-          setSessions(newSessions);
-
-          setStatistics(newStats);
-
-          setSessionSummary(newSummary);
-
         } catch (error) {
-          console.error('Failed to complete session and refresh data:', error);
+          console.error('Failed to complete session:', error);
         } finally {
           completionInProgressRef.current = false;
         }
@@ -229,9 +102,8 @@ export function usePomodoro(): UsePomodoroState {
       completeWorkSession();
     }
     
-    // Update refs for next time
     previousTimerStateRef.current = timerState;
-  }, [completedIntervals, timerState, selectedProjectId, setSessionSummary, currentSessionHook]);
+  }, [completedIntervals, timerState, currentSessionHook]);
 
   const startTimer = useCallback(async (projectId?: string) => {
     try {
@@ -240,8 +112,8 @@ export function usePomodoro(): UsePomodoroState {
         const sessionData = {
           learning_project_id: projectId || selectedProjectId || undefined,
           session_type: 'work' as const,
-          work_duration: preferences.work_duration, // Planned duration
-          break_duration: preferences.break_duration,
+          work_duration: safePreferences.work_duration,
+          break_duration: safePreferences.break_duration,
         };
         const session = await pomodoroApi.startSession(sessionData);
         setCurrentSessionHook(session);
@@ -260,15 +132,15 @@ export function usePomodoro(): UsePomodoroState {
         session_type: 'work',
         status: 'in_progress',
         start_time: new Date().toISOString(),
-        work_duration: preferences.work_duration,
-        break_duration: preferences.break_duration,
+        work_duration: safePreferences.work_duration,
+        break_duration: safePreferences.break_duration,
         actual_duration: undefined,
         end_time: undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       } as PomodoroSession);
     }
-  }, [preferences, selectedProjectId, startGlobalTimer, startGlobalNextSession]);
+  }, [safePreferences, selectedProjectId, startGlobalTimer, startGlobalNextSession]);
 
   const pauseTimerHook = useCallback(() => {
     pauseGlobalTimer();
@@ -287,7 +159,7 @@ export function usePomodoro(): UsePomodoroState {
           actualDurationSeconds = Math.floor((Date.now() - storeStartTime) / 1000);
         } else {
           const storeTimeLeft = usePomodoroStore.getState().timeLeft;
-          const plannedDurationSeconds = currentSessionHook.work_duration * 60;
+          const plannedDurationSeconds = safePreferences.work_duration * 60;
           actualDurationSeconds = plannedDurationSeconds - storeTimeLeft;
         }
         await pomodoroApi.abandonSession(currentSessionHook.id, {
@@ -295,42 +167,14 @@ export function usePomodoro(): UsePomodoroState {
           reason: 'User reset timer'
         });
         setCurrentSessionHook(null);
+        // Trigger summary refresh after reset
+        triggerSummaryRefresh();
       } catch (error) {
         console.error('Failed to abandon session:', error);
       }
     }
     resetGlobalTimer();
-    
-    // ✅ FIXED: Direct state updates for immediate response
-    try {
-      const [newSessions, newStats, newSummary] = await Promise.all([
-        pomodoroApi.getSessions({ limit: 10 }),
-        pomodoroApi.getStatistics(),
-        pomodoroApi.getSessionSummary()
-      ]);
-      setSessions(newSessions);
-      setStatistics(newStats);
-      setSessionSummary(newSummary);
-    } catch (error) {
-      console.error('Failed to refresh data after reset:', error);
-    }
-  }, [currentSessionHook, resetGlobalTimer]); // ✅ FIXED: Clean dependencies
-
-  const updatePreferencesHook = useCallback(async (newPreferences: Partial<PomodoroPreferences>) => {
-    try {
-      const updatedPrefs = await pomodoroApi.updatePreferences(newPreferences);
-      setPreferences(updatedPrefs);
-      setGlobalPreferences({
-        workDuration: updatedPrefs.work_duration,
-        breakDuration: updatedPrefs.break_duration,
-        longBreakDuration: updatedPrefs.long_break_duration,
-        longBreakInterval: updatedPrefs.long_break_interval,
-      });
-    } catch (error) {
-      console.error('Failed to update preferences:', error);
-      throw error;
-    }
-  }, [setGlobalPreferences]);
+  }, [currentSessionHook, resetGlobalTimer, safePreferences]);
 
   const setSelectedProjectIdHook = useCallback((projectId: string | null) => {
     setGlobalSelectedProjectId(projectId);
@@ -344,7 +188,7 @@ export function usePomodoro(): UsePomodoroState {
         if (storeStartTime && isRunning) { 
           actualDurationSeconds = Math.floor((Date.now() - storeStartTime) / 1000);
         } else {
-            const plannedDurationSeconds = currentSessionHook.work_duration * 60;
+            const plannedDurationSeconds = safePreferences.work_duration * 60;
             actualDurationSeconds = plannedDurationSeconds - timeLeft; 
         }
         await pomodoroApi.abandonSession(currentSessionHook.id, {
@@ -352,52 +196,31 @@ export function usePomodoro(): UsePomodoroState {
           reason: 'User abandoned session'
         });
         setCurrentSessionHook(null);
+        // Trigger summary refresh after abandon
+        triggerSummaryRefresh();
       } catch (error) {
         console.error('Failed to abandon session during explicit abandon call:', error);
       }
     }
     resetGlobalTimer(); 
-    
-    // ✅ FIXED: Direct state updates for immediate response
-    try {
-      const [newSessions, newStats, newSummary] = await Promise.all([
-        pomodoroApi.getSessions({ limit: 10 }),
-        pomodoroApi.getStatistics(),
-        pomodoroApi.getSessionSummary()
-      ]);
-      setSessions(newSessions);
-      setStatistics(newStats);
-      setSessionSummary(newSummary);
-    } catch (error) {
-      console.error('Failed to refresh data after abandon:', error);
-    }
-  }, [currentSessionHook, resetGlobalTimer, timeLeft, isRunning]); // ✅ FIXED: Clean dependencies
+  }, [currentSessionHook, resetGlobalTimer, timeLeft, isRunning, safePreferences]);
 
-  // Expose store actions and hook-specific logic
   return {
     timerState,
     isRunning,
     timeLeft,
     completedIntervals,
-    currentSession: currentSessionHook, // Use the hook's version of currentSession
+    currentSession: currentSessionHook,
     selectedProjectId,
-    preferences,
+    preferences: safePreferences,
     isLoadingPreferences,
-    sessions,
-    isLoadingSessions,
-    statistics,
-    isLoadingStatistics,
-    sessionSummary, // Expose new state
-    isLoadingSessionSummary, // Expose new state
     startTimer,
     pauseTimer: pauseTimerHook,
     resumeTimer: resumeTimerHook,
     resetTimer: resetTimerHook,
-    startNextSession: startGlobalNextSession, // Expose from store
-    updatePreferences: updatePreferencesHook,
+    startNextSession: startGlobalNextSession,
+    updatePreferences,
     setSelectedProjectId: setSelectedProjectIdHook,
-    refreshSessions,
-    refreshStatistics,
     abandonSession: abandonSessionHook,
   };
 } 
