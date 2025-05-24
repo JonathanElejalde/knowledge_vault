@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 type TimerState = 'idle' | 'work' | 'break' | 'longBreak';
 
-interface PomodoroStoreState {
+export interface PomodoroStoreState {
   // Timer state
   timerState: TimerState;
   isRunning: boolean;
@@ -30,6 +30,7 @@ interface PomodoroStoreState {
   resumeTimer: () => void;
   resetTimer: () => void;
   completeInterval: () => void;
+  startNextSession: () => void;
   updateTimeLeft: (time: number) => void;
   setPreferences: (prefs: {
     workDuration: number;
@@ -44,7 +45,17 @@ interface PomodoroStoreState {
   _intervalId: NodeJS.Timeout | null;
   _startInterval: () => void;
   _clearInterval: () => void;
+  _playSound: (soundFile: string) => void;
 }
+
+const playSoundGlobally = (soundFile: string) => {
+  try {
+    const audio = new Audio(soundFile);
+    audio.play().catch(error => console.warn('Audio play failed:', error)); // Catch promise rejection
+  } catch (error) {
+    console.error('Failed to play sound:', error);
+  }
+};
 
 export const usePomodoroStore = create<PomodoroStoreState>()(
   persist(
@@ -103,15 +114,20 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           timeLeft: state.workDuration * 60,
           completedIntervals: 0,
           startTime: null,
-          currentSessionId: null,
+          currentSessionId: null, // Also clear current session ID on full reset
+          // selectedProjectId: null, // Keep project ID
         });
       },
 
       completeInterval: () => {
         const state = get();
         state._clearInterval();
-        
+        // const previousStartTime = state.startTime; // Not strictly needed for current logic but can be kept for debugging
+
         if (state.timerState === 'work') {
+          // Work session just finished
+          state._playSound('/sounds/positive-notification.wav');
+
           const newCompletedIntervals = state.completedIntervals + 1;
           const isLongBreak = newCompletedIntervals % state.longBreakInterval === 0;
           
@@ -119,19 +135,36 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
             completedIntervals: newCompletedIntervals,
             timerState: isLongBreak ? 'longBreak' : 'break',
             timeLeft: isLongBreak ? state.longBreakDuration * 60 : state.breakDuration * 60,
-            isRunning: true,
-            startTime: Date.now(),
+            isRunning: true, // << AUTOMATICALLY START BREAK
+            startTime: Date.now(), // << SET START TIME FOR BREAK
+            // currentSessionId remains, it's for the work session that just completed.
+            // The API call for this work session happens in usePomodoro.ts based on its local currentSessionHook.
           });
-        } else {
-          // Break completed, back to work
+          state._startInterval(); // << START THE INTERVAL FOR THE BREAK
+
+        } else if (state.timerState === 'break' || state.timerState === 'longBreak') {
+          // Break session just finished
+          state._playSound('/sounds/bell-notification.wav');
+          
           set({
-            timerState: 'work',
+            timerState: 'work', // Set up for the next work session
             timeLeft: state.workDuration * 60,
-            isRunning: true,
-            startTime: Date.now(),
+            isRunning: false, // << DO NOT AUTO-START NEXT WORK SESSION
+            startTime: null,
+            currentSessionId: null, // Clear session ID, previous work-break cycle is done.
           });
+          // DO NOT call state._startInterval() here. User must manually start.
         }
-        
+      },
+
+      startNextSession: () => {
+        const state = get();
+        if (state.isRunning) return; // Prevent starting if already running
+
+        set({
+          isRunning: true,
+          startTime: Date.now(),
+        });
         state._startInterval();
       },
 
@@ -159,6 +192,12 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         set({ showGlobalTimer: show });
       },
 
+      _playSound: (soundFile: string) => {
+        // This function will be called internally but uses a global player
+        // to avoid issues with Audio context in Zustand setters if any.
+        playSoundGlobally(soundFile);
+      },
+
       // Internal timer management
       _startInterval: () => {
         const state = get();
@@ -173,11 +212,11 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           // Use timestamp-based calculation for accuracy
           if (currentState.startTime) {
             const elapsed = Math.floor((Date.now() - currentState.startTime) / 1000);
-            const originalTime = currentState.timerState === 'work' 
-              ? currentState.workDuration * 60
-              : currentState.timerState === 'break'
-              ? currentState.breakDuration * 60
-              : currentState.longBreakDuration * 60;
+            const originalTime = 
+              currentState.timerState === 'work' ? currentState.workDuration * 60 :
+              currentState.timerState === 'break' ? currentState.breakDuration * 60 :
+              currentState.timerState === 'longBreak' ? currentState.longBreakDuration * 60 :
+              currentState.timeLeft; // Fallback if state is unexpected, use timeLeft
             
             const newTimeLeft = Math.max(0, originalTime - elapsed);
             

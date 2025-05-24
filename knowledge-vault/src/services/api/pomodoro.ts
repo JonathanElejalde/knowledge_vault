@@ -8,6 +8,7 @@ import type {
   SessionAbandonRequest,
   SessionFilters,
   PomodoroStatistics,
+  PomodoroSessionSummary,
 } from './types/pomodoro';
 
 export const pomodoroApi = {
@@ -127,6 +128,25 @@ export const pomodoroApi = {
         weekly_goal: 900, // 15 hours in minutes
         weekly_progress: 0,
       };
+    }
+  },
+
+  /**
+   * Get summary of Pomodoro sessions grouped by project
+   */
+  getSessionSummary: async (params?: {
+    period?: string;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+  }): Promise<PomodoroSessionSummary[]> => {
+    try {
+      const response = await api.get<PomodoroSessionSummary[]>('/pomodoro/sessions/summary', {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
     }
   },
 }; 

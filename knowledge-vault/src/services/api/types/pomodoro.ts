@@ -70,4 +70,14 @@ export interface PomodoroStatistics {
   total_sessions: number;
   weekly_goal: number; // in minutes
   weekly_progress: number; // in minutes
+}
+
+// Pomodoro session summary for project grouping (from /pomodoro/sessions/summary)
+export interface PomodoroSessionSummary {
+  project_id: string | null;
+  project_name: string;
+  total_duration_minutes: number;
+  first_session_date: string; // ISO 8601
+  last_session_date: string;  // ISO 8601
+  session_count: number;
 } 
