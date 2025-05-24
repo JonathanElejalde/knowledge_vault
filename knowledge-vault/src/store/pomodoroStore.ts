@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { PomodoroSessionSummary } from '@/services/api/types/pomodoro';
 
 type TimerState = 'idle' | 'work' | 'break' | 'longBreak';
 
@@ -24,6 +25,10 @@ export interface PomodoroStoreState {
   // UI state
   showGlobalTimer: boolean; // Whether to show the persistent timer bar
   
+  // ✅ NEW: Session summary state (shared across all components)
+  sessionSummary: PomodoroSessionSummary[] | null;
+  isLoadingSessionSummary: boolean;
+  
   // Actions
   startTimer: (sessionId: string, projectId?: string) => void;
   pauseTimer: () => void;
@@ -40,6 +45,10 @@ export interface PomodoroStoreState {
   }) => void;
   setSelectedProjectId: (projectId: string | null) => void;
   setShowGlobalTimer: (show: boolean) => void;
+  
+  // ✅ NEW: Session summary actions
+  setSessionSummary: (summary: PomodoroSessionSummary[] | null) => void;
+  setIsLoadingSessionSummary: (loading: boolean) => void;
   
   // Internal timer management
   _intervalId: NodeJS.Timeout | null;
@@ -73,6 +82,8 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       longBreakDuration: 15,
       longBreakInterval: 4,
       showGlobalTimer: true,
+      sessionSummary: null,
+      isLoadingSessionSummary: true,
       _intervalId: null,
 
       // Actions
@@ -247,6 +258,14 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           set({ _intervalId: null });
         }
       },
+
+      // ✅ NEW: Session summary actions
+      setSessionSummary: (summary) => {
+        set({ sessionSummary: summary });
+      },
+      setIsLoadingSessionSummary: (loading) => {
+        set({ isLoadingSessionSummary: loading });
+      },
     }),
     {
       name: 'pomodoro-timer-store',
@@ -264,6 +283,8 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         longBreakDuration: state.longBreakDuration,
         longBreakInterval: state.longBreakInterval,
         showGlobalTimer: state.showGlobalTimer,
+        sessionSummary: state.sessionSummary,
+        isLoadingSessionSummary: state.isLoadingSessionSummary,
       }),
       // Resume timer on hydration if it was running
       onRehydrateStorage: () => (state) => {

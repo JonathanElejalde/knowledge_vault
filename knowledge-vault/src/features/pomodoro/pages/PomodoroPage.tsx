@@ -9,8 +9,6 @@ import { NewProjectDialog } from "@/features/projects/components/NewProjectDialo
 import type { ProjectFormData } from "@/features/projects/components/NewProjectDialog"
 import { learningProjectsApi } from "@/services/api/learningProjects"
 import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
-import { pomodoroApi } from "@/services/api/pomodoro"
-import type { PomodoroSessionSummary } from "@/services/api/types/pomodoro"
 
 // Utility for formatting session date or range
 function formatSessionDateRange(first: string, last: string) {
@@ -20,9 +18,11 @@ function formatSessionDateRange(first: string, last: string) {
     firstDate.getFullYear() === lastDate.getFullYear() &&
     firstDate.getMonth() === lastDate.getMonth() &&
     firstDate.getDate() === lastDate.getDate()
+  
   const today = new Date()
   const yesterday = new Date()
   yesterday.setDate(today.getDate() - 1)
+  
   function isToday(date: Date) {
     return (
       date.getFullYear() === today.getFullYear() &&
@@ -30,6 +30,7 @@ function formatSessionDateRange(first: string, last: string) {
       date.getDate() === today.getDate()
     )
   }
+  
   function isYesterday(date: Date) {
     return (
       date.getFullYear() === yesterday.getFullYear() &&
@@ -37,9 +38,11 @@ function formatSessionDateRange(first: string, last: string) {
       date.getDate() === yesterday.getDate()
     )
   }
+  
   function formatDate(date: Date) {
     return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
   }
+  
   if (isSameDay) {
     if (isToday(firstDate)) return 'Today'
     if (isYesterday(firstDate)) return 'Yesterday'
@@ -62,35 +65,44 @@ function formatSessionDateRange(first: string, last: string) {
 export default function PomodoroPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
   const { toast } = useToast()
+  
+  // ✅ CORRECT: Use centralized hook for ALL data - no duplicate state management
   const {
+    // Timer state
+    timerState,
+    isRunning,
+    timeLeft,
+    completedIntervals,
+    
+    // Current session
     selectedProjectId,
-    setSelectedProjectId,
+    
+    // Preferences
+    preferences,
+    isLoadingPreferences,
+    
+    // Sessions & statistics
+    sessions,
+    isLoadingSessions,
     statistics,
     isLoadingStatistics,
-    refreshProjects
+    
+    // ✅ FIXED: Get session summary from centralized hook
+    sessionSummary,
+    isLoadingSessionSummary,
+    
+    // Actions
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    resetTimer,
+    startNextSession,
+    updatePreferences,
+    setSelectedProjectId,
+    refreshSessions,
+    refreshStatistics,
+    abandonSession,
   } = usePomodoro()
-
-  // New: Session summary state
-  const [sessionSummaries, setSessionSummaries] = useState<PomodoroSessionSummary[]>([])
-  const [isLoadingSummary, setIsLoadingSummary] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    setIsLoadingSummary(true)
-    pomodoroApi.getSessionSummary({ period: 'week', limit: 10 })
-      .then((data) => {
-        if (mounted) setSessionSummaries(data)
-      })
-      .catch(() => {
-        if (mounted) setSessionSummaries([])
-      })
-      .finally(() => {
-        if (mounted) setIsLoadingSummary(false)
-      })
-    return () => {
-      mounted = false
-    }
-  }, [])
 
   const handleCreateProject = async (data: ProjectFormData) => {
     try {
@@ -101,7 +113,6 @@ export default function PomodoroPage() {
         status: "in_progress",
       })
       setIsNewProjectOpen(false)
-      refreshProjects()
       setSelectedProjectId(newProject.id)
       toast({
         children: (
@@ -161,13 +172,18 @@ export default function PomodoroPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {isLoadingSummary ? (
+              {isLoadingSessionSummary ? (
                 <div className="text-center text-muted-foreground">Loading sessions...</div>
-              ) : sessionSummaries.length === 0 ? (
-                <div className="text-center text-muted-foreground">No Pomodoro sessions yet. Start your first session to see your history here!</div>
+              ) : !sessionSummary || sessionSummary.length === 0 ? (
+                <div className="text-center text-muted-foreground">
+                  No Pomodoro sessions yet. Start your first session to see your history here!
+                </div>
               ) : (
-                sessionSummaries.map((summary) => (
-                  <div key={summary.project_id || summary.project_name} className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
+                sessionSummary.map((summary) => (
+                  <div 
+                    key={summary.project_id || summary.project_name} 
+                    className="flex justify-between items-center p-3 bg-muted/50 rounded-md"
+                  >
                     <div>
                       <div className="font-medium">
                         {summary.project_name}
