@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createRoot } from "react-dom/client"
-import { Settings, Play, Pause, RotateCcw, StickyNote, AlertTriangle } from "lucide-react"
+import { Settings, Play, Pause, Square, AlertTriangle, StickyNote } from "lucide-react"
 import { Button } from "@/components/atoms/Button"
 import { Slider } from "@/components/atoms/Slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/atoms/Dialog"
@@ -20,21 +20,24 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
     isRunning,
     timeLeft,
     completedIntervals,
+    currentSession,
     preferences,
+    isLoadingPreferences,
     startTimer,
     pauseTimer,
-    resetTimer,
-    updatePreferences,
+    resumeTimer,
     abandonSession,
+    updatePreferences,
   } = usePomodoro()
 
+  // UI state
   const [showSettings, setShowSettings] = useState(false)
-  const [showProjectPrompt, setShowProjectPrompt] = useState(false)
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false)
+  const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false)
   
-  // State to track if the user intends the notes window to be open
-  const [showNotesWindow, setShowNotesWindow] = useState(false);
-  const notesWindowRef = useRef<Window | null>(null);
+  // Notes window state
+  const [showNotesWindow, setShowNotesWindow] = useState(false)
+  const notesWindowRef = useRef<Window | null>(null)
 
   // Local settings state for the dialog
   const [localWorkTime, setLocalWorkTime] = useState(preferences.work_duration)
@@ -50,43 +53,47 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
     setLocalIntervalsBeforeLongBreak(preferences.long_break_interval)
   }, [preferences])
 
-  // Show project prompt when timer is idle and no project is selected
-  useEffect(() => {
-    if (timerState === 'idle' && !selectedProjectId) {
-      setShowProjectPrompt(true)
-    } else {
-      setShowProjectPrompt(false)
-    }
-  }, [timerState, selectedProjectId])
-
-  // Handle start timer with project ID
-  const handleStartTimer = () => {
-    if (selectedProjectId) {
-      startTimer(selectedProjectId)
-    }
-  }
-
   // Calculate progress for the circular timer
-  const totalTime =
-    timerState === "work"
-      ? preferences.work_duration * 60
-      : timerState === "break"
-        ? preferences.break_duration * 60
-        : timerState === "longBreak"
-          ? preferences.long_break_duration * 60
-          : preferences.work_duration * 60
-
+  const totalTime = getTotalTimeForState(timerState, preferences)
   const progress = (timeLeft / totalTime) * 100
   const circumference = 2 * Math.PI * 45 // 45 is the radius of the circle
   const strokeDashoffset = circumference - (progress / 100) * circumference
 
+  // Format time display
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  const applySettings = async () => {
+  // Handle start/pause/resume
+  const handlePlayPause = async () => {
+    if (timerState === 'idle') {
+      // Start new session
+      await startTimer(selectedProjectId || undefined)
+    } else if (isRunning) {
+      // Pause current session
+      pauseTimer()
+    } else {
+      // Resume paused session
+      resumeTimer()
+    }
+  }
+
+  // Handle abandon session with confirmation
+  const handleAbandonSession = async () => {
+    setShowAbandonConfirm(false)                        
+    
+    try {
+      await abandonSession()
+    } catch (error) {
+      console.error('Error in handleAbandonSession:', error);
+    }
+  }
+
+  // Handle preferences update
+  const handleUpdatePreferences = async () => {
+    setIsUpdatingPreferences(true)
     try {
       await updatePreferences({
         work_duration: localWorkTime,
@@ -94,12 +101,17 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
         long_break_duration: localLongBreakTime,
         long_break_interval: localIntervalsBeforeLongBreak,
       })
+      
       setShowSettings(false)
     } catch (error) {
       console.error('Failed to update preferences:', error)
+      // TODO: Show error toast
+    } finally {
+      setIsUpdatingPreferences(false)
     }
   }
 
+  // Notes window functionality
   const openNotesNewWindow = () => {
     if (notesWindowRef.current && !notesWindowRef.current.closed) {
       notesWindowRef.current.focus();
@@ -123,8 +135,6 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
       rootDiv.style.height = '100vh'; // Ensure root div takes full height
 
       // Copy stylesheets from parent to new window
-      // This is a common method but can have limitations with complex CSS setups or dynamic loading.
-      // A more robust solution might involve a dedicated HTML entry point for the notes window.
       Array.from(document.styleSheets).forEach(styleSheet => {
         try {
           if (styleSheet.href) {
@@ -147,23 +157,16 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
         const head = newWindow.document.createElement('head');
         newWindow.document.documentElement.insertBefore(head, newWindow.document.body);
       }
-       if (!newWindow.document.body) {
+      if (!newWindow.document.body) {
         const body = newWindow.document.createElement('body');
         newWindow.document.documentElement.appendChild(body);
         body.appendChild(rootDiv); // Re-append rootDiv if body was just created
       }
 
-
       // Render the NotesEditor component into the new window
-      // Ensure createRoot is imported from 'react-dom/client'
       const root = createRoot(rootDiv);
-      // If NotesEditor requires context, wrap it here with necessary providers
-      // For now, assuming NotesEditor is self-contained or uses global state
       root.render(
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {/* It's good practice to provide a minimal structure if NotesEditor expects to be in one */}
-          {/* We can add a simple header inside the window if needed, or let NotesEditor be full-window */}
-          {/* <div style={{ padding: '8px', borderBottom: '1px solid #ccc', background: '#f0f0f0' }}>Quick Notes Header</div> */}
           <NotesEditor />
         </div>
       );
@@ -183,14 +186,10 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
     }
   };
 
-
-
   const toggleNotesWindow = () => {
     if (showNotesWindow && notesWindowRef.current && !notesWindowRef.current.closed) {
-      // If window is open and user clicks button, focus or close it.
-      // For now, let's make it focus. A close action could also be here.
+      // If window is open and user clicks button, focus it
       notesWindowRef.current.focus();
-      // Or: closeNotesNewWindow();
     } else {
       openNotesNewWindow();
     }
@@ -205,21 +204,30 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
     };
   }, []);
 
-  const handleAbandonSession = async () => {
-    try {
-      await abandonSession();
-      setShowAbandonConfirm(false);
-    } catch (error) {
-      console.error('Failed to abandon session:', error);
-    }
-  }
+  // Determine if we can start a timer
+  const canStartTimer = timerState === 'idle' && selectedProjectId
+  
+  // Determine if we should show abandon button
+  const shouldShowAbandonButton = currentSession !== null || timerState !== 'idle'
+
+  // Determine if we have an active session (work, break, or long break)
+  const hasActiveSession = !!currentSession && (timerState === 'work' || timerState === 'break' || timerState === 'longBreak')
 
   return (
     <div className="flex flex-col items-center">
+      {/* Circular Timer Display */}
       <div className="relative w-64 h-64 mb-6">
         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
           {/* Background circle */}
-          <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" className="text-muted" />
+          <circle 
+            cx="50" 
+            cy="50" 
+            r="45" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="4" 
+            className="text-muted" 
+          />
           {/* Progress circle */}
           <circle
             cx="50"
@@ -244,6 +252,7 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
           />
         </svg>
 
+        {/* Timer content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="text-4xl font-bold">{formatTime(timeLeft)}</div>
           <div className="text-sm text-muted-foreground mt-2 capitalize">
@@ -255,27 +264,30 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
         </div>
       </div>
 
-      {showProjectPrompt && (
+      {/* Project Selection Prompt */}
+      {timerState === 'idle' && !selectedProjectId && (
         <div className="mb-4 text-sm text-muted-foreground animate-pulse">
           Please select a project to start your session
         </div>
       )}
 
+      {/* Control Buttons */}
       <div className="flex space-x-2 mb-4">
+        {/* Start/Pause/Resume Button */}
         {!isRunning ? (
           <Button 
-            onClick={handleStartTimer} 
+            onClick={handlePlayPause} 
             size="icon" 
             variant="default"
-            disabled={!selectedProjectId}
-            title={!selectedProjectId ? "Please select a project first" : "Start timer"}
+            disabled={!canStartTimer && timerState === 'idle'}
+            title={!selectedProjectId && timerState === 'idle' ? "Please select a project first" : "Start timer"}
           >
             <Play className="h-5 w-5" />
             <span className="sr-only">Start</span>
           </Button>
         ) : (
           <Button 
-            onClick={pauseTimer} 
+            onClick={handlePlayPause} 
             size="icon" 
             variant="default"
             title="Pause current session"
@@ -285,36 +297,43 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
           </Button>
         )}
 
-        <Dialog open={showAbandonConfirm} onOpenChange={setShowAbandonConfirm}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={() => setShowAbandonConfirm(true)} 
-              size="icon" 
-              variant="destructive"
-              title="Abandon current session"
-            >
-              <AlertTriangle className="h-5 w-5" />
-              <span className="sr-only">Abandon</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Abandon Session?</DialogTitle>
-              <DialogDescription>
-                This will mark your current session as abandoned. This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowAbandonConfirm(false)}>
-                Cancel
+        {/* Abandon Session Button - Show when there's an active session */}
+        {shouldShowAbandonButton && (
+          <Dialog open={showAbandonConfirm} onOpenChange={setShowAbandonConfirm}>
+            <DialogTrigger asChild>
+              <Button 
+                size="icon" 
+                variant="destructive"
+                title="Abandon current session"
+              >
+                <Square className="h-5 w-5" />
+                <span className="sr-only">Abandon</span>
               </Button>
-              <Button variant="destructive" onClick={handleAbandonSession}>
-                Abandon Session
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center">
+                  <AlertTriangle className="w-5 h-5 text-orange-500 mr-2" />
+                  Abandon Pomodoro?
+                </DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to abandon this Pomodoro session? 
+                  Your progress will be saved based on the time you've already worked.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowAbandonConfirm(false)}>
+                  Continue Session
+                </Button>
+                <Button variant="destructive" onClick={handleAbandonSession}>
+                  Abandon Session
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
+        {/* Settings Button */}
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogTrigger asChild>
             <Button 
@@ -328,78 +347,92 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Pomodoro Settings</DialogTitle>
+              <DialogTitle>Timer Settings</DialogTitle>
               <DialogDescription>
-                Customize your work and break durations
+                Customize your Pomodoro timer durations
               </DialogDescription>
             </DialogHeader>
+            
             <div className="space-y-6 py-4">
+              {/* Work Duration */}
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <label className="text-sm font-medium">Work Duration</label>
-                  <span className="text-sm text-muted-foreground">{localWorkTime} minutes</span>
-                </div>
-                <Slider
-                  value={[localWorkTime]}
-                  onValueChange={([value]) => setLocalWorkTime(value)}
-                  min={1}
-                  max={60}
-                  step={1}
+                <label className="text-sm font-medium">Work Time: {localWorkTime} minutes</label>
+                <Slider 
+                  value={[localWorkTime]} 
+                  min={1} 
+                  max={60} 
+                  step={1} 
+                  onValueChange={(value) => setLocalWorkTime(value[0])} 
                 />
               </div>
 
+              {/* Break Duration */}
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <label className="text-sm font-medium">Break Duration</label>
-                  <span className="text-sm text-muted-foreground">{localBreakTime} minutes</span>
-                </div>
+                <label className="text-sm font-medium">Break Time: {localBreakTime} minutes</label>
                 <Slider
                   value={[localBreakTime]}
-                  onValueChange={([value]) => setLocalBreakTime(value)}
-                  min={1}
-                  max={30}
-                  step={1}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <label className="text-sm font-medium">Long Break Duration</label>
-                  <span className="text-sm text-muted-foreground">{localLongBreakTime} minutes</span>
-                </div>
-                <Slider
-                  value={[localLongBreakTime]}
-                  onValueChange={([value]) => setLocalLongBreakTime(value)}
                   min={1}
                   max={60}
                   step={1}
+                  onValueChange={(value) => setLocalBreakTime(value[0])}
                 />
               </div>
 
+              {/* Long Break Duration */}
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <label className="text-sm font-medium">Intervals Before Long Break</label>
-                  <span className="text-sm text-muted-foreground">{localIntervalsBeforeLongBreak}</span>
-                </div>
+                <label className="text-sm font-medium">Long Break Time: {localLongBreakTime} minutes</label>
+                <Slider
+                  value={[localLongBreakTime]}
+                  min={1}
+                  max={60}
+                  step={1}
+                  onValueChange={(value) => setLocalLongBreakTime(value[0])}
+                />
+              </div>
+
+              {/* Long Break Interval */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Intervals Before Long Break: {localIntervalsBeforeLongBreak}</label>
                 <Slider
                   value={[localIntervalsBeforeLongBreak]}
-                  onValueChange={([value]) => setLocalIntervalsBeforeLongBreak(value)}
                   min={1}
                   max={10}
                   step={1}
+                  onValueChange={(value) => setLocalIntervalsBeforeLongBreak(value[0])}
                 />
               </div>
-            </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowSettings(false)}>
-                Cancel
+              {/* Warning message for active session */}
+              {hasActiveSession && (
+                <div className="flex items-start space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-orange-800 mb-1">Session in Progress</p>
+                    <p className="text-orange-700">
+                      Settings cannot be saved while a Pomodoro session is active. 
+                      Please complete or abandon your current session to apply changes.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Button 
+                onClick={handleUpdatePreferences} 
+                className="w-full"
+                disabled={isUpdatingPreferences || hasActiveSession}
+              >
+                {isUpdatingPreferences 
+                  ? 'Saving...' 
+                  : hasActiveSession 
+                    ? 'Cannot Save During Active Session'
+                    : 'Apply Settings'
+                }
               </Button>
-              <Button onClick={applySettings}>Save Changes</Button>
             </div>
           </DialogContent>
         </Dialog>
 
+        {/* Notes Button */}
         <Button 
           variant="outline" 
           size="icon" 
@@ -410,6 +443,30 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
           <span className="sr-only">Quick Notes</span>
         </Button>
       </div>
+
+      {/* Loading State */}
+      {isLoadingPreferences && (
+        <div className="text-center p-4">
+          <p className="text-sm text-muted-foreground">Loading preferences...</p>
+        </div>
+      )}
     </div>
   )
+}
+
+// Helper function to get total time for a timer state
+function getTotalTimeForState(
+  timerState: 'idle' | 'work' | 'break' | 'longBreak', 
+  preferences: { work_duration: number; break_duration: number; long_break_duration: number }
+): number {
+  switch (timerState) {
+    case 'work':
+      return preferences.work_duration * 60
+    case 'break':
+      return preferences.break_duration * 60
+    case 'longBreak':
+      return preferences.long_break_duration * 60
+    default:
+      return preferences.work_duration * 60
+  }
 } 

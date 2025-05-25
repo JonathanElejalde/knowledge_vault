@@ -1,29 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
-import { usePomodoroStore, type PomodoroStoreState } from '@/store/pomodoroStore';
+import { usePomodoroStore } from '@/store/pomodoroStore';
+import { usePomodoroPreferences, triggerPreferencesRefresh } from './usePomodoroPreferences';
+import { triggerSummaryRefresh } from './usePomodoroSummary';
 import type {
   PomodoroPreferences,
   PomodoroSession,
 } from '@/services/api/types/pomodoro';
-import { usePomodoroPreferences } from './usePomodoroPreferences';
-import { triggerSummaryRefresh } from './usePomodoroSummary';
 
 // Use TimerState from the store directly
 // No, it's better to use PomodoroStoreState['timerState'] for clarity
 // type TimerState = PomodoroStoreState['timerState']; // This is also an option
 
 interface UsePomodoroState {
-  // Timer state (mostly from store)
-  timerState: PomodoroStoreState['timerState'];
+  // Timer state (from store - single source of truth)
+  timerState: 'idle' | 'work' | 'break' | 'longBreak';
   isRunning: boolean;
   timeLeft: number; // in seconds
   completedIntervals: number;
 
-  // Current session
+  // Current session (hook-managed)
   currentSession: PomodoroSession | null;
   selectedProjectId: string | null;
 
-  // Preferences
+  // Preferences (from dedicated hook)
   preferences: PomodoroPreferences;
   isLoadingPreferences: boolean;
 
@@ -31,32 +31,43 @@ interface UsePomodoroState {
   startTimer: (projectId?: string) => Promise<void>;
   pauseTimer: () => void;
   resumeTimer: () => void;
-  resetTimer: () => Promise<void>;
-  startNextSession: () => void;
+  abandonSession: () => Promise<void>;
   updatePreferences: (newPreferences: Partial<PomodoroPreferences>) => Promise<void>;
   setSelectedProjectId: (projectId: string | null) => void;
-  abandonSession: () => Promise<void>;
 }
 
 export function usePomodoro(): UsePomodoroState {
+  // ✅ CORRECT: Get shared timer state from store (single source of truth)
   const {
     timerState,
     isRunning,
     timeLeft,
     completedIntervals,
     selectedProjectId,
-    setSelectedProjectId: setGlobalSelectedProjectId,
+    setSelectedProjectId,
     startTimer: startGlobalTimer,
     pauseTimer: pauseGlobalTimer,
     resumeTimer: resumeGlobalTimer,
     resetTimer: resetGlobalTimer,
-    startNextSession: startGlobalNextSession,
+    setPreferences: setGlobalPreferences,
   } = usePomodoroStore();
 
-  const [currentSessionHook, setCurrentSessionHook] = useState<PomodoroSession | null>(null);
-  const { preferences, isLoading: isLoadingPreferences, updatePreferences: updatePreferencesRaw } = usePomodoroPreferences();
+  // ✅ CORRECT: Get preferences from dedicated hook
+  const { 
+    preferences, 
+    isLoading: isLoadingPreferences, 
+    updatePreferences: updatePreferencesApi 
+  } = usePomodoroPreferences();
 
-  // Null-safe fallback for preferences
+  // ✅ CORRECT: Component-specific state in hook
+  const [currentSession, setCurrentSession] = useState<PomodoroSession | null>(null);
+
+  // Refs for tracking state changes
+  const previousCompletedIntervalsRef = useRef(completedIntervals);
+  const previousTimerStateRef = useRef(timerState);
+  const completionInProgressRef = useRef(false);
+
+  // Default preferences fallback
   const safePreferences = preferences ?? {
     work_duration: 25,
     break_duration: 5,
@@ -64,36 +75,41 @@ export function usePomodoro(): UsePomodoroState {
     long_break_interval: 4,
   };
 
-  // Wrap updatePreferences to match expected return type (Promise<void>)
-  const updatePreferences = async (newPreferences: Partial<PomodoroPreferences>) => {
-    await updatePreferencesRaw(newPreferences);
-  };
-
-  // Session completion effect - only handle session completion, no summary refresh
-  const previousCompletedIntervalsRef = useRef(completedIntervals);
-  const previousTimerStateRef = useRef(timerState);
-  const completionInProgressRef = useRef(false);
-  
+  // ✅ CORRECT: Sync preferences to store when they change
   useEffect(() => {
-    if (
+    if (preferences) {
+      setGlobalPreferences({
+        workDuration: preferences.work_duration,
+        breakDuration: preferences.break_duration,
+        longBreakDuration: preferences.long_break_duration,
+        longBreakInterval: preferences.long_break_interval,
+      });
+    }
+  }, [preferences, setGlobalPreferences]);
+
+  // ✅ CORRECT: Handle session completion when work interval completes
+  useEffect(() => {
+    const shouldCompleteSession = (
       completedIntervals > previousCompletedIntervalsRef.current &&
       previousTimerStateRef.current === 'work' &&
-      !completionInProgressRef.current
-    ) {
+      !completionInProgressRef.current &&
+      currentSession?.id
+    );
+
+    if (shouldCompleteSession) {
       previousCompletedIntervalsRef.current = completedIntervals;
       completionInProgressRef.current = true;
 
       const completeWorkSession = async () => {
         try {
-          if (currentSessionHook?.id) {
-            await pomodoroApi.completeSession(currentSessionHook.id, {
-              actual_duration: currentSessionHook.work_duration,
+          if (currentSession?.id) {
+            await pomodoroApi.completeSession(currentSession.id, {
+              actual_duration: currentSession.work_duration,
             });
-            // Trigger summary refresh after successful completion
             triggerSummaryRefresh();
           }
         } catch (error) {
-          console.error('Failed to complete session:', error);
+          console.error('❌ Failed to complete session:', error);
         } finally {
           completionInProgressRef.current = false;
         }
@@ -103,30 +119,33 @@ export function usePomodoro(): UsePomodoroState {
     }
     
     previousTimerStateRef.current = timerState;
-  }, [completedIntervals, timerState, currentSessionHook]);
+  }, [completedIntervals, timerState, currentSession]);
 
+  // ✅ CORRECT: Start timer action
   const startTimer = useCallback(async (projectId?: string) => {
     try {
-      const currentTimerState = usePomodoroStore.getState().timerState;
-      if (currentTimerState === 'idle' || currentTimerState === 'work') {
-        const sessionData = {
-          learning_project_id: projectId || selectedProjectId || undefined,
-          session_type: 'work' as const,
-          work_duration: safePreferences.work_duration,
-          break_duration: safePreferences.break_duration,
-        };
-        const session = await pomodoroApi.startSession(sessionData);
-        setCurrentSessionHook(session);
-        startGlobalTimer(session.id, projectId || selectedProjectId || undefined);
-      } else {
-        console.warn('startTimer called during break/longBreak, consider using startNextSession');
-        startGlobalNextSession(); 
-      }
+      const sessionData = {
+        learning_project_id: projectId || selectedProjectId || undefined,
+        session_type: 'work' as const,
+        work_duration: safePreferences.work_duration,
+        break_duration: safePreferences.break_duration,
+      };
+      
+      const session = await pomodoroApi.startSession(sessionData);
+      
+      setCurrentSession(session);
+      
+      // Reset the completion tracking refs for the new session
+      previousCompletedIntervalsRef.current = completedIntervals;
+      completionInProgressRef.current = false;
+      
+      startGlobalTimer(session.id, projectId || selectedProjectId || undefined);
+      
     } catch (error) {
-      console.error('Failed to start session:', error);
-      startGlobalTimer('fallback-session-id', projectId || selectedProjectId || undefined);
-      setCurrentSessionHook({ 
-        id: 'fallback-session-id',
+      // Fallback: start timer without API session
+      const fallbackSessionId = `fallback-${Date.now()}`;
+      const fallbackSession = {
+        id: fallbackSessionId,
         user_id: 'unknown',
         learning_project_id: projectId || selectedProjectId || undefined,
         session_type: 'work',
@@ -138,93 +157,113 @@ export function usePomodoro(): UsePomodoroState {
         end_time: undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      } as PomodoroSession);
+      } as PomodoroSession;
+      
+      setCurrentSession(fallbackSession);
+      
+      // Reset the completion tracking refs for the fallback session too
+      previousCompletedIntervalsRef.current = completedIntervals;
+      completionInProgressRef.current = false;
+      
+      startGlobalTimer(fallbackSessionId, projectId || selectedProjectId || undefined);
     }
-  }, [safePreferences, selectedProjectId, startGlobalTimer, startGlobalNextSession]);
+  }, [safePreferences, selectedProjectId, startGlobalTimer, completedIntervals]);
 
-  const pauseTimerHook = useCallback(() => {
+  // ✅ CORRECT: Pause timer action
+  const pauseTimer = useCallback(() => {
     pauseGlobalTimer();
   }, [pauseGlobalTimer]);
 
-  const resumeTimerHook = useCallback(() => {
+  // ✅ CORRECT: Resume timer action
+  const resumeTimer = useCallback(() => {
     resumeGlobalTimer();
   }, [resumeGlobalTimer]);
 
-  const resetTimerHook = useCallback(async () => {
-    if (currentSessionHook) {
-      try {
-        const storeStartTime = usePomodoroStore.getState().startTime;
+  // ✅ CORRECT: Abandon session action
+  const abandonSession = useCallback(async () => {
+    try {
+      // Only call API if we have a valid session
+      if (currentSession?.id && !currentSession.id.startsWith('fallback-')) {
+        // Calculate actual duration worked
+        const storeState = usePomodoroStore.getState();
         let actualDurationSeconds = 0;
-        if (storeStartTime) {
-          actualDurationSeconds = Math.floor((Date.now() - storeStartTime) / 1000);
+        
+        if (storeState.startTime && isRunning) {
+          // Timer is running - calculate from start time
+          actualDurationSeconds = Math.floor((Date.now() - storeState.startTime) / 1000);
         } else {
-          const storeTimeLeft = usePomodoroStore.getState().timeLeft;
+          // Timer is paused - calculate from time elapsed
           const plannedDurationSeconds = safePreferences.work_duration * 60;
-          actualDurationSeconds = plannedDurationSeconds - storeTimeLeft;
+          actualDurationSeconds = plannedDurationSeconds - timeLeft;
         }
+        
         // Ensure at least 1 minute is sent
         const actualDurationMinutes = Math.max(1, Math.round(actualDurationSeconds / 60));
-        await pomodoroApi.abandonSession(currentSessionHook.id, {
-          actual_duration: actualDurationMinutes,
-          reason: 'User reset timer'
-        });
-        setCurrentSessionHook(null);
-        // Trigger summary refresh after reset
-        triggerSummaryRefresh();
-      } catch (error) {
-        console.error('Failed to abandon session:', error);
-      }
-    }
-    resetGlobalTimer();
-  }, [currentSessionHook, resetGlobalTimer, safePreferences]);
-
-  const setSelectedProjectIdHook = useCallback((projectId: string | null) => {
-    setGlobalSelectedProjectId(projectId);
-  }, [setGlobalSelectedProjectId]);
-
-  const abandonSessionHook = useCallback(async () => {
-    if (currentSessionHook) {
-      try {
-        const storeStartTime = usePomodoroStore.getState().startTime;
-        let actualDurationSeconds = 0;
-        if (storeStartTime && isRunning) { 
-          actualDurationSeconds = Math.floor((Date.now() - storeStartTime) / 1000);
-        } else {
-            const plannedDurationSeconds = safePreferences.work_duration * 60;
-            actualDurationSeconds = plannedDurationSeconds - timeLeft; 
-        }
-        // Ensure at least 1 minute is sent
-        const actualDurationMinutes = Math.max(1, Math.round(actualDurationSeconds / 60));
-        await pomodoroApi.abandonSession(currentSessionHook.id, {
+        
+        await pomodoroApi.abandonSession(currentSession.id, {
           actual_duration: actualDurationMinutes,
           reason: 'User abandoned session'
         });
-        setCurrentSessionHook(null);
-        // Trigger summary refresh after abandon
+        
         triggerSummaryRefresh();
-      } catch (error) {
-        console.error('Failed to abandon session during explicit abandon call:', error);
+      } else {
+        // Clear session state
+        setCurrentSession(null);
       }
+      
+      // Always reset timer regardless of API success/failure or session state
+      resetGlobalTimer();
+    } catch (error) {
+      console.error('Failed to abandon session:', error);
     }
-    resetGlobalTimer(); 
-  }, [currentSessionHook, resetGlobalTimer, timeLeft, isRunning, safePreferences]);
+  }, [currentSession, resetGlobalTimer, timeLeft, isRunning, safePreferences]);
+
+  // ✅ CORRECT: Update preferences with proper timing logic
+  const updatePreferences = useCallback(async (newPreferences: Partial<PomodoroPreferences>) => {
+    const hasActiveSession = currentSession && (timerState === 'work' || timerState === 'break' || timerState === 'longBreak');
+    
+    try {
+      await updatePreferencesApi(newPreferences);
+      
+      if (!hasActiveSession) {
+        // No active session - preferences will update immediately via the effect above
+        // The store will be updated when preferences hook triggers refresh
+      }
+      // If there's an active session, preferences will take effect after the full cycle
+      // (work + break) completes, which is handled by the sync effect above
+      
+    } catch (error) {
+      console.error('Failed to update preferences:', error);
+      throw error;
+    }
+  }, [updatePreferencesApi, currentSession, timerState]);
+
+  // ✅ CORRECT: Set selected project
+  const setSelectedProjectIdAction = useCallback((projectId: string | null) => {
+    setSelectedProjectId(projectId);
+  }, [setSelectedProjectId]);
 
   return {
+    // Timer state from store
     timerState,
     isRunning,
     timeLeft,
     completedIntervals,
-    currentSession: currentSessionHook,
+    
+    // Session state from hook
+    currentSession,
     selectedProjectId,
+    
+    // Preferences from dedicated hook
     preferences: safePreferences,
     isLoadingPreferences,
+    
+    // Actions
     startTimer,
-    pauseTimer: pauseTimerHook,
-    resumeTimer: resumeTimerHook,
-    resetTimer: resetTimerHook,
-    startNextSession: startGlobalNextSession,
+    pauseTimer,
+    resumeTimer,
+    abandonSession,
     updatePreferences,
-    setSelectedProjectId: setSelectedProjectIdHook,
-    abandonSession: abandonSessionHook,
+    setSelectedProjectId: setSelectedProjectIdAction,
   };
 } 

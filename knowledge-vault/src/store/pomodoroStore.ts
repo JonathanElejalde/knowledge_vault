@@ -135,13 +135,14 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
             isRunning: true,
             startTime: Date.now(),
           });
+          
           state._startInterval();
 
         } else if (state.timerState === 'break' || state.timerState === 'longBreak') {
           state._playSound('/sounds/bell-notification.wav');
           
           set({
-            timerState: 'work',
+            timerState: 'idle',
             timeLeft: state.workDuration * 60,
             isRunning: false,
             startTime: null,
