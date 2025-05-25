@@ -8,13 +8,16 @@ import { Slider } from "@/components/atoms/Slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/atoms/Dialog"
 import NotesEditor from "@/features/notes/components/NotesEditor"
 import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
+import { learningProjectsApi } from "@/services/api/learningProjects"
+
 import { cn } from "@/lib/utils"
 
 interface PomodoroTimerProps {
   selectedProjectId?: string | null;
+  onProjectNameUpdate?: (projectId: string, projectName: string) => void;
 }
 
-export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
+export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: PomodoroTimerProps) {
   const {
     timerState,
     isRunning,
@@ -39,6 +42,13 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
   const [showNotesWindow, setShowNotesWindow] = useState(false)
   const notesWindowRef = useRef<Window | null>(null)
 
+  // Project name state
+  const [selectedProjectName, setSelectedProjectName] = useState<string | null>(null)
+  const [isLoadingProjectName, setIsLoadingProjectName] = useState(false)
+  
+  // Simple cache for project names to avoid repeated API calls
+  const projectNameCacheRef = useRef<Map<string, string>>(new Map())
+
   // Local settings state for the dialog
   const [localWorkTime, setLocalWorkTime] = useState(preferences.work_duration)
   const [localBreakTime, setLocalBreakTime] = useState(preferences.break_duration)
@@ -52,6 +62,43 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
     setLocalLongBreakTime(preferences.long_break_duration)
     setLocalIntervalsBeforeLongBreak(preferences.long_break_interval)
   }, [preferences])
+
+  // Fetch project name when selectedProjectId changes
+  useEffect(() => {
+    const fetchProjectName = async () => {
+      if (!selectedProjectId) {
+        setSelectedProjectName(null)
+        return
+      }
+
+      // Check cache first
+      const cachedName = projectNameCacheRef.current.get(selectedProjectId)
+      if (cachedName) {
+        setSelectedProjectName(cachedName)
+        return
+      }
+
+      try {
+        setIsLoadingProjectName(true)
+        const project = await learningProjectsApi.get(selectedProjectId)
+        setSelectedProjectName(project.name)
+        // Cache the project name
+        projectNameCacheRef.current.set(selectedProjectId, project.name)
+        // Notify parent component if callback provided
+        onProjectNameUpdate?.(selectedProjectId, project.name)
+      } catch (error) {
+        console.error('Failed to fetch project name:', error)
+        const fallbackName = `Project ${selectedProjectId}`
+        setSelectedProjectName(fallbackName)
+        // Cache the fallback name to avoid repeated failed requests
+        projectNameCacheRef.current.set(selectedProjectId, fallbackName)
+      } finally {
+        setIsLoadingProjectName(false)
+      }
+    }
+
+    fetchProjectName()
+  }, [selectedProjectId])
 
   // Calculate progress for the circular timer
   const totalTime = getTotalTimeForState(timerState, preferences)
@@ -273,6 +320,19 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
           </div>
         </div>
       </div>
+
+      {/* Selected Project Display - Subtle */}
+      {selectedProjectId && (
+        <div className="mb-3 text-center">
+          <div className="text-xs text-muted-foreground/70">
+            {isLoadingProjectName ? (
+              <span className="animate-pulse">Loading project...</span>
+            ) : (
+              <>Project: {selectedProjectName || selectedProjectId}</>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Project Selection Prompt */}
       {timerState === 'idle' && !selectedProjectId && (

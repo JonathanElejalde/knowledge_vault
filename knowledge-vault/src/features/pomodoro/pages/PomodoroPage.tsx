@@ -9,7 +9,7 @@ import { usePomodoroSummary } from "@/features/pomodoro/hooks/usePomodoroSummary
 import { NewProjectDialog } from "@/features/projects/components/NewProjectDialog"
 import type { ProjectFormData } from "@/features/projects/components/NewProjectDialog"
 import { learningProjectsApi } from "@/services/api/learningProjects"
-import { useToast, Toast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
+import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
 
 // Utility for formatting session date or range
 function formatSessionDateRange(first: string, last: string) {
@@ -69,21 +69,8 @@ export default function PomodoroPage() {
 
   // Only usePomodoro for timer and preferences
   const {
-    timerState,
-    isRunning,
-    timeLeft,
-    completedIntervals,
     selectedProjectId,
-    preferences,
-    isLoadingPreferences,
-    startTimer,
-    pauseTimer,
-    resumeTimer,
-    resetTimer,
-    startNextSession,
-    updatePreferences,
     setSelectedProjectId,
-    abandonSession,
   } = usePomodoro()
 
   // Use the new summary hook for session history

@@ -32,7 +32,12 @@ export function ProjectSelector({ value, onValueChange }: ProjectSelectorProps) 
     }
   }, [])
 
-  // Load projects when dialog opens
+  // Load projects on mount to ensure selected project is available
+  React.useEffect(() => {
+    loadProjects()
+  }, [loadProjects])
+
+  // Refresh projects when dialog opens (in case new projects were added)
   React.useEffect(() => {
     if (open) {
       loadProjects()
@@ -40,17 +45,20 @@ export function ProjectSelector({ value, onValueChange }: ProjectSelectorProps) 
   }, [open, loadProjects])
 
   const selectedProject = projects.find((project) => project.id === value)
+  
+  // If we have a value but no matching project in the list, it might be deleted or not loaded yet
+  const hasValidSelection = value && selectedProject
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button 
-          variant={value ? "outline" : "default"}
+          variant={hasValidSelection ? "outline" : "default"}
           role="combobox" 
           aria-expanded={open} 
           className={cn(
             "w-[240px] justify-between",
-            !value && "animate-pulse"
+            !hasValidSelection && !isLoading && "animate-pulse"
           )}
           disabled={isLoading}
         >
@@ -59,8 +67,17 @@ export function ProjectSelector({ value, onValueChange }: ProjectSelectorProps) 
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Loading...
             </>
-          ) : selectedProject ? (
-            selectedProject.name
+          ) : hasValidSelection ? (
+            <>
+              <span>{selectedProject!.name}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </>
+          ) : value ? (
+            // Show project ID if we have a value but project not loaded yet
+            <>
+              <span className="text-muted-foreground">Project {value}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </>
           ) : (
             <>
               <span className="flex items-center">
@@ -69,7 +86,9 @@ export function ProjectSelector({ value, onValueChange }: ProjectSelectorProps) 
               </span>
             </>
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {!isLoading && !hasValidSelection && (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[240px] p-0">
