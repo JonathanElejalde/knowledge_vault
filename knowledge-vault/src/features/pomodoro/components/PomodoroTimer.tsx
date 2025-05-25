@@ -213,6 +213,10 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
   // Determine if we have an active session (work, break, or long break)
   const hasActiveSession = !!currentSession && (timerState === 'work' || timerState === 'break' || timerState === 'longBreak')
 
+  // Determine the current timer state for better UX
+  const isPaused = !isRunning && timerState !== 'idle'
+  const isIdle = timerState === 'idle'
+
   return (
     <div className="flex flex-col items-center">
       {/* Circular Timer Display */}
@@ -248,6 +252,7 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
                   : timerState === "longBreak"
                     ? "text-blue-500"
                     : "text-primary",
+              isPaused && "opacity-60 animate-pulse"
             )}
           />
         </svg>
@@ -256,7 +261,12 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="text-4xl font-bold">{formatTime(timeLeft)}</div>
           <div className="text-sm text-muted-foreground mt-2 capitalize">
-            {timerState === "idle" ? "Ready" : timerState.replace(/([A-Z])/g, " $1").trim()}
+            {isIdle 
+              ? "Ready" 
+              : isPaused 
+                ? `${timerState.replace(/([A-Z])/g, " $1").trim()} - Paused`
+                : timerState.replace(/([A-Z])/g, " $1").trim()
+            }
           </div>
           <div className="text-xs text-muted-foreground mt-1">
             {completedIntervals} / {preferences.long_break_interval} intervals
@@ -279,11 +289,15 @@ export function PomodoroTimer({ selectedProjectId }: PomodoroTimerProps) {
             onClick={handlePlayPause} 
             size="icon" 
             variant="default"
-            disabled={!canStartTimer && timerState === 'idle'}
-            title={!selectedProjectId && timerState === 'idle' ? "Please select a project first" : "Start timer"}
+            disabled={!canStartTimer && isIdle}
+            title={
+              isIdle 
+                ? (!selectedProjectId ? "Please select a project first" : "Start new Pomodoro session")
+                : "Resume paused session"
+            }
           >
             <Play className="h-5 w-5" />
-            <span className="sr-only">Start</span>
+            <span className="sr-only">{isIdle ? "Start" : "Resume"}</span>
           </Button>
         ) : (
           <Button 

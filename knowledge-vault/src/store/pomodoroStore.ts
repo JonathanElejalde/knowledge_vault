@@ -10,6 +10,7 @@ export interface PomodoroStoreState {
   timeLeft: number; // in seconds
   completedIntervals: number;
   startTime: number | null; // timestamp when timer started, for accuracy
+  resumeTimeLeft: number | null; // time left when resuming from pause
   
   // Session info
   currentSessionId: string | null;
@@ -66,6 +67,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       timeLeft: 25 * 60,
       completedIntervals: 0,
       startTime: null,
+      resumeTimeLeft: null,
       currentSessionId: null,
       selectedProjectId: null,
       workDuration: 25,
@@ -83,6 +85,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         set({
           isRunning: true,
           startTime: now,
+          resumeTimeLeft: null,
           currentSessionId: sessionId,
           selectedProjectId: projectId || state.selectedProjectId,
           timerState: state.timerState === 'idle' ? 'work' : state.timerState,
@@ -94,14 +97,23 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
 
       pauseTimer: () => {
         const state = get();
-        set({ isRunning: false, startTime: null });
+        set({ 
+          isRunning: false, 
+          startTime: null,
+          resumeTimeLeft: null, // Clear when pausing
+        });
         state._clearInterval();
       },
 
       resumeTimer: () => {
         const state = get();
         const now = Date.now();
-        set({ isRunning: true, startTime: now });
+        // When resuming, store the current timeLeft as our baseline
+        set({ 
+          isRunning: true, 
+          startTime: now,
+          resumeTimeLeft: state.timeLeft, // Store current time when resuming
+        });
         state._startInterval();
       },
 
@@ -114,6 +126,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           timeLeft: state.workDuration * 60,
           completedIntervals: 0,
           startTime: null,
+          resumeTimeLeft: null,
           currentSessionId: null,
         });
       },
@@ -202,13 +215,16 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
 
           if (currentState.startTime) {
             const elapsed = Math.floor((Date.now() - currentState.startTime) / 1000);
-            const originalTime = 
-              currentState.timerState === 'work' ? currentState.workDuration * 60 :
-              currentState.timerState === 'break' ? currentState.breakDuration * 60 :
-              currentState.timerState === 'longBreak' ? currentState.longBreakDuration * 60 :
-              currentState.timeLeft;
             
-            const newTimeLeft = Math.max(0, originalTime - elapsed);
+            // Use resumeTimeLeft if available (when resuming), otherwise calculate from full duration
+            const baselineTime = currentState.resumeTimeLeft !== null 
+              ? currentState.resumeTimeLeft
+              : currentState.timerState === 'work' ? currentState.workDuration * 60 :
+                currentState.timerState === 'break' ? currentState.breakDuration * 60 :
+                currentState.timerState === 'longBreak' ? currentState.longBreakDuration * 60 :
+                currentState.timeLeft;
+            
+            const newTimeLeft = Math.max(0, baselineTime - elapsed);
             
             if (newTimeLeft <= 0) {
               currentState.completeInterval();
@@ -244,6 +260,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         timeLeft: state.timeLeft,
         completedIntervals: state.completedIntervals,
         startTime: state.startTime,
+        resumeTimeLeft: state.resumeTimeLeft,
         currentSessionId: state.currentSessionId,
         selectedProjectId: state.selectedProjectId,
         workDuration: state.workDuration,
