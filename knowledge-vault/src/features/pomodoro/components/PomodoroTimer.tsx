@@ -7,7 +7,7 @@ import { Button } from "@/components/atoms/Button"
 import { Slider } from "@/components/atoms/Slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/atoms/Dialog"
 import NotesEditor from "@/features/notes/components/NotesEditor"
-import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
+import { usePomodoro } from "@/features/pomodoro/hooks/internal"
 import { learningProjectsApi } from "@/services/api/learningProjects"
 
 import { cn } from "@/lib/utils"

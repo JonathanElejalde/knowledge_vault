@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
 import { usePomodoroStore } from '@/store/pomodoroStore';
-import { usePomodoroPreferences, triggerPreferencesRefresh } from './usePomodoroPreferences';
-import { triggerSummaryRefresh } from './usePomodoroSummary';
+import { usePomodoroPreferences, triggerPreferencesRefresh, triggerSummaryRefresh, triggerWeeklyStatsRefresh } from './internal';
 import type {
   PomodoroPreferences,
   PomodoroSession,
@@ -107,6 +106,7 @@ export function usePomodoro(): UsePomodoroState {
               actual_duration: currentSession.work_duration,
             });
             triggerSummaryRefresh();
+            triggerWeeklyStatsRefresh();
           }
         } catch (error) {
           console.error('❌ Failed to complete session:', error);
@@ -206,6 +206,7 @@ export function usePomodoro(): UsePomodoroState {
         });
         
         triggerSummaryRefresh();
+        triggerWeeklyStatsRefresh();
       } else {
         // Clear session state
         setCurrentSession(null);

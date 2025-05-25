@@ -4,12 +4,23 @@ import { PomodoroTimer } from "@/features/pomodoro/components/PomodoroTimer"
 import { ProjectSelector } from "@/features/pomodoro/components/ProjectSelector"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/Card"
 import { Button } from "@/components/atoms/Button"
-import { usePomodoro } from "@/features/pomodoro/hooks/usePomodoro"
-import { usePomodoroSummary } from "@/features/pomodoro/hooks/usePomodoroSummary"
+import { usePomodoro, usePomodoroSummary, usePomodoroWeeklyStats } from "@/features/pomodoro/hooks/internal"
 import { NewProjectDialog } from "@/features/projects/components/NewProjectDialog"
 import type { ProjectFormData } from "@/features/projects/components/NewProjectDialog"
 import { learningProjectsApi } from "@/services/api/learningProjects"
 import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
+
+// Utility for formatting time duration
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  
+  if (hours > 0) {
+    return `${hours}h ${remainingMinutes}m`;
+  }
+  return `${remainingMinutes}m`;
+}
+
 
 // Utility for formatting session date or range
 function formatSessionDateRange(first: string, last: string) {
@@ -76,6 +87,9 @@ export default function PomodoroPage() {
   // Use the new summary hook for session history
   const { summary: sessionSummary, isLoading: isLoadingSessionSummary } = usePomodoroSummary()
 
+  // Use the weekly statistics hook
+  const { weeklyStats, isLoading: isLoadingWeeklyStats, error: weeklyStatsError } = usePomodoroWeeklyStats()
+
   const handleCreateProject = async (data: ProjectFormData) => {
     try {
       const newProject = await learningProjectsApi.create({
@@ -94,7 +108,8 @@ export default function PomodoroPage() {
           </>
         ),
       })
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to create project:', error);
       toast({
         children: (
           <>
@@ -106,6 +121,7 @@ export default function PomodoroPage() {
       })
     }
   }
+
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -165,10 +181,7 @@ export default function PomodoroPage() {
                       </div>
                     </div>
                     <div className="text-sm font-medium">
-                      {Math.floor(summary.total_duration_minutes / 60) > 0
-                        ? `${Math.floor(summary.total_duration_minutes / 60)}h `
-                        : ''}
-                      {summary.total_duration_minutes % 60}m
+                      {formatDuration(summary.total_duration_minutes)}
                     </div>
                   </div>
                 ))
@@ -184,44 +197,44 @@ export default function PomodoroPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total focus time</span>
-                  <span className="font-medium">0h 0m</span>
+              {isLoadingWeeklyStats ? (
+                <div className="text-center text-muted-foreground">Loading statistics...</div>
+              ) : weeklyStatsError ? (
+                <div className="text-center text-muted-foreground">
+                  <p>Unable to load statistics</p>
+                  <p className="text-xs mt-1">Using default values (API endpoint may not be available yet)</p>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="bg-primary h-full transition-all duration-300" 
-                    style={{ width: `0%` }} 
-                  />
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Total focus time</span>
+                    <span className="font-medium">
+                      {formatDuration(weeklyStats?.total_focus_time_minutes || 0)}
+                    </span>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Completed sessions</span>
-                  <span className="font-medium">0 / 0</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="bg-primary h-full transition-all duration-300" 
-                    style={{ width: `0%` }} 
-                  />
-                </div>
-              </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Completed sessions</span>
+                    <span className="font-medium">
+                      {weeklyStats?.completed_sessions_count || 0}
+                    </span>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Weekly goal</span>
-                  <span className="font-medium">0h 0m / 15h</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="bg-primary h-full transition-all duration-300" 
-                    style={{ width: `0%` }} 
-                  />
-                </div>
-              </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Abandoned sessions</span>
+                    <span className="font-medium">
+                      {weeklyStats?.abandoned_sessions_count || 0}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between text-sm">
+                    <span>Notes taken</span>
+                    <span className="font-medium">
+                      {weeklyStats?.notes_count || 0}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

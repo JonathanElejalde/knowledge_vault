@@ -80,4 +80,14 @@ export interface PomodoroSessionSummary {
   first_session_date: string; // ISO 8601
   last_session_date: string;  // ISO 8601
   session_count: number;
+}
+
+// Weekly statistics response (from /pomodoro/weekly-statistics)
+export interface WeeklyStatisticsResponse {
+  total_focus_time_minutes: number;
+  completed_sessions_count: number;
+  abandoned_sessions_count: number;
+  notes_count: number;
+  week_start_date: string; // ISO 8601
+  week_end_date: string; // ISO 8601
 } 

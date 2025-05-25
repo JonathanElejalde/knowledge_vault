@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
-import { getCachedApiCall, clearApiCache } from './useApiCache';
+import { getCachedApiCall, clearApiCache } from './internal';
 import type { PomodoroSessionSummary } from '@/services/api/types/pomodoro';
 
 // Global event emitter for session updates

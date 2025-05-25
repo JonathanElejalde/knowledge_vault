@@ -9,6 +9,7 @@ import type {
   SessionFilters,
   PomodoroStatistics,
   PomodoroSessionSummary,
+  WeeklyStatisticsResponse,
 } from './types/pomodoro';
 
 export const pomodoroApi = {
@@ -147,6 +148,27 @@ export const pomodoroApi = {
       return response.data;
     } catch (error) {
       throw error;
+    }
+  },
+
+  /**
+   * Get weekly statistics for the current calendar week
+   */
+  getWeeklyStatistics: async (): Promise<WeeklyStatisticsResponse> => {
+    try {
+      const response = await api.get<WeeklyStatisticsResponse>('/pomodoro/statistics/weekly');
+      return response.data;
+    } catch (error) {
+      // Return default weekly statistics if endpoint not available yet
+      console.warn('Weekly statistics endpoint not available, using default values:', error);
+      return {
+        total_focus_time_minutes: 0,
+        completed_sessions_count: 0,
+        abandoned_sessions_count: 0,
+        notes_count: 0,
+        week_start_date: new Date().toISOString(),
+        week_end_date: new Date().toISOString(),
+      };
     }
   },
 }; 

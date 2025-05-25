@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
-import { getCachedApiCall, clearApiCache } from './useApiCache';
+import { getCachedApiCall, clearApiCache } from './internal';
 import type { PomodoroPreferences } from '@/services/api/types/pomodoro';
 
 // Event emitter for preferences updates
