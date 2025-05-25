@@ -5,8 +5,8 @@ from sqlalchemy import select, and_, func, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from loguru import logger
-from app.db.models import Session, User, LearningProject
-from app.schemas.pomodoro import SessionStart, SessionComplete, SessionAbandon, SessionSummaryResponse
+from app.db.models import Session, User, LearningProject, Note
+from app.schemas.pomodoro import SessionStart, SessionComplete, SessionAbandon, SessionSummaryResponse, WeeklyStatisticsResponse
 
 
 async def create_session(
@@ -340,15 +340,16 @@ async def get_session_summaries(
         - If period is "week", returns data for the current week (Monday-Sunday)
         - If period is "month", returns data for the current month
         - If start_date and end_date are provided, uses that range instead
-        - Only includes completed sessions
+        - Only includes completed and abandoned sessions
+        - Only includes sessions from completed or in_progress learning projects
+        - Excludes sessions without a project linked
         - Uses actual_duration if available, otherwise work_duration
-        - Sessions without a project are grouped under "No Project"
     """
     # Build the base query
     query = (
         select(
             Session.learning_project_id.label("project_id"),
-            func.coalesce(LearningProject.name, "No Project").label("project_name"),
+            LearningProject.name.label("project_name"),
             func.sum(
                 case(
                     (Session.actual_duration.isnot(None), Session.actual_duration),
@@ -359,15 +360,13 @@ async def get_session_summaries(
             func.max(Session.start_time).label("last_session_date"),
             func.count(Session.id).label("session_count")
         )
-        .outerjoin(LearningProject, Session.learning_project_id == LearningProject.id)
+        .join(LearningProject, Session.learning_project_id == LearningProject.id)
         .where(
             and_(
                 Session.user_id == user_id,
-                Session.status == "completed",
-                or_(
-                    LearningProject.status.is_(None),  # No project
-                    LearningProject.status != "archived"  # Project not archived
-                )
+                Session.status.in_(["completed", "abandoned"]),  # Include both completed and abandoned sessions
+                Session.learning_project_id.isnot(None),  # Must have a project linked
+                LearningProject.status.in_(["completed", "in_progress"])  # Only active projects
             )
         )
         .group_by(Session.learning_project_id, LearningProject.name)
@@ -429,4 +428,111 @@ async def get_session_summaries(
         )
         for summary in summaries
     ]
+
+
+async def get_weekly_statistics(
+    db: AsyncSession,
+    user_id: UUID
+) -> WeeklyStatisticsResponse:
+    """Get weekly statistics for a user's Pomodoro sessions and notes.
+    
+    Retrieves statistics for the current calendar week (Monday to Sunday) including:
+    - Total focus time from completed and abandoned sessions
+    - Count of completed sessions
+    - Count of abandoned sessions  
+    - Count of notes taken
+    
+    Args:
+        db: The database session to use for the operation
+        user_id: The UUID of the user whose statistics to retrieve
+        
+    Returns:
+        WeeklyStatisticsResponse: Weekly statistics for the user
+        
+    Note:
+        - Uses calendar week (Monday-Sunday) for consistent reporting
+        - Focus time includes actual_duration if available, otherwise work_duration
+        - Only includes sessions from completed or in_progress learning projects
+        - Excludes sessions and notes without a project linked
+        - Notes are counted from user's notes in active projects during the current week
+    """
+    now = datetime.now(UTC)
+    
+    # Calculate start of current week (Monday)
+    start_of_week = now - timedelta(days=now.weekday())
+    start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Calculate end of current week (Sunday)
+    end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    
+    # Query for session statistics
+    session_stats_query = (
+        select(
+            func.sum(
+                case(
+                    (Session.actual_duration.isnot(None), Session.actual_duration),
+                    else_=Session.work_duration
+                )
+            ).label("total_focus_time"),
+            func.sum(
+                case(
+                    (Session.status == "completed", 1),
+                    else_=0
+                )
+            ).label("completed_count"),
+            func.sum(
+                case(
+                    (Session.status == "abandoned", 1),
+                    else_=0
+                )
+            ).label("abandoned_count")
+        )
+        .join(LearningProject, Session.learning_project_id == LearningProject.id)
+        .where(
+            and_(
+                Session.user_id == user_id,
+                Session.start_time >= start_of_week,
+                Session.start_time <= end_of_week,
+                Session.status.in_(["completed", "abandoned"]),  # Only count completed and abandoned sessions for focus time
+                Session.learning_project_id.isnot(None),  # Must have a project linked
+                LearningProject.status.in_(["completed", "in_progress"])  # Only active projects
+            )
+        )
+    )
+    
+    # Query for notes count - simplified to only count notes from user's active projects
+    notes_count_query = (
+        select(func.count(Note.id))
+        .join(LearningProject, Note.learning_project_id == LearningProject.id)
+        .where(
+            and_(
+                Note.user_id == user_id,  # Notes belong to this user
+                Note.created_at >= start_of_week,
+                Note.created_at <= end_of_week,
+                Note.learning_project_id.isnot(None),  # Must have a project linked
+                LearningProject.status.in_(["completed", "in_progress"])  # Only active projects
+            )
+        )
+    )
+    
+    # Execute queries
+    session_stats_result = await db.execute(session_stats_query)
+    session_stats = session_stats_result.first()
+    
+    notes_count_result = await db.execute(notes_count_query)
+    notes_count = notes_count_result.scalar() or 0
+    
+    # Extract values with defaults
+    total_focus_time = session_stats.total_focus_time or 0
+    completed_count = session_stats.completed_count or 0
+    abandoned_count = session_stats.abandoned_count or 0
+    
+    return WeeklyStatisticsResponse(
+        total_focus_time_minutes=total_focus_time,
+        completed_sessions_count=completed_count,
+        abandoned_sessions_count=abandoned_count,
+        notes_count=notes_count,
+        week_start_date=start_of_week,
+        week_end_date=end_of_week
+    )
 

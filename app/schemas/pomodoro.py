@@ -44,6 +44,19 @@ class SessionResponseWithProject(SessionResponse):
     learning_project: Optional[LearningProjectResponseBase] = None 
 
 
+class WeeklyStatisticsResponse(BaseModel):
+    """Schema for weekly Pomodoro statistics response."""
+    total_focus_time_minutes: int = Field(description="Total focus time in minutes for the current week (completed and abandoned sessions)")
+    completed_sessions_count: int = Field(description="Number of completed sessions in the current week")
+    abandoned_sessions_count: int = Field(description="Number of abandoned sessions in the current week")
+    notes_count: int = Field(description="Number of notes taken in the current week")
+    week_start_date: datetime = Field(description="Start date of the current week (Monday)")
+    week_end_date: datetime = Field(description="End date of the current week (Sunday)")
+
+    class Config:
+        from_attributes = True
+
+
 class SessionSummaryResponse(BaseModel):
     """Schema for Pomodoro session summary response."""
     project_id: Optional[UUID] = Field(default=None, description="The unique ID of the project (nullable if session not linked to a project)")

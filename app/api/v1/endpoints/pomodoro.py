@@ -15,7 +15,8 @@ from app.schemas.pomodoro import (
     SessionAbandon,
     SessionResponse,
     SessionResponseWithProject,
-    SessionSummaryResponse
+    SessionSummaryResponse,
+    WeeklyStatisticsResponse
 )
 from app.schemas.learning_projects import LearningProjectResponse
 from datetime import datetime
@@ -262,6 +263,42 @@ async def list_sessions(
         session_data = SessionResponse.model_validate(session_db).model_dump()
         response_list.append(SessionResponseWithProject(**session_data, learning_project=project_response_data))
     return response_list
+
+
+@router.get("/statistics/weekly", response_model=WeeklyStatisticsResponse)
+async def get_weekly_statistics(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> WeeklyStatisticsResponse:
+    """Get weekly Pomodoro statistics for the current user.
+    
+    Retrieves comprehensive statistics for the current calendar week (Monday to Sunday)
+    including total focus time, session counts, and notes taken. This endpoint provides
+    key metrics for dashboard display and user progress tracking.
+    
+    Returns:
+        WeeklyStatisticsResponse: Weekly statistics including:
+            - total_focus_time_minutes: Sum of actual_duration (or work_duration) for completed and abandoned sessions
+            - completed_sessions_count: Number of sessions marked as completed
+            - abandoned_sessions_count: Number of sessions marked as abandoned  
+            - notes_count: Total number of notes created during the week
+            - week_start_date: Start of the current week (Monday at 00:00:00)
+            - week_end_date: End of the current week (Sunday at 23:59:59)
+        
+    Raises:
+        HTTPException: 
+            - 401: If the user is not authenticated
+            
+    Note:
+        - Uses calendar week (Monday-Sunday) for consistent reporting
+        - Only includes data from non-archived learning projects
+        - Focus time calculation prioritizes actual_duration over planned work_duration
+        - Notes are counted from both session-linked and project-linked notes
+    """
+    return await crud.get_weekly_statistics(
+        db=db,
+        user_id=current_user.id
+    )
 
 
 @router.get("/sessions/summary", response_model=List[SessionSummaryResponse])

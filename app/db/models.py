@@ -22,6 +22,7 @@ class User(BaseModel, table=True):
     sessions: List["Session"] = Relationship(back_populates="user")
     anki_decks: List["AnkiDeck"] = Relationship(back_populates="user")
     learning_projects: List["LearningProject"] = Relationship(back_populates="user")
+    notes: List["Note"] = Relationship(back_populates="user")
     refresh_tokens: List["RefreshToken"] = Relationship(back_populates="user")
 
 
@@ -94,6 +95,7 @@ class Note(BaseModel, table=True):
         Index('idx_notes_tags', 'tags', postgresql_using='gin'),
     )
 
+    user_id: Optional[UUID] = Field(foreign_key="users.id", index=True, default=None)
     session_id: Optional[UUID] = Field(foreign_key="sessions.id", index=True, default=None)
     learning_project_id: Optional[UUID] = Field(foreign_key="learning_projects.id", index=True, default=None)
     content: str = Field(sa_type=Text)
@@ -102,6 +104,7 @@ class Note(BaseModel, table=True):
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
+    user: Optional["User"] = Relationship(back_populates="notes")
     session: Optional[Session] = Relationship(back_populates="notes")
     learning_project: Optional[LearningProject] = Relationship(back_populates="notes")
     flashcards: List["Flashcard"] = Relationship(back_populates="note")
