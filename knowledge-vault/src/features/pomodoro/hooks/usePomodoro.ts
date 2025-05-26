@@ -88,6 +88,19 @@ export function usePomodoro(): UsePomodoroState {
 
   // ✅ CORRECT: Handle session completion when work interval completes
   useEffect(() => {
+    // DEBUG_LOGS_START
+    console.log('🔍 COMPLETION EFFECT TRIGGERED:', {
+      completedIntervals,
+      previousCompletedIntervals: previousCompletedIntervalsRef.current,
+      timerState,
+      previousTimerState: previousTimerStateRef.current,
+      completionInProgress: completionInProgressRef.current,
+      currentSessionId: currentSession?.id,
+      currentSessionWorkDuration: currentSession?.work_duration,
+      timestamp: new Date().toISOString()
+    });
+    // DEBUG_LOGS_END
+
     const shouldCompleteSession = (
       completedIntervals > previousCompletedIntervalsRef.current &&
       previousTimerStateRef.current === 'work' &&
@@ -95,22 +108,62 @@ export function usePomodoro(): UsePomodoroState {
       currentSession?.id
     );
 
+    // DEBUG_LOGS_START
+    console.log('🔍 SHOULD COMPLETE SESSION:', shouldCompleteSession, {
+      intervalIncreased: completedIntervals > previousCompletedIntervalsRef.current,
+      wasInWorkState: previousTimerStateRef.current === 'work',
+      notInProgress: !completionInProgressRef.current,
+      hasSessionId: !!currentSession?.id
+    });
+    // DEBUG_LOGS_END
+
     if (shouldCompleteSession) {
+      // DEBUG_LOGS_START
+      console.log('✅ STARTING SESSION COMPLETION:', {
+        sessionId: currentSession.id,
+        workDuration: currentSession.work_duration,
+        completedIntervals,
+        timestamp: new Date().toISOString()
+      });
+      // DEBUG_LOGS_END
+
       previousCompletedIntervalsRef.current = completedIntervals;
       completionInProgressRef.current = true;
 
       const completeWorkSession = async () => {
         try {
           if (currentSession?.id) {
+            // DEBUG_LOGS_START
+            console.log('🚀 CALLING API COMPLETE SESSION:', {
+              sessionId: currentSession.id,
+              actualDuration: currentSession.work_duration,
+              timestamp: new Date().toISOString()
+            });
+            // DEBUG_LOGS_END
+
             await pomodoroApi.completeSession(currentSession.id, {
               actual_duration: currentSession.work_duration,
             });
+
+            // DEBUG_LOGS_START
+            console.log('✅ API COMPLETE SESSION SUCCESS:', {
+              sessionId: currentSession.id,
+              timestamp: new Date().toISOString()
+            });
+            // DEBUG_LOGS_END
+
             triggerSummaryRefresh();
             triggerWeeklyStatsRefresh();
           }
         } catch (error) {
           console.error('❌ Failed to complete session:', error);
         } finally {
+          // DEBUG_LOGS_START
+          console.log('🏁 COMPLETION FINISHED, resetting flag:', {
+            sessionId: currentSession?.id,
+            timestamp: new Date().toISOString()
+          });
+          // DEBUG_LOGS_END
           completionInProgressRef.current = false;
         }
       };
@@ -119,10 +172,23 @@ export function usePomodoro(): UsePomodoroState {
     }
     
     previousTimerStateRef.current = timerState;
+    // DEBUG_LOGS_START
+    console.log('🔄 UPDATED PREVIOUS TIMER STATE TO:', timerState);
+    // DEBUG_LOGS_END
   }, [completedIntervals, timerState, currentSession]);
 
   // ✅ CORRECT: Start timer action
   const startTimer = useCallback(async (projectId?: string) => {
+    // DEBUG_LOGS_START
+    console.log('🚀 START TIMER CALLED:', {
+      projectId,
+      selectedProjectId,
+      workDuration: safePreferences.work_duration,
+      currentCompletedIntervals: completedIntervals,
+      timestamp: new Date().toISOString()
+    });
+    // DEBUG_LOGS_END
+
     try {
       const sessionData = {
         learning_project_id: projectId || selectedProjectId || undefined,
@@ -131,13 +197,28 @@ export function usePomodoro(): UsePomodoroState {
         break_duration: safePreferences.break_duration,
       };
       
+      // DEBUG_LOGS_START
+      console.log('🚀 CALLING API START SESSION:', sessionData);
+      // DEBUG_LOGS_END
       const session = await pomodoroApi.startSession(sessionData);
+      // DEBUG_LOGS_START
+      console.log('✅ API START SESSION SUCCESS:', session);
+      // DEBUG_LOGS_END
       
       setCurrentSession(session);
       
       // Reset the completion tracking refs for the new session
       previousCompletedIntervalsRef.current = completedIntervals;
       completionInProgressRef.current = false;
+      
+      // DEBUG_LOGS_START
+      console.log('🚀 STARTING GLOBAL TIMER:', {
+        sessionId: session.id,
+        projectId: projectId || selectedProjectId || undefined,
+        resetCompletedIntervals: completedIntervals,
+        timestamp: new Date().toISOString()
+      });
+      // DEBUG_LOGS_END
       
       startGlobalTimer(session.id, projectId || selectedProjectId || undefined);
       
