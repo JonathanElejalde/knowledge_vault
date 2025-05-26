@@ -31,6 +31,8 @@ class LearningProjectResponseBase(BaseModel):
     status: str
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+    notes_count: int = Field(default=0, description="Number of notes associated with this learning project")
+    sessions_count: int = Field(default=0, description="Number of sessions associated with this learning project")
 
     class Config:
         from_attributes = True 

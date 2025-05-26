@@ -20,12 +20,20 @@ export const learningProjectsApi = {
   },
 
   /**
-   * Get a list of learning projects with optional filters
+   * Get a list of learning projects with optional filters and pagination
    */
   list: async (filters?: LearningProjectFilters): Promise<LearningProject[]> => {
     try {
+      // Map the filters to match backend parameter names
+      const params: Record<string, any> = {};
+      if (filters?.status) params.status = filters.status;
+      if (filters?.category) params.category = filters.category;
+      if (filters?.q) params.q = filters.q;
+      if (filters?.skip !== undefined) params.skip = filters.skip;
+      if (filters?.limit !== undefined) params.limit = filters.limit;
+
       const response = await api.get<LearningProject[]>('/learning-projects/', {
-        params: filters,
+        params,
       });
       return response.data;
     } catch (error) {

@@ -7,6 +7,8 @@ export interface LearningProject {
   description?: string;
   created_at: string;
   updated_at: string;
+  notes_count: number;
+  sessions_count: number;
 }
 
 export interface LearningProjectCreate {
@@ -26,7 +28,9 @@ export interface LearningProjectUpdate {
 export interface LearningProjectFilters {
   status?: 'in_progress' | 'completed' | 'abandoned';
   category?: string; // Keep as alias for category_name in filters
-  search?: string;
+  q?: string; // Search query parameter
+  skip?: number; // Pagination: number of records to skip
+  limit?: number; // Pagination: maximum number of records to return
 }
 
 export interface Category {

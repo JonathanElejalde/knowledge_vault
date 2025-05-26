@@ -1,4 +1,4 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Union
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,13 +20,48 @@ router = APIRouter(
     tags=["Learning Projects"]
 )
 
-def _map_project_to_response(project: LearningProject) -> dict:
-    """Helper to map LearningProject ORM model to a dictionary suitable for response models."""
-    response_data = project.__dict__
+def _map_project_to_response(project: Union[LearningProject, dict]) -> dict:
+    """Helper to map LearningProject ORM model or dict to a dictionary suitable for response models."""
+    if isinstance(project, dict):
+        # Already a dictionary with counts from the new CRUD function
+        return project
+    
+    # Handle ORM object (for backward compatibility)
+    response_data = project.__dict__.copy()
     if project.category:
         response_data['category_name'] = project.category.name
     else:
         response_data['category_name'] = None
+    
+    # Add default counts if not present (for single project retrieval)
+    if 'notes_count' not in response_data:
+        response_data['notes_count'] = 0
+    if 'sessions_count' not in response_data:
+        response_data['sessions_count'] = 0
+    
+    # Handle sessions for detail response (if present)
+    if hasattr(project, 'sessions') and project.sessions:
+        sessions_data = []
+        for session in project.sessions:
+            session_dict = {
+                'id': session.id,
+                'user_id': session.user_id,
+                'learning_project_id': session.learning_project_id,
+                'start_time': session.start_time,
+                'end_time': session.end_time,
+                'work_duration': session.work_duration,
+                'break_duration': session.break_duration,
+                'actual_duration': session.actual_duration,
+                'session_type': session.session_type,
+                'status': session.status,
+                'title': session.title,
+                'meta_data': session.meta_data
+            }
+            sessions_data.append(session_dict)
+        response_data['sessions'] = sessions_data
+    elif 'sessions' not in response_data:
+        response_data['sessions'] = []
+    
     return response_data
 
 @router.post("/", response_model=LearningProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -64,12 +99,14 @@ async def list_learning_projects(
     limit: int = Query(100, ge=1, le=100),
     category_name: Optional[str] = Query(None, alias="category", max_length=100),
     status_filter: Optional[str] = Query(None, alias="status", max_length=50, pattern="^(in_progress|completed|on_hold|abandoned|archived)$"),
-    include_archived: bool = Query(False, description="Whether to include archived projects if no specific status is requested")
+    include_archived: bool = Query(False, description="Whether to include archived projects if no specific status is requested"),
+    q: Optional[str] = Query(None, max_length=255, description="Search query to filter projects by name (case-insensitive partial match)")
 ) -> List[LearningProjectResponse]:
     """List learning projects for the current user with optional filters.
 
     By default, archived projects are excluded unless status_filter is 'archived'
-    or include_archived is True.
+    or include_archived is True. This endpoint efficiently includes notes_count
+    and sessions_count for each project.
 
     Args:
         current_user: The authenticated user whose projects to list.
@@ -79,20 +116,22 @@ async def list_learning_projects(
         category_name: Optional filter for project category.
         status_filter: Optional filter for project status (aliased as 'status' in query).
         include_archived: If True and status_filter is not set, archived projects are included.
+        q: Optional search query to filter projects by name (case-insensitive partial match).
 
     Returns:
-        A list of learning projects.
+        A list of learning projects with notes and sessions counts.
     """
-    projects_db = await crud_lp.get_user_learning_projects(
+    projects_with_counts = await crud_lp.get_user_learning_projects_with_counts(
         db=db, 
         user_id=current_user.id, 
         skip=skip, 
         limit=limit, 
         category_name=category_name, 
         status=status_filter, 
-        include_archived=include_archived
+        include_archived=include_archived,
+        search_query=q
     )
-    return [LearningProjectResponse.model_validate(_map_project_to_response(p)) for p in projects_db]
+    return [LearningProjectResponse.model_validate(_map_project_to_response(p)) for p in projects_with_counts]
 
 
 @router.get("/{project_id}", response_model=LearningProjectDetailResponse)
@@ -101,7 +140,7 @@ async def get_learning_project(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> LearningProjectDetailResponse:
-    """Get a specific learning project by ID, including its sessions.
+    """Get a specific learning project by ID, including notes and sessions counts.
 
     Args:
         project_id: The ID of the learning project to retrieve.
@@ -109,12 +148,12 @@ async def get_learning_project(
         db: The database session.
 
     Returns:
-        The requested learning project.
+        The requested learning project with counts.
 
     Raises:
         HTTPException: 404 if the project is not found.
     """
-    project = await crud_lp.get_learning_project(db=db, project_id=project_id, user_id=current_user.id)
+    project = await crud_lp.get_learning_project_with_counts(db=db, project_id=project_id, user_id=current_user.id)
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Learning project not found")
     return LearningProjectDetailResponse.model_validate(_map_project_to_response(project))

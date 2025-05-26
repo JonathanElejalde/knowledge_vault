@@ -1,94 +1,53 @@
-import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
-import { PlusCircle, Search, MoreVertical, Edit, CheckCircle, XCircle, Trash2 } from "lucide-react"
-import { Button } from "@/components/atoms/Button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/atoms/Card"
-import { Input } from "@/components/atoms/Input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/atoms/Tabs"
-import { NewProjectDialog } from "../components/NewProjectDialog"
-import { EditProjectDialog } from "../components/EditProjectDialog"
-import type { ProjectFormData } from "../components/NewProjectDialog"
-import { learningProjectsApi } from "@/services/api/learningProjects"
-import type { LearningProject } from "@/services/api/types/learningProjects"
-import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/atoms/DropdownMenu"
-import ProjectsLoading from "./ProjectsLoading"
-
-type TabValue = "all" | "in_progress" | "completed" | "abandoned"
-
-// Function to format status for display
-const formatStatus = (status: string): string => {
-  switch (status) {
-    case 'in_progress':
-      return 'In Progress'
-    case 'completed':
-      return 'Completed'
-    case 'abandoned':
-      return 'Abandoned'
-    default:
-      return status
-  }
-}
+import { useState } from "react";
+import { PlusCircle, Search } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/Tabs";
+import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast";
+import { NewProjectDialog } from "../components/NewProjectDialog";
+import { EditProjectDialog } from "../components/EditProjectDialog";
+import { ProjectsList } from "../components/ProjectsList";
+import ProjectsLoading from "./ProjectsLoading";
+import { useProjects } from "../hooks/internal";
+import type { ProjectFormData } from "../types";
+import type { LearningProject } from "@/services/api/types/learningProjects";
 
 export default function ProjectsPage() {
-  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
-  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false)
-  const [selectedProject, setSelectedProject] = useState<LearningProject | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState<TabValue>("in_progress")
-  const [projects, setProjects] = useState<LearningProject[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
+  // UI state
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<LearningProject | null>(null);
+  
+  // Toast for notifications
+  const { toast } = useToast();
+  
+  // Projects data and actions from hook
+  const {
+    projects,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    error,
+    searchQuery,
+    activeTab,
+    setSearchQuery,
+    setActiveTab,
+    loadMore,
+    createProject,
+    updateProject,
+    deleteProject,
+  } = useProjects();
 
-  // Fetch projects on mount and when filters change
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        const filters = {
-          status: activeTab === "all" ? undefined : activeTab,
-          search: searchQuery || undefined,
-        }
-        const data = await learningProjectsApi.list(filters)
-        setProjects(data)
-      } catch (err: any) {
-        const errorMessage = err.response?.status === 401
-          ? "Please log in to view your projects"
-          : "Failed to load projects"
-        setError(errorMessage)
-        toast({
-          children: (
-            <>
-              <ToastTitle>Error</ToastTitle>
-              <ToastDescription>
-                {err.response?.status === 401
-                  ? "Please log in to view your projects"
-                  : "Failed to load projects. Please try again."}
-              </ToastDescription>
-            </>
-          ),
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchProjects()
-  }, [activeTab, searchQuery, toast])
-
+  // Handle project creation
   const handleCreateProject = async (data: ProjectFormData) => {
     try {
-      const newProject = await learningProjectsApi.create({
+      await createProject({
         name: data.name,
-        category_name: data.category_name,
+        category_name: data.category_name || undefined,
         description: data.description,
         status: "in_progress",
-      })
-      setProjects(prev => [...prev, newProject])
-      setIsNewProjectOpen(false)
+      });
+      setIsNewProjectOpen(false);
       toast({
         children: (
           <>
@@ -96,7 +55,7 @@ export default function ProjectsPage() {
             <ToastDescription>Project created successfully</ToastDescription>
           </>
         ),
-      })
+      });
     } catch (err) {
       toast({
         children: (
@@ -106,24 +65,22 @@ export default function ProjectsPage() {
           </>
         ),
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
+  // Handle project editing
   const handleEditProject = async (data: ProjectFormData) => {
-    if (!selectedProject) return
+    if (!selectedProject) return;
 
     try {
-      const updatedProject = await learningProjectsApi.update(selectedProject.id, {
+      await updateProject(selectedProject.id, {
         name: data.name,
-        category_name: data.category_name,
+        category_name: data.category_name || undefined,
         description: data.description,
-      })
-      setProjects(prev => prev.map(p => 
-        p.id === selectedProject.id ? updatedProject : p
-      ))
-      setIsEditProjectOpen(false)
-      setSelectedProject(null)
+      });
+      setIsEditProjectOpen(false);
+      setSelectedProject(null);
       toast({
         children: (
           <>
@@ -131,7 +88,7 @@ export default function ProjectsPage() {
             <ToastDescription>Project updated successfully</ToastDescription>
           </>
         ),
-      })
+      });
     } catch (err) {
       toast({
         children: (
@@ -141,22 +98,14 @@ export default function ProjectsPage() {
           </>
         ),
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
+  // Handle status change
   const handleStatusChange = async (projectId: string, newStatus: string) => {
     try {
-      await learningProjectsApi.update(projectId, { status: newStatus as any })
-      setProjects(prev => {
-        const updatedProjects = prev.map(p => 
-          p.id === projectId ? { ...p, status: newStatus as any } : p
-        )
-        if (activeTab !== "all") {
-          return updatedProjects.filter(p => p.status === activeTab)
-        }
-        return updatedProjects
-      })
+      await updateProject(projectId, { status: newStatus as any });
       toast({
         children: (
           <>
@@ -164,7 +113,7 @@ export default function ProjectsPage() {
             <ToastDescription>Project status updated successfully</ToastDescription>
           </>
         ),
-      })
+      });
     } catch (err) {
       toast({
         children: (
@@ -174,14 +123,14 @@ export default function ProjectsPage() {
           </>
         ),
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
+  // Handle project deletion
   const handleDeleteProject = async (projectId: string) => {
     try {
-      await learningProjectsApi.delete(projectId)
-      setProjects(prev => prev.filter(p => p.id !== projectId))
+      await deleteProject(projectId);
       toast({
         children: (
           <>
@@ -189,7 +138,7 @@ export default function ProjectsPage() {
             <ToastDescription>Project deleted successfully</ToastDescription>
           </>
         ),
-      })
+      });
     } catch (err) {
       toast({
         children: (
@@ -199,30 +148,39 @@ export default function ProjectsPage() {
           </>
         ),
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
+  // Handle edit dialog opening
+  const handleEditClick = (project: LearningProject) => {
+    setSelectedProject(project);
+    setIsEditProjectOpen(true);
+  };
+
+  // Loading state
   if (isLoading) {
-    return <ProjectsLoading />
+    return <ProjectsLoading />;
   }
 
+  // Error state
   if (error) {
     return (
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-destructive mb-2">Error</h2>
-          <p className="text-muted-foreground">{error}</p>
+          <p className="text-muted-foreground">{error.message}</p>
           <Button onClick={() => window.location.reload()} className="mt-4">
             Try Again
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Learning Projects</h1>
@@ -234,6 +192,7 @@ export default function ProjectsPage() {
         </Button>
       </div>
 
+      {/* Search and Filters */}
       <div className="flex items-center mb-6">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -245,7 +204,11 @@ export default function ProjectsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)} className="ml-auto">
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(value) => setActiveTab(value as any)} 
+          className="ml-auto"
+        >
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="in_progress">In Progress</TabsTrigger>
@@ -255,384 +218,18 @@ export default function ProjectsPage() {
         </Tabs>
       </div>
 
-      <Tabs value={activeTab}>
-        <TabsContent value="all" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <Card key={project.id} className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 flex flex-col h-full">
-                <div className="flex-1 flex flex-col">
-                  <CardHeader className="p-0 pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
-                        <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
-                        <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedProject(project)
-                            setIsEditProjectOpen(true)
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Project
-                          </DropdownMenuItem>
-                          {project.status === 'in_progress' && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'completed')}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Mark as Completed
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'abandoned')}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Mark as Abandoned
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {project.status === 'abandoned' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Resume Project
-                            </DropdownMenuItem>
-                          )}
-                          {project.status === 'completed' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Reopen Project
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteProject(project.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Project
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 flex flex-col justify-end">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 font-bold text-base mb-2">
-                        <div className={`h-2 w-2 rounded-full mt-0.5 ${
-                          project.status === 'in_progress' ? 'bg-blue-500' :
-                          project.status === 'completed' ? 'bg-green-500' :
-                          'bg-red-500'
-                        }`} />
-                        <span>{formatStatus(project.status)}</span>
-                      </div>
-                      <div className="flex justify-between text-base pt-2 border-t">
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">sessions</span>
-                      </div>
-                      <div>
-                          <span className="font-medium">0</span>
-                        <span className="text-muted-foreground ml-1">notes</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                  </div>
-                <CardFooter className="p-0 pt-4">
-                  <Button variant="outline" className="w-full font-bold text-base py-2 border-2 border-gray-200" asChild>
-                    <Link to={`/projects/${project.id}`}>View Project</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
+      {/* Projects List */}
+      <ProjectsList
+        projects={projects}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        onLoadMore={loadMore}
+        onEdit={handleEditClick}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDeleteProject}
+      />
 
-        <TabsContent value="in_progress" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <Card key={project.id} className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 flex flex-col h-full">
-                <div className="flex-1 flex flex-col">
-                  <CardHeader className="p-0 pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
-                        <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
-                        <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedProject(project)
-                            setIsEditProjectOpen(true)
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Project
-                          </DropdownMenuItem>
-                          {project.status === 'in_progress' && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'completed')}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Mark as Completed
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'abandoned')}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Mark as Abandoned
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {project.status === 'abandoned' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Resume Project
-                            </DropdownMenuItem>
-                          )}
-                          {project.status === 'completed' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Reopen Project
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteProject(project.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Project
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 flex flex-col justify-end">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 font-bold text-base mb-2">
-                        <div className={`h-2 w-2 rounded-full mt-0.5 ${
-                          project.status === 'in_progress' ? 'bg-blue-500' :
-                          project.status === 'completed' ? 'bg-green-500' :
-                          'bg-red-500'
-                        }`} />
-                        <span>{formatStatus(project.status)}</span>
-                      </div>
-                      <div className="flex justify-between text-base pt-2 border-t">
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">sessions</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">notes</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </div>
-                <CardFooter className="p-0 pt-4">
-                  <Button variant="outline" className="w-full font-bold text-base py-2 border-2 border-gray-200" asChild>
-                    <Link to={`/projects/${project.id}`}>View Project</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="completed" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <Card key={project.id} className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 flex flex-col h-full">
-                <div className="flex-1 flex flex-col">
-                  <CardHeader className="p-0 pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
-                        <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
-                        <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedProject(project)
-                            setIsEditProjectOpen(true)
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Project
-                          </DropdownMenuItem>
-                          {project.status === 'in_progress' && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'completed')}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Mark as Completed
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'abandoned')}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Mark as Abandoned
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {project.status === 'abandoned' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Resume Project
-                            </DropdownMenuItem>
-                          )}
-                          {project.status === 'completed' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Reopen Project
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteProject(project.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Project
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 flex flex-col justify-end">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 font-bold text-base mb-2">
-                        <div className={`h-2 w-2 rounded-full mt-0.5 ${
-                          project.status === 'in_progress' ? 'bg-blue-500' :
-                          project.status === 'completed' ? 'bg-green-500' :
-                          'bg-red-500'
-                        }`} />
-                        <span>{formatStatus(project.status)}</span>
-                      </div>
-                      <div className="flex justify-between text-base pt-2 border-t">
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">sessions</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">notes</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </div>
-                <CardFooter className="p-0 pt-4">
-                  <Button variant="outline" className="w-full font-bold text-base py-2 border-2 border-gray-200" asChild>
-                    <Link to={`/projects/${project.id}`}>View Project</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="abandoned" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <Card key={project.id} className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 flex flex-col h-full">
-                <div className="flex-1 flex flex-col">
-                  <CardHeader className="p-0 pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-1">{project.category_name}</div>
-                        <CardTitle className="text-2xl font-bold leading-tight mb-1">{project.name}</CardTitle>
-                        <CardDescription className="line-clamp-2 text-base text-muted-foreground mb-2">{project.description}</CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedProject(project)
-                            setIsEditProjectOpen(true)
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Project
-                          </DropdownMenuItem>
-                          {project.status === 'in_progress' && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'completed')}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Mark as Completed
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'abandoned')}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Mark as Abandoned
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {project.status === 'abandoned' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Resume Project
-                            </DropdownMenuItem>
-                          )}
-                          {project.status === 'completed' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, 'in_progress')}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Reopen Project
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteProject(project.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Project
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 flex flex-col justify-end">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 font-bold text-base mb-2">
-                        <div className={`h-2 w-2 rounded-full mt-0.5 ${
-                          project.status === 'in_progress' ? 'bg-blue-500' :
-                          project.status === 'completed' ? 'bg-green-500' :
-                          'bg-red-500'
-                        }`} />
-                        <span>{formatStatus(project.status)}</span>
-                      </div>
-                      <div className="flex justify-between text-base pt-2 border-t">
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">sessions</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">0</span>
-                          <span className="text-muted-foreground ml-1">notes</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </div>
-                <CardFooter className="p-0 pt-4">
-                  <Button variant="outline" className="w-full font-bold text-base py-2 border-2 border-gray-200" asChild>
-                    <Link to={`/projects/${project.id}`}>View Project</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
+      {/* Dialogs */}
       <NewProjectDialog
         open={isNewProjectOpen}
         onOpenChange={setIsNewProjectOpen}
@@ -648,5 +245,5 @@ export default function ProjectsPage() {
         />
       )}
     </div>
-  )
+  );
 } 
