@@ -10,6 +10,7 @@ import type { Note } from '@/services/api/types/notes';
 
 export default function NotesPage() {
   const navigate = useNavigate();
+  
   const {
     notes,
     isLoading,
@@ -21,11 +22,20 @@ export default function NotesPage() {
     setSearchQuery,
     setSelectedProjectId,
     loadMore,
+    deleteNote,
   } = useNotes();
 
   const handleNoteClick = (note: Note) => {
-    // TODO: Navigate to note detail/edit page
+    // TODO: Navigate to note detail/view page or open in read mode
     console.log('Note clicked:', note);
+  };
+
+  const handleNoteEdit = (note: Note) => {
+    navigate(`/notes/edit/${note.id}`);
+  };
+
+  const handleNoteDelete = async (noteId: string) => {
+    await deleteNote(noteId);
   };
 
   return (
@@ -52,7 +62,6 @@ export default function NotesPage() {
             className="pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            disabled
           />
         </div>
       </div>
@@ -77,6 +86,8 @@ export default function NotesPage() {
             error={error}
             onLoadMore={loadMore}
             onNoteClick={handleNoteClick}
+            onNoteEdit={handleNoteEdit}
+            onNoteDelete={handleNoteDelete}
           />
         </div>
       </div>

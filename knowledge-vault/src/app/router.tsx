@@ -103,6 +103,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: '/notes/edit/:id',
+        element: (
+          <ProtectedRoute>
+            {withSuspense(CreateNote)}
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: '/projects',
         element: (
           <ProtectedRoute>

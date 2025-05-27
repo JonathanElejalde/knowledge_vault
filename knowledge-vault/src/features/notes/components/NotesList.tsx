@@ -13,6 +13,8 @@ interface NotesListProps {
   error: Error | null;
   onLoadMore: () => void;
   onNoteClick?: (note: Note) => void;
+  onNoteEdit?: (note: Note) => void;
+  onNoteDelete?: (noteId: string) => Promise<void>;
 }
 
 export function NotesList({
@@ -23,6 +25,8 @@ export function NotesList({
   error,
   onLoadMore,
   onNoteClick,
+  onNoteEdit,
+  onNoteDelete,
 }: NotesListProps) {
   // Loading skeleton for initial load
   if (isLoading) {
@@ -81,6 +85,8 @@ export function NotesList({
           key={note.id}
           note={note}
           onClick={() => onNoteClick?.(note)}
+          onEdit={onNoteEdit}
+          onDelete={onNoteDelete}
         />
       ))}
 

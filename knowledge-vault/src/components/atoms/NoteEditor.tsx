@@ -27,6 +27,7 @@ interface NoteEditorProps {
   initialContent?: string;
   initialTags?: string[];
   disableProjectSelection?: boolean; // For popup mode where project is fixed
+  isEditMode?: boolean; // Whether we're editing an existing note
 }
 
 export function NoteEditor({ 
@@ -38,7 +39,8 @@ export function NoteEditor({
   initialTitle = "",
   initialContent = "",
   initialTags = [],
-  disableProjectSelection = false
+  disableProjectSelection = false,
+  isEditMode = false
 }: NoteEditorProps) {
   const [title, setTitle] = useState(initialTitle)
   const [content, setContent] = useState(initialContent)
@@ -168,7 +170,7 @@ export function NoteEditor({
             </Button>
           )}
           <h3 className="font-medium">
-            {isInlineMode ? "Create New Note" : "Quick Notes"}
+            {isInlineMode ? (isEditMode ? "Edit Note" : "Create New Note") : "Quick Notes"}
           </h3>
         </div>
         <Button variant="outline" size="sm" onClick={togglePreview}>
