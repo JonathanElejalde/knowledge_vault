@@ -9,6 +9,8 @@ import { okaidia } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { Button } from "@/components/atoms/Button"
 import { Textarea } from "@/components/atoms/Textarea"
 import { Input } from "@/components/atoms/Input"
+import { Label } from "@/components/atoms/Label"
+import { ProjectSelector } from "@/components/atoms/ProjectSelector"
 import { X, Save, Sparkles, Eye, Pencil, ArrowLeft } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/atoms/Dialog"
 import { Badge } from "@/components/atoms/Badge"
@@ -21,8 +23,10 @@ interface NoteEditorProps {
   onSave?: (data: NoteCreate) => Promise<void>;
   onCancel?: () => void;
   className?: string;
+  initialTitle?: string;
   initialContent?: string;
   initialTags?: string[];
+  disableProjectSelection?: boolean; // For popup mode where project is fixed
 }
 
 export function NoteEditor({ 
@@ -31,15 +35,24 @@ export function NoteEditor({
   onSave,
   onCancel,
   className,
+  initialTitle = "",
   initialContent = "",
-  initialTags = []
+  initialTags = [],
+  disableProjectSelection = false
 }: NoteEditorProps) {
+  const [title, setTitle] = useState(initialTitle)
   const [content, setContent] = useState(initialContent)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectId || null)
   const [tags, setTags] = useState<string[]>(initialTags)
   const [currentTag, setCurrentTag] = useState("")
   const [showAiSuggestions, setShowAiSuggestions] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{
+    title?: boolean;
+    content?: boolean;
+    project?: boolean;
+  }>({})
 
   const addTag = useCallback(() => {
     if (currentTag && !tags.includes(currentTag)) {
@@ -60,47 +73,84 @@ export function NoteEditor({
   }, [currentTag, addTag])
 
   const handleSave = useCallback(async () => {
-    if (!content.trim()) return;
+    // Check validation
+    const errors = {
+      title: !title.trim(),
+      content: !content.trim(),
+      project: !selectedProjectId,
+    };
+
+    setValidationErrors(errors);
+
+    // If there are validation errors, don't proceed
+    if (errors.title || errors.content || errors.project) {
+      return;
+    }
     
     try {
       setIsSaving(true);
       const noteData: NoteCreate = {
+        title: title.trim(),
         content: content.trim(),
         tags,
-        learning_project_id: projectId,
+        learning_project_id: selectedProjectId!,
       };
       
       await onSave?.(noteData);
       
       // Reset form after successful save
+      setTitle("");
       setContent("");
+      setSelectedProjectId(projectId || null);
       setTags([]);
       setCurrentTag("");
       setShowPreview(false);
+      setValidationErrors({});
     } catch (error) {
       console.error('Failed to save note:', error);
       // Error handling could be improved with toast notifications
     } finally {
       setIsSaving(false);
     }
-  }, [content, tags, projectId, onSave])
+  }, [title, content, selectedProjectId, tags, projectId, onSave])
 
   const handleCancel = useCallback(() => {
     // Reset form
+    setTitle(initialTitle);
     setContent(initialContent);
+    setSelectedProjectId(projectId || null);
     setTags(initialTags);
     setCurrentTag("");
     setShowPreview(false);
+    setValidationErrors({});
     onCancel?.();
-  }, [initialContent, initialTags, onCancel])
-
-  const toggleAiSuggestions = useCallback(() => {
-    setShowAiSuggestions(prev => !prev)
-  }, [])
+  }, [initialTitle, initialContent, initialTags, projectId, onCancel])
 
   const togglePreview = useCallback(() => {
     setShowPreview(prev => !prev)
   }, [])
+
+  // Clear validation errors when user starts typing/selecting
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+    if (validationErrors.title) {
+      setValidationErrors(prev => ({ ...prev, title: false }));
+    }
+  }, [validationErrors.title]);
+
+  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    if (validationErrors.content) {
+      setValidationErrors(prev => ({ ...prev, content: false }));
+    }
+  }, [validationErrors.content]);
+
+  const handleProjectChange = useCallback((value: string | null) => {
+    setSelectedProjectId(value);
+    if (validationErrors.project) {
+      setValidationErrors(prev => ({ ...prev, project: false }));
+    }
+  }, [validationErrors.project]);
 
   const isInlineMode = mode === 'inline';
 
@@ -127,10 +177,48 @@ export function NoteEditor({
         </Button>
       </div>
 
+      {/* Form Fields */}
+      <div className="p-3 border-b flex-shrink-0 space-y-3">
+        {/* Title Input */}
+        <div className="space-y-1">
+          <Label htmlFor="note-title" className="text-sm font-medium">
+            Title <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="note-title"
+            placeholder="Enter note title..."
+            value={title}
+            onChange={handleTitleChange}
+            className={cn(
+              "h-9",
+              validationErrors.title && "border-destructive focus:border-destructive"
+            )}
+          />
+        </div>
+
+        {/* Project Selection */}
+        <div className="space-y-1">
+          <Label htmlFor="note-project" className="text-sm font-medium">
+            Project <span className="text-destructive">*</span>
+          </Label>
+          <ProjectSelector
+            value={selectedProjectId}
+            onValueChange={handleProjectChange}
+            placeholder="Select a project..."
+            required={validationErrors.project}
+            className="h-9"
+            disabled={disableProjectSelection}
+          />
+        </div>
+      </div>
+
       {/* Content Area */}
       <div className="flex-1 p-3 overflow-y-auto min-h-0">
         {showPreview ? (
           <div className="prose dark:prose-invert max-w-none h-full w-full">
+            {title && (
+              <h1 className="text-2xl font-bold mb-4 pb-2 border-b">{title}</h1>
+            )}
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
@@ -173,12 +261,21 @@ export function NoteEditor({
             </ReactMarkdown>
           </div>
         ) : (
-          <Textarea
-            placeholder="Take notes here... Use Markdown for formatting."
-            className="resize-none border-muted bg-background/50 font-mono text-sm h-full w-full focus:outline-none"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
+          <div className="space-y-2 h-full flex flex-col">
+            <Label htmlFor="note-content" className="text-sm font-medium">
+              Content <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="note-content"
+              placeholder="Take notes here... Use Markdown for formatting."
+              className={cn(
+                "resize-none border-muted bg-background/50 font-mono text-sm flex-1 min-h-0",
+                validationErrors.content && "border-destructive focus:border-destructive"
+              )}
+              value={content}
+              onChange={handleContentChange}
+            />
+          </div>
         )}
       </div>
 
@@ -203,7 +300,7 @@ export function NoteEditor({
         {/* Tag Input */}
         <div className="flex gap-2 mb-3">
           <Input
-            placeholder="Add tags..."
+            placeholder="Add tags... (optional)"
             value={currentTag}
             onChange={(e) => setCurrentTag(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -265,7 +362,7 @@ export function NoteEditor({
             <Button 
               size="sm" 
               onClick={handleSave}
-              disabled={!content.trim() || isSaving}
+              disabled={isSaving}
               type="button"
             >
               <Save className="mr-2 h-4 w-4" />

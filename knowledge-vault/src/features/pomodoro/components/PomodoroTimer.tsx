@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { NoteEditor } from "@/components/atoms/NoteEditor"
 import { usePomodoro } from "@/features/pomodoro/hooks/internal"
 import { learningProjectsApi } from "@/services/api/learningProjects"
+import { notesApi } from "@/services/api/notes"
+import type { NoteCreate } from "@/services/api/types/notes"
 
 import { cn } from "@/lib/utils"
 
@@ -210,11 +212,27 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
         body.appendChild(rootDiv); // Re-append rootDiv if body was just created
       }
 
+      // Handle note saving
+      const handleNoteSave = async (data: NoteCreate) => {
+        try {
+          await notesApi.create(data);
+          // Note saved successfully - form will reset automatically in popup mode
+        } catch (error) {
+          console.error('Failed to save note:', error);
+          // Could show error notification in the popup
+        }
+      };
+
       // Render the NoteEditor component into the new window
       const root = createRoot(rootDiv);
       root.render(
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <NoteEditor projectId={selectedProjectId || undefined} mode="popup" />
+          <NoteEditor 
+            projectId={selectedProjectId || undefined} 
+            mode="popup"
+            onSave={handleNoteSave}
+            disableProjectSelection={true}
+          />
         </div>
       );
       
