@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { PlusCircle, Search } from 'lucide-react';
@@ -10,6 +10,7 @@ import type { Note } from '@/services/api/types/notes';
 
 export default function NotesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   
   const {
     notes,
@@ -26,8 +27,10 @@ export default function NotesPage() {
   } = useNotes();
 
   const handleNoteClick = (note: Note) => {
-    // Navigate to note view page
-    navigate(`/notes/${note.id}`);
+    // Navigate to note view page, passing current location for back navigation
+    navigate(`/notes/${note.id}`, {
+      state: { from: location }
+    });
   };
 
   const handleNoteEdit = (note: Note) => {
@@ -36,6 +39,10 @@ export default function NotesPage() {
 
   const handleNoteDelete = async (noteId: string) => {
     await deleteNote(noteId);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent form submission
   };
 
   return (
@@ -54,16 +61,16 @@ export default function NotesPage() {
 
       {/* Search Bar */}
       <div className="flex items-center mb-6">
-        <div className="relative flex-1 max-w-md">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            type="search"
+            type="text"
             placeholder="Search notes..."
             className="pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-        </div>
+        </form>
       </div>
 
       {/* Main Content */}

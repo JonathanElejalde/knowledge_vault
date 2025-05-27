@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
 import { MarkdownRenderer } from '@/components/atoms/MarkdownRenderer';
 import { ArrowLeft, Edit, Trash2, Tag, Calendar, User, Loader2 } from 'lucide-react';
-import { useNotes } from '../hooks/internal';
+import { notesApi } from '@/services/api/notes';
 import { formatDate } from '@/lib/utils/dateUtils';
 import type { Note } from '@/services/api/types/notes';
 import {
@@ -19,20 +19,37 @@ import {
 export default function ViewNotePage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { notes, deleteNote } = useNotes();
+  const location = useLocation();
+  const [note, setNote] = useState<Note | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // Find the note to display
-  const note = id ? notes.find(n => n.id === id) : null;
-  const isLoading = id && !note && notes.length === 0;
-
-  // Redirect if note not found after notes have loaded
+  // Fetch the specific note by ID
   useEffect(() => {
-    if (id && !note && notes.length > 0) {
-      navigate('/notes');
-    }
-  }, [id, note, notes.length, navigate]);
+    const fetchNote = async () => {
+      if (!id) {
+        navigate('/notes');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const fetchedNote = await notesApi.get(id);
+        setNote(fetchedNote);
+      } catch (err) {
+        console.error('Failed to fetch note:', err);
+        setError('Failed to load note');
+        // Don't redirect immediately, let user see the error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNote();
+  }, [id, navigate]);
 
   const handleEdit = () => {
     if (note) {
@@ -45,8 +62,10 @@ export default function ViewNotePage() {
     
     try {
       setIsDeleting(true);
-      await deleteNote(note.id);
-      navigate('/notes');
+      await notesApi.delete(note.id);
+      // Navigate back to notes list, preserving any search parameters from the referrer
+      const referrerSearchParams = location.state?.from?.search || '';
+      navigate(`/notes${referrerSearchParams}`);
     } catch (error) {
       console.error('Failed to delete note:', error);
     } finally {
@@ -56,7 +75,14 @@ export default function ViewNotePage() {
   };
 
   const handleBack = () => {
-    navigate('/notes');
+    // Try to go back in history first, but fallback to notes list if no history
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      // Fallback: navigate to notes list, preserving any search parameters from the referrer
+      const referrerSearchParams = location.state?.from?.search || '';
+      navigate(`/notes${referrerSearchParams}`);
+    }
   };
 
   // Loading state
@@ -67,6 +93,24 @@ export default function ViewNotePage() {
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading note...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-2">Error loading note</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={handleBack}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Notes
+            </Button>
           </div>
         </div>
       </div>

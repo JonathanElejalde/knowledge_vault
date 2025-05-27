@@ -49,6 +49,10 @@ export function ProjectsSidebar({ selectedProjectId, onProjectSelect }: Projects
     return projects.reduce((total, project) => total + project.notes_count, 0);
   }, [projects]);
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent form submission
+  };
+
   if (error) {
     return (
       <Card>
@@ -105,16 +109,16 @@ export function ProjectsSidebar({ selectedProjectId, onProjectSelect }: Projects
 
           {/* Search Projects */}
           <div className="pt-2 pb-2">
-            <div className="relative">
+            <form onSubmit={handleSearchSubmit} className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3 w-3 text-muted-foreground" />
               <Input
-                type="search"
+                type="text"
                 placeholder="Search projects..."
                 className="pl-8 h-8 text-xs"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </div>
+            </form>
           </div>
 
           {/* Loading state */}

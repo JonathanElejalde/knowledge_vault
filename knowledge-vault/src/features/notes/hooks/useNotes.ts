@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { notesApi } from '@/services/api/notes';
 import { useNotesData, triggerNotesRefresh } from './useNotesData';
 import type { 
@@ -48,9 +49,11 @@ interface UseNotesState {
 }
 
 export function useNotes(): UseNotesState {
-  // Local state for filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get filter values from URL search parameters
+  const searchQuery = searchParams.get('search') || '';
+  const selectedProjectId = searchParams.get('project') || null;
   
   // Debounce search query to avoid too many API calls
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -80,6 +83,32 @@ export function useNotes(): UseNotesState {
     loadMore,
     refreshNotes: refreshNotesData 
   } = useNotesData(filters);
+  
+  // Action: Set search query (updates URL)
+  const setSearchQuery = useCallback((query: string) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (query.trim()) {
+        newParams.set('search', query);
+      } else {
+        newParams.delete('search');
+      }
+      return newParams;
+    });
+  }, [setSearchParams]);
+  
+  // Action: Set selected project (updates URL)
+  const setSelectedProjectId = useCallback((projectId: string | null) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (projectId) {
+        newParams.set('project', projectId);
+      } else {
+        newParams.delete('project');
+      }
+      return newParams;
+    });
+  }, [setSearchParams]);
   
   // Action: Create note
   const createNote = useCallback(async (data: NoteCreate): Promise<Note> => {
