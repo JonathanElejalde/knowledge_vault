@@ -300,9 +300,6 @@ async def update_user_preferences(
     # Assign the updated dictionary back to force SQLAlchemy to detect the change
     user.preferences = current_preferences
     
-    # Update the updated_at timestamp
-    user.updated_at = datetime.now(UTC)
-    
     # Commit the changes
     await db.commit()
     

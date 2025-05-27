@@ -1,4 +1,3 @@
-from datetime import datetime, UTC
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy import select, and_, func
@@ -30,9 +29,7 @@ async def create_learning_project(
     project = LearningProject(
         **project_data, 
         user_id=user_id, 
-        category_id=category_id, 
-        created_at=datetime.now(UTC), 
-        updated_at=datetime.now(UTC)
+        category_id=category_id
     )
     db.add(project)
     await db.commit()
@@ -162,7 +159,6 @@ async def update_learning_project(
 
     for key, value in update_data.items():
         setattr(project, key, value)
-    project.updated_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(project, attribute_names=['category']) # Eager load category
@@ -201,7 +197,6 @@ async def delete_learning_project(db: AsyncSession, project_id: UUID, user_id: U
 
     logger.info(f"Found learning project {project_id} for user {user_id}. Setting status to 'archived'.")
     project.status = "archived"
-    project.updated_at = datetime.now(UTC)
     
     await db.commit()
     await db.refresh(project, attribute_names=['category'])
