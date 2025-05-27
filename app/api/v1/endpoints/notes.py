@@ -59,7 +59,7 @@ async def create_note(
     return NoteResponse.model_validate(_map_note_to_response(created_note))
 
 
-@router.get("/", response_model=List[NoteResponse])
+@router.get("/", response_model=List[NoteDetailResponse])
 async def list_notes(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -68,7 +68,7 @@ async def list_notes(
     learning_project_id: Optional[UUID] = Query(None, description="Filter notes by learning project ID"),
     tags: Optional[List[str]] = Query(None, description="Filter notes containing any of these tags"),
     q: Optional[str] = Query(None, max_length=255, description="Search query to filter notes by title or content (case-insensitive partial match)")
-) -> List[NoteResponse]:
+) -> List[NoteDetailResponse]:
     """List notes for the current user with optional filters.
 
     Args:
@@ -81,7 +81,7 @@ async def list_notes(
         q: Optional search query to filter notes by title or content (case-insensitive partial match).
 
     Returns:
-        A list of notes.
+        A list of notes with their associated learning project names.
     """
     notes = await crud_notes.get_user_notes(
         db=db,
@@ -92,7 +92,7 @@ async def list_notes(
         tags=tags,
         search_query=q
     )
-    return [NoteResponse.model_validate(_map_note_to_response(n)) for n in notes]
+    return [NoteDetailResponse.model_validate(_map_note_to_response(n)) for n in notes]
 
 
 @router.get("/{note_id}", response_model=NoteDetailResponse)
