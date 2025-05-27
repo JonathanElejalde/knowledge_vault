@@ -19,6 +19,7 @@ import PomodoroPage from '@/features/pomodoro/pages/PomodoroPage';
 // Lazy load other protected routes
 const Notes = React.lazy(() => import('@/features/notes/pages/NotesPage'));
 const CreateNote = React.lazy(() => import('@/features/notes/pages/CreateNotePage'));
+const ViewNote = React.lazy(() => import('@/features/notes/pages/ViewNotePage'));
 const Projects = React.lazy(() => import('@/features/projects/pages/ProjectsPage'));
 const Anki = React.lazy(() => import('@/features/anki/pages/AnkiPage'));
 const History = React.lazy(() => import('@/features/recallHistory/pages/HistoryPage'));
@@ -107,6 +108,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             {withSuspense(CreateNote)}
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/notes/:id',
+        element: (
+          <ProtectedRoute>
+            {withSuspense(ViewNote)}
           </ProtectedRoute>
         ),
       },

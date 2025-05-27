@@ -26,8 +26,8 @@ export default function NotesPage() {
   } = useNotes();
 
   const handleNoteClick = (note: Note) => {
-    // TODO: Navigate to note detail/view page or open in read mode
-    console.log('Note clicked:', note);
+    // Navigate to note view page
+    navigate(`/notes/${note.id}`);
   };
 
   const handleNoteEdit = (note: Note) => {

@@ -2,10 +2,7 @@
 
 import type React from "react"
 import { useState, useCallback } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
-import { okaidia } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { MarkdownRenderer } from "@/components/atoms/MarkdownRenderer"
 import { Button } from "@/components/atoms/Button"
 import { Textarea } from "@/components/atoms/Textarea"
 import { Input } from "@/components/atoms/Input"
@@ -221,46 +218,11 @@ export function NoteEditor({
             {title && (
               <h1 className="text-2xl font-bold mb-4 pb-2 border-b">{title}</h1>
             )}
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({node, ...props}) => <h1 className="text-3xl font-bold my-4 border-b pb-2" {...props} />,
-                h2: ({node, ...props}) => <h2 className="text-2xl font-semibold my-3 border-b pb-1" {...props} />,
-                p: ({node, ...props}) => <p className="mb-2 leading-relaxed" {...props} />,
-                pre: ({node, children, ...props }) => (
-                  <pre 
-                    className="rounded-md overflow-x-auto my-4 text-sm"
-                    {...props} 
-                  >
-                    {children}
-                  </pre>
-                ),
-                code: ({node, className, children, ...props}) => {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const codeString = String(children).replace(/\n$/, '');
-
-                  if (!match && !className?.includes('language-')) {
-                    return <code className="bg-muted text-primary px-1.5 py-1 rounded-md text-sm font-mono" {...props}>{children}</code>;
-                  }
-                  
-                  return match ? (
-                    <SyntaxHighlighter
-                      style={okaidia as any}
-                      language={match[1]}
-                      PreTag="div"
-                    >
-                      {codeString}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code className={`block w-full ${className || ''} font-mono bg-gray-800 p-2 rounded`} {...props}>
-                      {codeString}
-                    </code>
-                  );
-                }
-              }}
-            >
-              {content}
-            </ReactMarkdown>
+            <MarkdownRenderer 
+              content={content}
+              variant="preview"
+              className="min-h-[200px]"
+            />
           </div>
         ) : (
           <div className="space-y-2 h-full flex flex-col">
