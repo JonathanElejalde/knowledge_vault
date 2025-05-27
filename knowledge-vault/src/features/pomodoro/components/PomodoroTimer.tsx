@@ -6,7 +6,7 @@ import { Settings, Play, Pause, Square, AlertTriangle, StickyNote } from "lucide
 import { Button } from "@/components/atoms/Button"
 import { Slider } from "@/components/atoms/Slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/atoms/Dialog"
-import NotesEditor from "@/features/notes/components/NotesEditor"
+import { NoteEditor } from "@/components/atoms/NoteEditor"
 import { usePomodoro } from "@/features/pomodoro/hooks/internal"
 import { learningProjectsApi } from "@/services/api/learningProjects"
 
@@ -210,11 +210,11 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
         body.appendChild(rootDiv); // Re-append rootDiv if body was just created
       }
 
-      // Render the NotesEditor component into the new window
+      // Render the NoteEditor component into the new window
       const root = createRoot(rootDiv);
       root.render(
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <NotesEditor />
+          <NoteEditor projectId={selectedProjectId || undefined} mode="popup" />
         </div>
       );
       
