@@ -1,17 +1,14 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/atoms/Button"
-import { Clock, FileText, Home, Layers, Settings, BookOpen, History, Tag } from "lucide-react"
+import { Clock, FileText, Home, Layers, BookOpen } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
 const routes = [
   { name: "Dashboard", path: "/", icon: Home },
   { name: "Pomodoro", path: "/pomodoro", icon: Clock },
-  { name: "Notes", path: "/notes", icon: FileText },
   { name: "Projects", path: "/projects", icon: Layers },
+  { name: "Notes", path: "/notes", icon: FileText },
   { name: "Anki Decks", path: "/anki", icon: BookOpen },
-  { name: "Recall History", path: "/history", icon: History },
-  { name: "Metadata", path: "/metadata", icon: Tag },
-  { name: "Settings", path: "/settings", icon: Settings },
 ]
 
 export default function Sidebar() {
