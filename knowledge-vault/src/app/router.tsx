@@ -22,8 +22,7 @@ const CreateNote = React.lazy(() => import('@/features/notes/pages/CreateNotePag
 const ViewNote = React.lazy(() => import('@/features/notes/pages/ViewNotePage'));
 const Projects = React.lazy(() => import('@/features/projects/pages/ProjectsPage'));
 const Anki = React.lazy(() => import('@/features/anki/pages/AnkiPage'));
-const History = React.lazy(() => import('@/features/recallHistory/pages/HistoryPage'));
-const Settings = React.lazy(() => import('@/features/settings/pages/SettingsPage'));
+
 
 // Loading component for lazy-loaded routes
 const LoadingFallback = () => (
@@ -132,22 +131,6 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             {withSuspense(Anki)}
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/history',
-        element: (
-          <ProtectedRoute>
-            {withSuspense(History)}
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/settings',
-        element: (
-          <ProtectedRoute>
-            {withSuspense(Settings)}
           </ProtectedRoute>
         ),
       },
