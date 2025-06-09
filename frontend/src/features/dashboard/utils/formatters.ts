@@ -1,3 +1,9 @@
+import { 
+  formatChartDate as formatChartDateUtil, 
+  formatTimeWithTimezone, 
+  getLocalHourFromUTC 
+} from '@/lib/utils/dateUtils';
+
 /**
  * Format minutes to hours and minutes display
  * @param minutes - Total minutes
@@ -22,39 +28,30 @@ export function formatFocusTime(minutes: number): string {
 
 /**
  * Format date string to display format
- * @param dateString - Date in format "2024-01-15"
+ * Uses timezone-aware formatting for both date-only and datetime strings
+ * @param dateString - Date in format "2024-01-15" or UTC datetime string
  * @returns Formatted date like "Jan 15"
  */
 export function formatChartDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric' 
-  });
+  return formatChartDateUtil(dateString);
 }
 
 /**
- * Format datetime string to time only
- * @param datetimeString - Datetime in ISO format
- * @returns Time in format "09:00"
+ * Format UTC datetime string to local time only
+ * @param utcDatetimeString - UTC datetime in ISO format (e.g., "2025-06-09T19:29:00.841554Z")
+ * @returns Time in format "09:00" (local time)
  */
-export function formatTime(datetimeString: string): string {
-  const date = new Date(datetimeString);
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false 
-  });
+export function formatTime(utcDatetimeString: string): string {
+  return formatTimeWithTimezone(utcDatetimeString, false);
 }
 
 /**
- * Get hour from datetime string as number for chart positioning
- * @param datetimeString - Datetime in ISO format
- * @returns Hour as number (0-23)
+ * Get hour from UTC datetime string as local hour for chart positioning
+ * @param utcDatetimeString - UTC datetime in ISO format
+ * @returns Hour as number (0-23) in user's local timezone
  */
-export function getHourFromDateTime(datetimeString: string): number {
-  const date = new Date(datetimeString);
-  return date.getHours() + (date.getMinutes() / 60); // Include minutes as decimal
+export function getHourFromDateTime(utcDatetimeString: string): number {
+  return getLocalHourFromUTC(utcDatetimeString);
 }
 
 /**

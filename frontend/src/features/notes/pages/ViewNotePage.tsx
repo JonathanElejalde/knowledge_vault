@@ -5,7 +5,7 @@ import { Badge } from '@/components/atoms/Badge';
 import { MarkdownRenderer } from '@/components/atoms/MarkdownRenderer';
 import { ArrowLeft, Edit, Trash2, Tag, Calendar, User, Loader2 } from 'lucide-react';
 import { notesApi } from '@/services/api/notes';
-import { formatDate } from '@/lib/utils/dateUtils';
+import { formatUTCToLocalDate } from '@/lib/utils/dateUtils';
 import type { Note } from '@/services/api/types/notes';
 import {
   Dialog,
@@ -175,7 +175,7 @@ export default function ViewNotePage() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                <span>Updated {formatDate(note.updated_at)}</span>
+                <span>Updated {formatUTCToLocalDate(note.updated_at)}</span>
               </div>
               
               {note.learning_project_name && (

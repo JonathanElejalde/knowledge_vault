@@ -9,6 +9,7 @@ import { NewProjectDialog } from "@/features/projects/components/NewProjectDialo
 import type { ProjectFormData } from "@/features/projects/components/NewProjectDialog"
 import { learningProjectsApi } from "@/services/api/learningProjects"
 import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast"
+import { formatSessionDateRange } from "@/lib/utils/dateUtils"
 
 // Utility for formatting time duration
 function formatDuration(minutes: number) {
@@ -19,59 +20,6 @@ function formatDuration(minutes: number) {
     return `${hours}h ${remainingMinutes}m`;
   }
   return `${remainingMinutes}m`;
-}
-
-
-// Utility for formatting session date or range
-function formatSessionDateRange(first: string, last: string) {
-  const firstDate = new Date(first)
-  const lastDate = new Date(last)
-  const isSameDay =
-    firstDate.getFullYear() === lastDate.getFullYear() &&
-    firstDate.getMonth() === lastDate.getMonth() &&
-    firstDate.getDate() === lastDate.getDate()
-  
-  const today = new Date()
-  const yesterday = new Date()
-  yesterday.setDate(today.getDate() - 1)
-  
-  function isToday(date: Date) {
-    return (
-      date.getFullYear() === today.getFullYear() &&
-      date.getMonth() === today.getMonth() &&
-      date.getDate() === today.getDate()
-    )
-  }
-  
-  function isYesterday(date: Date) {
-    return (
-      date.getFullYear() === yesterday.getFullYear() &&
-      date.getMonth() === yesterday.getMonth() &&
-      date.getDate() === yesterday.getDate()
-    )
-  }
-  
-  function formatDate(date: Date) {
-    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-  }
-  
-  if (isSameDay) {
-    if (isToday(firstDate)) return 'Today'
-    if (isYesterday(firstDate)) return 'Yesterday'
-    return formatDate(firstDate)
-  } else {
-    const firstLabel = isToday(firstDate)
-      ? 'Today'
-      : isYesterday(firstDate)
-      ? 'Yesterday'
-      : formatDate(firstDate)
-    const lastLabel = isToday(lastDate)
-      ? 'Today'
-      : isYesterday(lastDate)
-      ? 'Yesterday'
-      : formatDate(lastDate)
-    return `${firstLabel} – ${lastLabel}`
-  }
 }
 
 export default function PomodoroPage() {
@@ -121,7 +69,6 @@ export default function PomodoroPage() {
       })
     }
   }
-
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">

@@ -6,7 +6,6 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/atoms/DropdownMenu';
 import { 
@@ -17,26 +16,21 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/atoms/Dialog';
-import { FileText, Tag, MoreVertical, Edit, Trash2, Loader2 } from 'lucide-react';
-import { formatDate } from '@/lib/utils/dateUtils';
+import { FileText, Tag, MoreVertical, Edit, Trash2, Loader2, ExternalLink } from 'lucide-react';
+import { formatUTCToLocalDate } from '@/lib/utils/dateUtils';
 import type { Note } from '@/services/api/types/notes';
 
 interface NoteCardProps {
   note: Note;
-  onClick?: () => void;
+  projectName?: string;
   onEdit?: (note: Note) => void;
-  onDelete?: (noteId: string) => Promise<void>;
+  onDelete?: (noteId: string) => void;
+  onView?: (note: Note) => void;
 }
 
-export function NoteCard({ note, onClick, onEdit, onDelete }: NoteCardProps) {
+export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Truncate content for preview
-  const getContentPreview = (content: string, maxLength: number = 150) => {
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength).trim() + '...';
-  };
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -67,8 +61,18 @@ export function NoteCard({ note, onClick, onEdit, onDelete }: NoteCardProps) {
     setShowDeleteDialog(false);
   };
 
+  const handleView = () => {
+    onView?.(note);
+  };
+
+  // Truncate content for preview
+  const getContentPreview = (content: string, maxLength: number = 150) => {
+    if (content.length <= maxLength) return content;
+    return content.substring(0, maxLength).trim() + '...';
+  };
+
   const handleCardClick = () => {
-    onClick?.();
+    // Implement the logic to handle card click
   };
 
   const handleOptionsClick = (e: React.MouseEvent) => {
@@ -85,12 +89,12 @@ export function NoteCard({ note, onClick, onEdit, onDelete }: NoteCardProps) {
           <div className="flex justify-between items-start">
             <div className="flex-1 min-w-0">
               <div className="text-xs text-muted-foreground mb-1">
-                {note.learning_project_id && (
+                {projectName && (
                   <>
-                    {note.learning_project_name || note.learning_project_id} • {' '}
+                    {projectName} • {' '}
                   </>
                 )}
-                {formatDate(note.updated_at)}
+                {formatUTCToLocalDate(note.updated_at)}
               </div>
               <CardTitle className="text-lg line-clamp-2">
                 {note.title || 'Untitled Note'}
@@ -113,18 +117,27 @@ export function NoteCard({ note, onClick, onEdit, onDelete }: NoteCardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem onClick={handleEdit} className="cursor-pointer">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={handleDeleteClick} 
-                    className="cursor-pointer text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
+                  {onView && (
+                    <DropdownMenuItem onClick={handleView}>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View Note
+                    </DropdownMenuItem>
+                  )}
+                  {onEdit && (
+                    <DropdownMenuItem onClick={handleEdit} className="cursor-pointer">
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <DropdownMenuItem 
+                      onClick={handleDeleteClick} 
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

@@ -3,6 +3,7 @@ import { MoreVertical, Edit, CheckCircle, XCircle, Trash2, Calendar, FileText, C
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/atoms/Card";
 import { Button } from "@/components/atoms/Button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/atoms/DropdownMenu";
+import { formatUTCToLocalDate } from "@/lib/utils/dateUtils";
 import type { LearningProject } from "@/services/api/types/learningProjects";
 
 interface ProjectCardProps {
@@ -24,16 +25,6 @@ const formatStatus = (status: string): string => {
     default:
       return status;
   }
-};
-
-// Function to format date for display
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
 };
 
 export function ProjectCard({ project, onEdit, onStatusChange, onDelete }: ProjectCardProps) {
@@ -58,7 +49,7 @@ export function ProjectCard({ project, onEdit, onStatusChange, onDelete }: Proje
               )}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Calendar className="h-3 w-3" />
-                <span>Created {formatDate(project.created_at)}</span>
+                <span>Created {formatUTCToLocalDate(project.created_at)}</span>
               </div>
             </div>
             <DropdownMenu>
