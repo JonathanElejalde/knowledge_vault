@@ -67,7 +67,8 @@ export interface AuthState {
 export interface AuthActions {
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (credentials: SignupCredentials) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: (options?: { skipSessionCheck?: boolean }) => Promise<void>;
+  logoutWithSessionAbandon: () => Promise<void>;
   clearError: () => void;
   refreshAuthToken: () => Promise<void>;
   initializeAuth: () => Promise<void>;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
 import { usePomodoroStore } from '@/store/pomodoroStore';
-import { usePomodoroPreferences, triggerPreferencesRefresh, triggerSummaryRefresh, triggerWeeklyStatsRefresh } from './internal';
+import { usePomodoroPreferences, triggerSummaryRefresh, triggerWeeklyStatsRefresh } from './internal';
 import type {
   PomodoroPreferences,
   PomodoroSession,

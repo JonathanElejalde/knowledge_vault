@@ -19,6 +19,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const { login, isLoading, error: authError } = useAuth();
+  // Generate unique ID for this form instance to avoid DOM conflicts
+  const formId = React.useId();
   const {
     register,
     handleSubmit,
@@ -59,11 +61,11 @@ export function LoginForm() {
 
       <div className="flex items-center space-x-2">
         <Checkbox
-          id="remember_me"
+          id={`${formId}-remember_me`}
           {...register('remember_me')}
         />
         <label
-          htmlFor="remember_me"
+          htmlFor={`${formId}-remember_me`}
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
           Remember me

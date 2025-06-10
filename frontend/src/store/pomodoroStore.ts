@@ -47,6 +47,9 @@ export interface PomodoroStoreState {
   _startInterval: () => void;
   _clearInterval: () => void;
   _playSound: (soundFile: string) => void;
+  
+  // Add cleanup function for logout
+  clearSessionState: () => void;
 }
 
 const playSoundGlobally = (soundFile: string) => {
@@ -58,22 +61,31 @@ const playSoundGlobally = (soundFile: string) => {
   }
 };
 
+// Default preferences - will be overridden by backend preferences when available
+const DEFAULT_PREFERENCES = {
+  workDuration: 25,
+  breakDuration: 5,
+  longBreakDuration: 15,
+  longBreakInterval: 4,
+};
+
 export const usePomodoroStore = create<PomodoroStoreState>()(
   persist(
     (set, get) => ({
       // Initial state
       timerState: 'idle',
       isRunning: false,
-      timeLeft: 25 * 60,
+      timeLeft: DEFAULT_PREFERENCES.workDuration * 60,
       completedIntervals: 0,
       startTime: null,
       resumeTimeLeft: null,
       currentSessionId: null,
       selectedProjectId: null,
-      workDuration: 25,
-      breakDuration: 5,
-      longBreakDuration: 15,
-      longBreakInterval: 4,
+      // PHASE 1: Use defaults, will be set by usePomodoro hook when preferences load
+      workDuration: DEFAULT_PREFERENCES.workDuration,
+      breakDuration: DEFAULT_PREFERENCES.breakDuration,
+      longBreakDuration: DEFAULT_PREFERENCES.longBreakDuration,
+      longBreakInterval: DEFAULT_PREFERENCES.longBreakInterval,
       showGlobalTimer: true,
       _intervalId: null,
 
@@ -320,29 +332,88 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           set({ _intervalId: null });
         }
       },
+
+      // Add cleanup function for logout
+      clearSessionState: () => {
+        const state = get();
+        state._clearInterval();
+        set({
+          // Reset active timer state
+          timerState: 'idle',
+          isRunning: false,
+          timeLeft: state.workDuration * 60, // Reset to preference default
+          completedIntervals: 0,
+          startTime: null,
+          resumeTimeLeft: null,
+          currentSessionId: null,
+          selectedProjectId: null,
+          // Keep preferences and UI settings
+          // workDuration, breakDuration, etc. stay as they are
+          // showGlobalTimer stays as it is
+        });
+      },
     }),
     {
       name: 'pomodoro-timer-store',
       partialize: (state) => ({
-        timerState: state.timerState,
-        isRunning: state.isRunning,
-        timeLeft: state.timeLeft,
-        completedIntervals: state.completedIntervals,
-        startTime: state.startTime,
-        resumeTimeLeft: state.resumeTimeLeft,
-        currentSessionId: state.currentSessionId,
-        selectedProjectId: state.selectedProjectId,
-        workDuration: state.workDuration,
-        breakDuration: state.breakDuration,
-        longBreakDuration: state.longBreakDuration,
-        longBreakInterval: state.longBreakInterval,
+        // ❌ PHASE 1: Remove preferences from persistence (they come from backend)
+        // workDuration: state.workDuration,
+        // breakDuration: state.breakDuration,
+        // longBreakDuration: state.longBreakDuration,
+        // longBreakInterval: state.longBreakInterval,
+        
+        // ❌ PHASE 1: Remove active timer state from persistence  
+        // timerState: state.timerState,
+        // isRunning: state.isRunning,
+        // timeLeft: state.timeLeft,
+        // completedIntervals: state.completedIntervals,
+        // startTime: state.startTime,
+        // resumeTimeLeft: state.resumeTimeLeft,
+        // currentSessionId: state.currentSessionId,
+        // selectedProjectId: state.selectedProjectId,
+        
+        // ✅ PHASE 1: Only persist UI preferences
         showGlobalTimer: state.showGlobalTimer,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.isRunning) {
-          state._startInterval();
-        }
-      },
+      // ❌ PHASE 1: Remove auto-restart on app load
+      // onRehydrateStorage: () => (state) => {
+      //   if (state?.isRunning) {
+      //     state._startInterval();
+      //   }
+      // },
     }
   )
 ); 
+
+// PHASE 1: Test helper function - remove after testing
+export const testPhase1Changes = () => {
+  console.log('🧪 TESTING PHASE 1 CHANGES');
+  
+  const state = usePomodoroStore.getState();
+  console.log('📊 Current store state:', {
+    timerState: state.timerState,
+    isRunning: state.isRunning,
+    timeLeft: state.timeLeft,
+    currentSessionId: state.currentSessionId,
+    showGlobalTimer: state.showGlobalTimer,
+  });
+  
+  // Check localStorage to see what's persisted
+  const persistedData = localStorage.getItem('pomodoro-timer-store');
+  console.log('💾 Persisted data:', persistedData ? JSON.parse(persistedData) : 'No data');
+  
+  // Test cleanup function
+  console.log('🧹 Testing cleanup function...');
+  state.clearSessionState();
+  
+  const stateAfterCleanup = usePomodoroStore.getState();
+  console.log('📊 State after cleanup:', {
+    timerState: stateAfterCleanup.timerState,
+    isRunning: stateAfterCleanup.isRunning,
+    timeLeft: stateAfterCleanup.timeLeft,
+    currentSessionId: stateAfterCleanup.currentSessionId,
+    showGlobalTimer: stateAfterCleanup.showGlobalTimer, // Should remain unchanged
+  });
+  
+  console.log('✅ Phase 1 test complete');
+}; 

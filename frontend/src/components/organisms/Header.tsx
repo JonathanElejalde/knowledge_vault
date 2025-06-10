@@ -1,3 +1,4 @@
+import React, { useState } from 'react'
 import { Button } from "@/components/atoms/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/Avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/atoms/Sheet"
@@ -5,6 +6,7 @@ import { Menu, Bell, LogOut } from "lucide-react"
 import Sidebar from "./Sidebar"
 import { ModeToggle } from "@/components/molecules/ModeToggle"
 import { useAuth } from "@/features/auth/hooks/useAuth"
+import { LogoutConfirmDialog } from "./LogoutConfirmDialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +15,44 @@ import {
 } from "@/components/atoms/DropdownMenu"
 
 export default function Header() {
-  const { logout, user } = useAuth();
+  const { logout, logoutWithSessionAbandon, user } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      setIsLoggingOut(true);
+      await logout();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'ACTIVE_POMODORO_SESSION') {
+        // Show confirmation dialog for active session
+        setShowLogoutConfirm(true);
+      } else {
+        console.error('Logout failed:', error);
+        // Handle other logout errors if needed
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  const handleConfirmAbandonAndLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logoutWithSessionAbandon();
+      setShowLogoutConfirm(false);
+    } catch (error) {
+      console.error('Failed to abandon session and logout:', error);
+      // Even if abandon fails, we should still try to logout
+      try {
+        await logout({ skipSessionCheck: true });
+        setShowLogoutConfirm(false);
+      } catch (logoutError) {
+        console.error('Final logout attempt failed:', logoutError);
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -53,13 +89,25 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+            <DropdownMenuItem 
+              onClick={handleLogout} 
+              className="text-destructive"
+              disabled={isLoggingOut}
+            >
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+              <span>{isLoggingOut ? 'Logging out...' : 'Log out'}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+             <LogoutConfirmDialog
+         isOpen={showLogoutConfirm}
+         onClose={() => setShowLogoutConfirm(false)}
+         onConfirmAbandon={handleConfirmAbandonAndLogout}
+         isLoading={isLoggingOut}
+       />
     </header>
   )
 } 
