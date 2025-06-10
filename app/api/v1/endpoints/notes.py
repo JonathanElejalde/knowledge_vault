@@ -22,7 +22,7 @@ router = APIRouter(
 def _map_note_to_response(note: Union[Note, dict]) -> dict:
     """Helper to map Note ORM model or dict to a dictionary suitable for response models."""
     if isinstance(note, dict):
-        # Already a dictionary from the CRUD function
+        # Already a dictionary from semantic search with similarity score
         return note
     
     # Handle ORM object (for backward compatibility)
@@ -33,6 +33,10 @@ def _map_note_to_response(note: Union[Note, dict]) -> dict:
         response_data['learning_project_name'] = note.learning_project.name
     elif 'learning_project_name' not in response_data:
         response_data['learning_project_name'] = None
+    
+    # For regular (non-semantic) search, similarity_score is None
+    if 'similarity_score' not in response_data:
+        response_data['similarity_score'] = None
     
     return response_data
 

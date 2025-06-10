@@ -84,7 +84,8 @@ export function NotesList({
         <NoteCard
           key={note.id}
           note={note}
-          onClick={() => onNoteClick?.(note)}
+          projectName={note.learning_project_name || undefined}
+          onView={() => onNoteClick?.(note)}
           onEdit={onNoteEdit}
           onDelete={onNoteDelete}
         />

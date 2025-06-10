@@ -37,10 +37,13 @@ interface UseNotesState {
   // Filters
   searchQuery: string;
   selectedProjectId: string | null;
+  isSemanticSearch: boolean;
   
   // Actions
   setSearchQuery: (query: string) => void;
   setSelectedProjectId: (projectId: string | null) => void;
+  setIsSemanticSearch: (isSemanticSearch: boolean) => void;
+  triggerSemanticSearch: () => void;
   loadMore: () => Promise<void>;
   createNote: (data: NoteCreate) => Promise<Note>;
   updateNote: (id: string, data: NoteUpdate) => Promise<Note>;
@@ -52,11 +55,22 @@ export function useNotes(): UseNotesState {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Get filter values from URL search parameters
-  const searchQuery = searchParams.get('search') || '';
+  const urlSearchQuery = searchParams.get('search') || '';
   const selectedProjectId = searchParams.get('project') || null;
+  const isSemanticSearch = searchParams.get('semantic') === 'true';
   
-  // Debounce search query to avoid too many API calls
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  // Local state for responsive typing (not connected to URL until debounced)
+  const [localSearchQuery, setLocalSearchQuery] = useState(urlSearchQuery);
+  
+  // Sync local state with URL when URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    setLocalSearchQuery(urlSearchQuery);
+  }, [urlSearchQuery]);
+  
+  // For semantic search, we don't want auto-debouncing - only manual triggers
+  // For keyword search, we debounce the local query and then update URL
+  const debouncedKeywordQuery = useDebounce(localSearchQuery, 300);
+  const [manualSemanticQuery, setManualSemanticQuery] = useState<string>('');
   
   // Build filters object
   const filters = useMemo((): NoteFilters => {
@@ -66,12 +80,31 @@ export function useNotes(): UseNotesState {
       filterObj.learning_project_id = selectedProjectId;
     }
     
-    if (debouncedSearchQuery.trim()) {
-      filterObj.q = debouncedSearchQuery.trim();
+    if (isSemanticSearch) {
+      // For semantic search, only use manually triggered queries
+      // Don't include any search parameters until manually triggered
+      if (manualSemanticQuery.trim()) {
+        filterObj.semantic_q = manualSemanticQuery.trim();
+      }
+      // Note: We deliberately exclude searchQuery/debouncedKeywordQuery from dependencies
+      // when in semantic mode to prevent unnecessary API calls while typing
+    } else {
+      // For keyword search, use debounced auto-triggered queries
+      if (debouncedKeywordQuery.trim()) {
+        filterObj.q = debouncedKeywordQuery.trim();
+      }
     }
     
     return filterObj;
-  }, [selectedProjectId, debouncedSearchQuery]);
+  }, [
+    selectedProjectId, 
+    // Only include search-related dependencies when not in semantic mode
+    // or when semantic search has been manually triggered
+    ...(isSemanticSearch 
+      ? [manualSemanticQuery] // Only manual semantic query affects filters
+      : [debouncedKeywordQuery] // Only keyword query affects filters
+    )
+  ]);
   
   // Get notes data with current filters
   const { 
@@ -84,18 +117,25 @@ export function useNotes(): UseNotesState {
     refreshNotes: refreshNotesData 
   } = useNotesData(filters);
   
-  // Action: Set search query (updates URL)
+  // Update URL when debounced keyword query changes (only for keyword search)
+  useEffect(() => {
+    if (!isSemanticSearch) {
+      setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        if (debouncedKeywordQuery.trim()) {
+          newParams.set('search', debouncedKeywordQuery);
+        } else {
+          newParams.delete('search');
+        }
+        return newParams;
+      });
+    }
+  }, [debouncedKeywordQuery, isSemanticSearch, setSearchParams]);
+  
+  // Action: Set search query (updates local state immediately for responsiveness)
   const setSearchQuery = useCallback((query: string) => {
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (query.trim()) {
-        newParams.set('search', query);
-      } else {
-        newParams.delete('search');
-      }
-      return newParams;
-    });
-  }, [setSearchParams]);
+    setLocalSearchQuery(query);
+  }, []);
   
   // Action: Set selected project (updates URL)
   const setSelectedProjectId = useCallback((projectId: string | null) => {
@@ -109,6 +149,30 @@ export function useNotes(): UseNotesState {
       return newParams;
     });
   }, [setSearchParams]);
+  
+  // Action: Set semantic search (updates URL)
+  const setIsSemanticSearch = useCallback((isSemanticSearch: boolean) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('semantic', isSemanticSearch.toString());
+      return newParams;
+    });
+    // Clear manual semantic query when switching modes
+    setManualSemanticQuery('');
+  }, [setSearchParams]);
+  
+  // Action: Trigger semantic search manually
+  const triggerSemanticSearch = useCallback(() => {
+    if (localSearchQuery.trim()) {
+      setManualSemanticQuery(localSearchQuery.trim());
+      // Also update URL for semantic search
+      setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set('search', localSearchQuery.trim());
+        return newParams;
+      });
+    }
+  }, [localSearchQuery, setSearchParams]);
   
   // Action: Create note
   const createNote = useCallback(async (data: NoteCreate): Promise<Note> => {
@@ -160,12 +224,15 @@ export function useNotes(): UseNotesState {
     error,
     
     // Filters
-    searchQuery,
+    searchQuery: localSearchQuery, // Return local state for immediate UI responsiveness
     selectedProjectId,
+    isSemanticSearch,
     
     // Actions
     setSearchQuery,
     setSelectedProjectId,
+    setIsSemanticSearch,
+    triggerSemanticSearch,
     loadMore,
     createNote,
     updateNote,

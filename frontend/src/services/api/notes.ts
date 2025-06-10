@@ -29,6 +29,7 @@ export const notesApi = {
       if (filters?.limit !== undefined) params.limit = filters.limit;
       if (filters?.learning_project_id) params.learning_project_id = filters.learning_project_id;
       if (filters?.q) params.q = filters.q;
+      if (filters?.semantic_q) params.semantic_q = filters.semantic_q;
       
       // Handle tags array - can be specified multiple times
       if (filters?.tags && filters.tags.length > 0) {

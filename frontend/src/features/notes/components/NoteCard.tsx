@@ -16,7 +16,7 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/atoms/Dialog';
-import { FileText, Tag, MoreVertical, Edit, Trash2, Loader2, ExternalLink } from 'lucide-react';
+import { FileText, Tag, MoreVertical, Edit, Trash2, Loader2, ExternalLink, Target } from 'lucide-react';
 import { formatUTCToLocalDate } from '@/lib/utils/dateUtils';
 import type { Note } from '@/services/api/types/notes';
 
@@ -72,7 +72,7 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
   };
 
   const handleCardClick = () => {
-    // Implement the logic to handle card click
+    onView?.(note);
   };
 
   const handleOptionsClick = (e: React.MouseEvent) => {
@@ -88,13 +88,26 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">
-                {projectName && (
-                  <>
-                    {projectName} • {' '}
-                  </>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <div>
+                  {projectName && (
+                    <>
+                      {projectName} • {' '}
+                    </>
+                  )}
+                  {formatUTCToLocalDate(note.updated_at)}
+                </div>
+                
+                {/* Relevance Score - only shown for semantic search results */}
+                {note.similarity_score !== null && note.similarity_score !== undefined && note.similarity_score > 0 && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs px-2 py-0.5 flex items-center gap-1 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                  >
+                    <Target className="h-3 w-3" />
+                    {Math.round(note.similarity_score * 100)}% match
+                  </Badge>
                 )}
-                {formatUTCToLocalDate(note.updated_at)}
               </div>
               <CardTitle className="text-lg line-clamp-2">
                 {note.title || 'Untitled Note'}

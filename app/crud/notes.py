@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -124,7 +124,7 @@ async def get_user_notes(
     tags: Optional[List[str]] = None,
     search_query: Optional[str] = None,
     semantic_query: Optional[str] = None
-) -> List[Note]:
+) -> List[Union[Note, Dict[str, Any]]]:
     """Get a list of user's notes with optional filters and semantic search.
 
     Args:
@@ -138,7 +138,7 @@ async def get_user_notes(
         semantic_query: Optional semantic search query using vector similarity.
 
     Returns:
-        A list of notes, ordered by relevance if semantic search is used, otherwise by creation date.
+        A list of notes (Note objects for regular search, or dicts with similarity scores for semantic search), ordered by relevance if semantic search is used, otherwise by creation date.
     """
     base_query = select(Note).where(Note.user_id == user_id)
     base_query = base_query.options(
@@ -169,8 +169,9 @@ async def get_user_notes(
                     filters=filters
                 )
                 
-                # Convert vector store results to Note objects
-                notes = []
+                # Convert vector store results to Note objects with similarity scores
+                notes_with_scores = []
+                result_data = {result["id"]: result["score"] for result in vector_results}
                 result_ids = [result["id"] for result in vector_results]
                 
                 if result_ids:
@@ -183,9 +184,26 @@ async def get_user_notes(
                         )
                         note = note_result.scalars().first()
                         if note:
-                            notes.append(note)
+                            # Create a dictionary with note data and similarity score
+                            note_dict = {
+                                'id': note.id,
+                                'user_id': note.user_id,
+                                'session_id': note.session_id,
+                                'learning_project_id': note.learning_project_id,
+                                'content': note.content,
+                                'title': note.title,
+                                'tags': note.tags,
+                                'meta_data': note.meta_data,
+                                'embedding': note.embedding,
+                                'created_at': note.created_at,
+                                'updated_at': note.updated_at,
+                                'learning_project': note.learning_project,
+                                'learning_project_name': note.learning_project.name if note.learning_project else None,
+                                'similarity_score': result_data.get(note_id, 0.0)
+                            }
+                            notes_with_scores.append(note_dict)
                 
-                return notes
+                return notes_with_scores
                 
         except Exception as e:
             logger.error(f"Semantic search failed, falling back to regular search: {e}")

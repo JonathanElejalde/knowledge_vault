@@ -9,6 +9,7 @@ export interface Note {
   created_at: string;
   updated_at: string;
   learning_project_name?: string | null; // Only available in GET /{note_id}
+  similarity_score?: number | null; // Similarity score for semantic search results (0.0-1.0, higher is more similar)
 }
 
 export interface NoteCreate {
@@ -33,4 +34,5 @@ export interface NoteFilters {
   learning_project_id?: string; // Filter by learning project UUID
   tags?: string[]; // Filter notes containing any of these tags
   q?: string; // Search query for title/content (case-insensitive, max 255 chars)
+  semantic_q?: string; // Semantic search query using AI embeddings (natural language)
 } 

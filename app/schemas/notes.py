@@ -45,6 +45,7 @@ class NoteResponse(BaseModel):
 class NoteDetailResponse(NoteResponse):
     """Schema for detailed note response, including related data."""
     learning_project_name: Optional[str] = Field(default=None, description="Name of the associated learning project")
+    similarity_score: Optional[float] = Field(default=None, description="Similarity score for semantic search results (0.0-1.0, higher is more similar)")
 
     class Config:
         from_attributes = True
