@@ -71,8 +71,30 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
     return content.substring(0, maxLength).trim() + '...';
   };
 
-  const handleCardClick = () => {
-    onView?.(note);
+  const handleCardClick = (e: React.MouseEvent) => {
+    // For left clicks (including Ctrl+click), prevent default link behavior and use our callback
+    if (e.button === 0) {
+      e.preventDefault();
+      
+      // Check if user wants to open in new tab (Ctrl/Cmd+Click)
+      if (e.ctrlKey || e.metaKey) {
+        const noteUrl = `/notes/${note.id}`;
+        window.open(noteUrl, '_blank');
+        return;
+      }
+      
+      // Regular left click - use the callback
+      onView?.(note);
+    }
+    
+    // For middle click, prevent default and open in new tab
+    if (e.button === 1) {
+      e.preventDefault();
+      const noteUrl = `/notes/${note.id}`;
+      window.open(noteUrl, '_blank');
+    }
+    
+    // For right clicks (button === 2), do nothing - let browser handle context menu
   };
 
   const handleOptionsClick = (e: React.MouseEvent) => {
@@ -81,10 +103,19 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
 
   return (
     <>
-      <Card 
-        className="cursor-pointer hover:bg-muted/50 transition-colors group relative"
+      <a
+        href={`/notes/${note.id}`}
         onClick={handleCardClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onView?.(note);
+          }
+        }}
+        aria-label={`View note: ${note.title || 'Untitled Note'}`}
+        style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
       >
+        <Card className="cursor-pointer hover:bg-muted/50 transition-colors group relative">
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <div className="flex-1 min-w-0">
@@ -182,7 +213,8 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </a>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

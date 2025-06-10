@@ -65,7 +65,11 @@ export function useNotes(): UseNotesState {
   // Sync local state with URL when URL changes (e.g., browser back/forward)
   useEffect(() => {
     setLocalSearchQuery(urlSearchQuery);
-  }, [urlSearchQuery]);
+    // For semantic search, also restore the manual query if it exists in URL
+    if (isSemanticSearch && urlSearchQuery) {
+      setManualSemanticQuery(urlSearchQuery);
+    }
+  }, [urlSearchQuery, isSemanticSearch]);
   
   // For semantic search, we don't want auto-debouncing - only manual triggers
   // For keyword search, we debounce the local query and then update URL
