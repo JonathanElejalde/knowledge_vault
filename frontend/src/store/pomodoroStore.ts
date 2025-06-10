@@ -145,36 +145,19 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
 
       completeInterval: () => {
         const state = get();
-        // DEBUG_LOGS_START
-        console.log('🎯 COMPLETE INTERVAL CALLED:', {
-          currentTimerState: state.timerState,
-          currentCompletedIntervals: state.completedIntervals,
-          currentSessionId: state.currentSessionId,
-          timeLeft: state.timeLeft,
-          timestamp: new Date().toISOString()
-        });
-        // DEBUG_LOGS_END
+        
+        // Prevent multiple calls in rapid succession (important for background tab scenarios)
+        if (state.timeLeft > 1) {
+          return;
+        }
 
         state._clearInterval();
 
         if (state.timerState === 'work') {
-          // DEBUG_LOGS_START
-          console.log('🎯 COMPLETING WORK INTERVAL');
-          // DEBUG_LOGS_END
           state._playSound('/sounds/positive-notification.wav');
 
           const newCompletedIntervals = state.completedIntervals + 1;
           const isLongBreak = newCompletedIntervals % state.longBreakInterval === 0;
-          
-          // DEBUG_LOGS_START
-          console.log('🎯 WORK INTERVAL COMPLETED:', {
-            oldCompletedIntervals: state.completedIntervals,
-            newCompletedIntervals,
-            isLongBreak,
-            sessionId: state.currentSessionId,
-            timestamp: new Date().toISOString()
-          });
-          // DEBUG_LOGS_END
           
           set({
             completedIntervals: newCompletedIntervals,
@@ -187,9 +170,6 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           state._startInterval();
 
         } else if (state.timerState === 'break' || state.timerState === 'longBreak') {
-          // DEBUG_LOGS_START
-          console.log('🎯 COMPLETING BREAK INTERVAL:', state.timerState);
-          // DEBUG_LOGS_END
           state._playSound('/sounds/bell-notification.wav');
           
           set({
@@ -251,6 +231,9 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           const currentState = get();
           if (!currentState.isRunning) return;
 
+          // Always use timestamp-based calculation for accuracy (especially important for background tabs)
+          let newTimeLeft: number;
+          
           if (currentState.startTime) {
             const elapsed = Math.floor((Date.now() - currentState.startTime) / 1000);
             
@@ -262,63 +245,18 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
                 currentState.timerState === 'longBreak' ? currentState.longBreakDuration * 60 :
                 currentState.timeLeft;
             
-            const newTimeLeft = Math.max(0, baselineTime - elapsed);
-            
-            // DEBUG_LOGS_START
-            // Log when we're close to completion
-            if (newTimeLeft <= 5 && newTimeLeft > 0) {
-              console.log('⏰ TIMER COUNTDOWN:', {
-                timeLeft: newTimeLeft,
-                timerState: currentState.timerState,
-                elapsed,
-                baselineTime,
-                sessionId: currentState.currentSessionId,
-                timestamp: new Date().toISOString()
-              });
-            }
-            // DEBUG_LOGS_END
-            
-            if (newTimeLeft <= 0) {
-              // DEBUG_LOGS_START
-              console.log('⏰ TIMER REACHED ZERO - CALLING COMPLETE INTERVAL:', {
-                timerState: currentState.timerState,
-                sessionId: currentState.currentSessionId,
-                elapsed,
-                baselineTime,
-                timestamp: new Date().toISOString()
-              });
-              // DEBUG_LOGS_END
-              currentState.completeInterval();
-            } else {
-              set({ timeLeft: newTimeLeft });
-            }
+            newTimeLeft = Math.max(0, baselineTime - elapsed);
           } else {
-            const newTimeLeft = currentState.timeLeft - 1;
-            
-            // DEBUG_LOGS_START
-            // Log when we're close to completion
-            if (newTimeLeft <= 5 && newTimeLeft > 0) {
-              console.log('⏰ TIMER COUNTDOWN (fallback):', {
-                timeLeft: newTimeLeft,
-                timerState: currentState.timerState,
-                sessionId: currentState.currentSessionId,
-                timestamp: new Date().toISOString()
-              });
-            }
-            // DEBUG_LOGS_END
-            
-            if (newTimeLeft <= 0) {
-              // DEBUG_LOGS_START
-              console.log('⏰ TIMER REACHED ZERO (fallback) - CALLING COMPLETE INTERVAL:', {
-                timerState: currentState.timerState,
-                sessionId: currentState.currentSessionId,
-                timestamp: new Date().toISOString()
-              });
-              // DEBUG_LOGS_END
-              currentState.completeInterval();
-            } else {
-              set({ timeLeft: newTimeLeft });
-            }
+            // Fallback: if no startTime, fall back to simple countdown (should rarely happen)
+            newTimeLeft = Math.max(0, currentState.timeLeft - 1);
+          }
+          
+          if (newTimeLeft <= 0) {
+            // Set timeLeft to 0 before calling completeInterval to prevent race conditions
+            set({ timeLeft: 0 });
+            currentState.completeInterval();
+          } else {
+            set({ timeLeft: newTimeLeft });
           }
         }, 1000);
 
