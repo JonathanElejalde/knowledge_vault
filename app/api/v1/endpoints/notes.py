@@ -67,9 +67,10 @@ async def list_notes(
     limit: int = Query(100, ge=1, le=100),
     learning_project_id: Optional[UUID] = Query(None, description="Filter notes by learning project ID"),
     tags: Optional[List[str]] = Query(None, description="Filter notes containing any of these tags"),
-    q: Optional[str] = Query(None, max_length=255, description="Search query to filter notes by title or content (case-insensitive partial match)")
+    q: Optional[str] = Query(None, max_length=255, description="Search query to filter notes by title or content (case-insensitive partial match)"),
+    semantic_q: Optional[str] = Query(None, max_length=255, description="Semantic search query using AI embeddings for natural language search")
 ) -> List[NoteDetailResponse]:
-    """List notes for the current user with optional filters.
+    """List notes for the current user with optional filters and semantic search.
 
     Args:
         current_user: The authenticated user whose notes to list.
@@ -79,9 +80,10 @@ async def list_notes(
         learning_project_id: Optional filter for notes from a specific learning project.
         tags: Optional filter for notes containing any of the specified tags.
         q: Optional search query to filter notes by title or content (case-insensitive partial match).
+        semantic_q: Optional semantic search query using AI embeddings for natural language search.
 
     Returns:
-        A list of notes with their associated learning project names.
+        A list of notes with their associated learning project names, ordered by relevance if semantic search is used.
     """
     notes = await crud_notes.get_user_notes(
         db=db,
@@ -90,7 +92,8 @@ async def list_notes(
         limit=limit,
         learning_project_id=learning_project_id,
         tags=tags,
-        search_query=q
+        search_query=q,
+        semantic_query=semantic_q
     )
     return [NoteDetailResponse.model_validate(_map_note_to_response(n)) for n in notes]
 

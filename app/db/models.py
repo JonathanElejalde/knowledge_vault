@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from sqlmodel import Field, Relationship
 from sqlalchemy import JSON, String, ARRAY, Text, Index
+from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
+from pgvector.sqlalchemy import Vector
 import sqlalchemy as sa
 from app.db.base import BaseModel
 from uuid import UUID
@@ -93,6 +95,7 @@ class Note(BaseModel, table=True):
     __tablename__ = "notes"
     __table_args__ = (
         Index('idx_notes_tags', 'tags', postgresql_using='gin'),
+        Index('idx_notes_embedding_hnsw', 'embedding', postgresql_using='hnsw', postgresql_with={'m': 16, 'ef_construction': 64}, postgresql_ops={'embedding': 'vector_cosine_ops'}),
     )
 
     user_id: Optional[UUID] = Field(foreign_key="users.id", index=True, default=None)
@@ -102,6 +105,7 @@ class Note(BaseModel, table=True):
     title: Optional[str] = Field(sa_type=String(255), default=None)
     tags: List[str] = Field(sa_type=ARRAY(String), default_factory=list)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
+    embedding: Optional[List[float]] = Field(sa_type=Vector(1536), default=None)
 
     # Relationships
     user: Optional["User"] = Relationship(back_populates="notes")

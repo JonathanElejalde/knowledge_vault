@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for refresh tokens
 
+    # AI
+    DEEPSEEK_API_KEY: str
+    OPENAI_API_KEY: str
+    
+    # Vector Search Settings
+    VECTOR_DISTANCE: str = "cosine"
+    VECTOR_DIM: int = 1536
+    VECTOR_BACKEND: str = "pg"
+
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.DB_USERNAME}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
