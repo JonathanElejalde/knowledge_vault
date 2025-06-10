@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import type { SessionTime } from '@/services/api/types/dashboard';
 import { formatChartDate, formatTime, getHourFromDateTime, getProjectColor } from '../utils/formatters';
+import { parseUTCToLocal } from '@/lib/utils/dateUtils';
 
 interface SessionTimelineChartProps {
   data: SessionTime[];
@@ -30,15 +31,21 @@ export default function SessionTimelineChart({ data, className }: SessionTimelin
   // Transform data for the chart
   const chartData: ChartData[] = data
     .filter(item => item.duration !== null) // Only show sessions with duration
-    .map(item => ({
-      date: item.date,
-      displayDate: formatChartDate(item.date),
-      hour: getHourFromDateTime(item.start_time),
-      duration: item.duration,
-      projectName: item.project_name,
-      startTime: item.start_time,
-      color: getProjectColor(item.project_name),
-    }));
+    .map(item => {
+      // Calculate local date from UTC start_time
+      const localDateTime = parseUTCToLocal(item.start_time);
+      const localDate = localDateTime.toISODate(); // Returns "2024-01-15" format
+      
+      return {
+        date: localDate || '',
+        displayDate: formatChartDate(item.start_time),
+        hour: getHourFromDateTime(item.start_time),
+        duration: item.duration,
+        projectName: item.project_name,
+        startTime: item.start_time,
+        color: getProjectColor(item.project_name),
+      };
+    });
 
   // Group data by date for x-axis
   const uniqueDates = Array.from(new Set(chartData.map(item => item.displayDate)));

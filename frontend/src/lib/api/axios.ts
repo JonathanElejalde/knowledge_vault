@@ -53,6 +53,16 @@ api.interceptors.request.use(
     if (tokens?.access_token) {
       config.headers.Authorization = `Bearer ${tokens.access_token}`;
     }
+    
+    // Add user's timezone to all requests
+    try {
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      config.headers['X-Timezone'] = userTimezone;
+    } catch (error) {
+      // Fallback to UTC if timezone detection fails
+      config.headers['X-Timezone'] = 'UTC';
+    }
+    
     return config;
   },
   (error: AxiosError) => {

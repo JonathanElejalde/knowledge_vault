@@ -189,17 +189,18 @@ async def get_project_stats(
 
 
 async def get_daily_activity(
-    db: AsyncSession, user_id: UUID, period: str = '7d'
+    db: AsyncSession, user_id: UUID, period: str = '7d', user_timezone: str = 'UTC'
 ) -> List[DailyActivityResponse]:
-    """Get daily activity chart data for the specified period.
+    """Get daily activity chart data grouped by user's local timezone.
     
     Args:
         db: The database session.
         user_id: The ID of the user.
         period: Time period ('7d', '2w', '4w', '3m', '1y', 'all').
+        user_timezone: User's timezone (e.g., 'America/Bogota', 'UTC').
         
     Returns:
-        List of daily activity data.
+        List of daily activity data grouped by local date.
     """
     start_date, end_date = _get_date_range(period)
     
@@ -211,24 +212,24 @@ async def get_daily_activity(
         session_conditions.append(Session.created_at >= start_date)
         note_conditions.append(Note.created_at >= start_date)
     
-    # Get sessions by date
+    # Get sessions grouped by local date using PostgreSQL timezone conversion
     sessions_query = (
         select(
-            func.date(Session.created_at).label('activity_date'),
+            func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")).label('activity_date'),
             func.count(Session.id).label('sessions_count')
         )
         .where(and_(*session_conditions))
-        .group_by(func.date(Session.created_at))
+        .group_by(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
     )
     
-    # Get notes by date
+    # Get notes grouped by local date using PostgreSQL timezone conversion  
     notes_query = (
         select(
-            func.date(Note.created_at).label('activity_date'),
+            func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")).label('activity_date'),
             func.count(Note.id).label('notes_count')
         )
         .where(and_(*note_conditions))
-        .group_by(func.date(Note.created_at))
+        .group_by(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
     )
     
     # Execute both queries
@@ -293,7 +294,6 @@ async def get_session_times(
     
     return [
         SessionTimeResponse(
-            date=row.start_time.date(),
             start_time=row.start_time,
             duration=row.actual_duration,
             project_name=row.project_name
@@ -303,7 +303,7 @@ async def get_session_times(
 
 
 async def get_dashboard_data(
-    db: AsyncSession, user_id: UUID, period: str = '7d'
+    db: AsyncSession, user_id: UUID, period: str = '7d', user_timezone: str = 'UTC'
 ) -> DashboardResponse:
     """Get complete dashboard data for the specified period.
     
@@ -311,17 +311,18 @@ async def get_dashboard_data(
         db: The database session.
         user_id: The ID of the user.
         period: Time period ('7d', '2w', '4w', '3m', '1y', 'all').
+        user_timezone: User's timezone for accurate date grouping.
         
     Returns:
-        Complete dashboard data.
+        Complete dashboard data with timezone-aware date grouping.
     """
-    logger.info(f"Fetching dashboard data for user {user_id} with period {period}")
+    logger.info(f"Fetching dashboard data for user {user_id} with period {period} and timezone {user_timezone}")
     
     # Fetch all dashboard data concurrently would be ideal, but for simplicity
     # and to avoid complex async coordination, we'll fetch sequentially
     stats = await get_dashboard_stats(db, user_id, period)
     project_stats = await get_project_stats(db, user_id, period)
-    daily_activity = await get_daily_activity(db, user_id, period)
+    daily_activity = await get_daily_activity(db, user_id, period, user_timezone)
     session_times = await get_session_times(db, user_id, period)
     
     return DashboardResponse(

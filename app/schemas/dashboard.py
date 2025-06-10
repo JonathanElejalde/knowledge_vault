@@ -28,10 +28,10 @@ class ProjectStatsResponse(BaseModel):
 
 
 class DailyActivityResponse(BaseModel):
-    """Schema for daily activity chart data."""
-    date: dt.date = Field(description="Date of the activity")
-    sessions_count: int = Field(description="Number of sessions on this date")
-    notes_count: int = Field(description="Number of notes created on this date")
+    """Schema for daily activity chart data (timezone-aware)."""
+    date: dt.date = Field(description="Date of activity in user's local timezone")
+    sessions_count: int = Field(description="Number of sessions on this local date")
+    notes_count: int = Field(description="Number of notes created on this local date")
 
     class Config:
         from_attributes = True
@@ -39,8 +39,7 @@ class DailyActivityResponse(BaseModel):
 
 class SessionTimeResponse(BaseModel):
     """Schema for session time chart data."""
-    date: dt.date = Field(description="Date of the session")
-    start_time: datetime = Field(description="Start time of the session")
+    start_time: datetime = Field(description="Start time of the session (UTC)")
     duration: Optional[int] = Field(description="Actual duration in minutes", default=None)
     project_name: Optional[str] = Field(description="Name of the learning project", default=None)
 
@@ -52,7 +51,7 @@ class DashboardResponse(BaseModel):
     """Complete dashboard response schema."""
     stats: DashboardStatsResponse = Field(description="Dashboard statistics")
     project_stats: List[ProjectStatsResponse] = Field(description="Statistics by project")
-    daily_activity: List[DailyActivityResponse] = Field(description="Daily activity chart data")
+    daily_activity: List[DailyActivityResponse] = Field(description="Daily activity chart data (timezone-aware)")
     session_times: List[SessionTimeResponse] = Field(description="Session times chart data")
 
     class Config:

@@ -17,13 +17,12 @@ export interface ProjectStats {
 }
 
 export interface DailyActivity {
-  date: string; // Format: "2024-01-15"
-  sessions_count: number; // Sessions on this date
-  notes_count: number; // Notes created on this date
+  date: string; // Local date: "2024-01-15" (in user's timezone)
+  sessions_count: number; // Sessions on this local date
+  notes_count: number; // Notes created on this local date
 }
 
 export interface SessionTime {
-  date: string; // Format: "2024-01-15"
   start_time: string; // Full datetime when session started: "2024-01-15T09:00:00Z"
   duration: number | null; // Actual duration in minutes (can be null)
   project_name: string | null; // Associated project name (can be null)
