@@ -56,7 +56,7 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b px-4 py-3 flex items-center justify-between bg-background">
+    <header className="border-b px-4 py-4 flex items-center justify-between bg-background">
       {/* Mobile menu */}
       <div className="flex items-center gap-2 md:hidden">
         <Sheet>

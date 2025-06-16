@@ -14,7 +14,7 @@ const routes = [
 export default function Sidebar() {
   return (
     <nav className="hidden md:flex flex-col w-64 border-r bg-background" aria-label="Main sidebar">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b min-h-[73px] flex items-center">
         <h1 className="text-xl font-bold">Knowledge Vault</h1>
       </div>
       <div className="flex flex-col gap-1 p-2 flex-1">

@@ -20,8 +20,8 @@ export function AuthLayout({
         <div className="text-center">
           <Link to="/" className="inline-block">
             <img
-              className="h-12 w-auto"
-              src="/logo.svg"
+              className="h-40 w-auto"
+              src="/app_logo.png"
               alt="Knowledge Vault"
             />
           </Link>
