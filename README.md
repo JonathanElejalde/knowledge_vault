@@ -23,9 +23,9 @@ A modern productivity application that combines Pomodoro time management with in
 ![Notes Interface](docs/screenshots/notes.png)
 *Rich text notes with semantic search, tagging, and project integration*
 
-### 🎯 Application Overview
-![Application Example](docs/screenshots/invitation_example.png)
-*Clean, modern interface designed for distraction-free learning*
+### 📊 Analytics Dashboard
+![Dashboard Overview](docs/screenshots/dashboard.png)
+*Comprehensive analytics with session timelines, productivity insights, and visual progress tracking*
 
 ## Table of Contents
 
