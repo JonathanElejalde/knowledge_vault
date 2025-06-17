@@ -12,19 +12,23 @@ A modern productivity application that combines Pomodoro time management with in
 ## Screenshots
 
 ### 🍅 Pomodoro Timer Interface
-![Pomodoro Timer](docs/screenshots/pomodoro.png)
+<img src="docs/screenshots/pomodoro.png" alt="Pomodoro Timer" width="800">
+
 *Focus sessions with customizable intervals, project selection, and real-time statistics*
 
 ### 📚 Project Management Dashboard
-![Projects View](docs/screenshots/projects.png)
+<img src="docs/screenshots/projects.png" alt="Projects View" width="800">
+
 *Organize learning materials by category with progress tracking and session history*
 
 ### 📝 Intelligent Note-Taking System
-![Notes Interface](docs/screenshots/notes.png)
+<img src="docs/screenshots/notes.png" alt="Notes Interface" width="800">
+
 *Rich text notes with semantic search, tagging, and project integration*
 
 ### 📊 Analytics Dashboard
-![Dashboard Overview](docs/screenshots/dashboard.png)
+<img src="docs/screenshots/dashboard.png" alt="Dashboard Overview" width="800">
+
 *Comprehensive analytics with session timelines, productivity insights, and visual progress tracking*
 
 ## Table of Contents
