@@ -9,6 +9,24 @@ A modern productivity application that combines Pomodoro time management with in
 [![React](https://img.shields.io/badge/React-19+-blue.svg)](https://reactjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-blue.svg)](https://typescriptlang.org)
 
+## Screenshots
+
+### 🍅 Pomodoro Timer Interface
+![Pomodoro Timer](docs/screenshots/pomodoro.png)
+*Focus sessions with customizable intervals, project selection, and real-time statistics*
+
+### 📚 Project Management Dashboard
+![Projects View](docs/screenshots/projects.png)
+*Organize learning materials by category with progress tracking and session history*
+
+### 📝 Intelligent Note-Taking System
+![Notes Interface](docs/screenshots/notes.png)
+*Rich text notes with semantic search, tagging, and project integration*
+
+### 🎯 Application Overview
+![Application Example](docs/screenshots/invitation_example.png)
+*Clean, modern interface designed for distraction-free learning*
+
 ## Table of Contents
 
 - [Features](#features)
