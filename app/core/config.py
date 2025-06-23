@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Application settings
     ENVIRONMENT: str
+    ENABLE_DOCS: bool = True  # Set to False in production for security
 
     # CORS settings
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for refresh tokens
 
     # Cookie security settings
-    COOKIE_SECURE: bool = False  # Set to True in production (HTTPS)
+    COOKIE_SECURE: bool = False  # Will be overridden by environment variable in production
     COOKIE_SAMESITE: str = "lax"  # "strict" for production, "lax" for development
     COOKIE_HTTP_ONLY: bool = True
 
