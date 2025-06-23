@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User, LearningProject
 from app.db.session import get_db
 from app.crud import learning_projects as crud_lp
@@ -17,7 +17,8 @@ from app.schemas.learning_projects import (
 )
 
 router = APIRouter(
-    tags=["Learning Projects"]
+    tags=["Learning Projects"],
+    dependencies=[general_rate_limit]  # Apply rate limiting to all learning project endpoints
 )
 
 def _map_project_to_response(project: Union[LearningProject, dict]) -> dict:

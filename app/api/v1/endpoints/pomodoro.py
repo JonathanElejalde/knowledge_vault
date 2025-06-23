@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.api.v1.endpoints.learning_projects import _map_project_to_response
 from app.db.models import User
 from app.db.session import get_db
@@ -19,10 +19,11 @@ from app.schemas.pomodoro import (
     WeeklyStatisticsResponse
 )
 from app.schemas.learning_projects import LearningProjectResponse
-from datetime import datetime
+from datetime import datetime, date
 
 router = APIRouter(
-    tags=["Pomodoro & Sessions"]
+    tags=["Pomodoro"],
+    dependencies=[general_rate_limit]  # Apply rate limiting to all pomodoro endpoints
 )
 
 

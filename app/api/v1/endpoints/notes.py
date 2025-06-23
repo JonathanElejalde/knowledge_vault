@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User, Note
 from app.db.session import get_db
 from app.crud import notes as crud_notes
@@ -15,7 +15,8 @@ from app.schemas.notes import (
 )
 
 router = APIRouter(
-    tags=["Notes"]
+    tags=["Notes"],
+    dependencies=[general_rate_limit]  # Apply rate limiting to all notes endpoints
 )
 
 

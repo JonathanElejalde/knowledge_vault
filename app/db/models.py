@@ -170,10 +170,11 @@ class RefreshToken(BaseModel, table=True):
     __table_args__ = (
         Index('idx_refresh_tokens_user_id', 'user_id'),
         Index('idx_refresh_tokens_expires_at', 'expires_at'),
+        Index('idx_refresh_tokens_token_hash', 'token_hash'),  # Index on hash for fast lookups
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    token: str = Field(sa_type=String(255), unique=True, index=True)
+    token_hash: str = Field(sa_type=String(64), unique=True, index=True)  # SHA-256 hash (64 chars)
     expires_at: datetime = Field(sa_type=sa.TIMESTAMP(timezone=True))
     is_revoked: bool = Field(default=False)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)

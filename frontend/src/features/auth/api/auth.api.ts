@@ -2,15 +2,13 @@ import api from '@/lib/api/axios';
 import type {
   LoginCredentials,
   SignupCredentials,
-  AuthResponse,
+  User,
   ApiError,
   ApiValidationError,
 } from '../types/auth.types';
 
-const TOKEN_STORAGE_KEY = 'auth_tokens';
-
 export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  login: async (credentials: LoginCredentials): Promise<User> => {
     const formData = new URLSearchParams();
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
@@ -18,7 +16,7 @@ export const authApi = {
       formData.append('remember_me', 'true');
     }
 
-    const response = await api.post<AuthResponse>('/auth/login/access-token', formData, {
+    const response = await api.post<User>('/auth/login/access-token', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -26,57 +24,22 @@ export const authApi = {
     return response.data;
   },
 
-  signup: async (credentials: SignupCredentials): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/register', credentials);
+  signup: async (credentials: SignupCredentials): Promise<User> => {
+    const response = await api.post<User>('/auth/register', credentials);
     return response.data;
   },
 
-  refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/refresh-token', {
-      refresh_token: refreshToken,
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  refreshToken: async (): Promise<User> => {
+    const response = await api.post<User>('/auth/refresh-token');
     return response.data;
   },
 
-  getCurrentUser: async (): Promise<AuthResponse['user']> => {
-    const response = await api.get<AuthResponse['user']>('/auth/me');
+  getCurrentUser: async (): Promise<User> => {
+    const response = await api.get<User>('/auth/me');
     return response.data;
   },
 
-  logout: async (refreshToken: string) => {
-    try {
-      await api.post('/auth/logout', {
-        refresh_token: refreshToken,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    } finally {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  },
-
-  // Token storage helpers
-  saveTokens: (tokens: AuthResponse) => {
-    const tokenData = {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: Date.now() + tokens.expires_in * 1000,
-    };
-    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
-  },
-
-  getStoredTokens: () => {
-    const tokens = localStorage.getItem(TOKEN_STORAGE_KEY);
-    return tokens ? JSON.parse(tokens) : null;
-  },
-
-  isTokenExpired: (expiryTime: number) => {
-    return Date.now() >= expiryTime;
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
   },
 }; 

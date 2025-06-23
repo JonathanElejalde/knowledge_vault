@@ -2,14 +2,17 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User
 from app.db.session import get_db
 from app.crud import categories as crud_categories
-from app.schemas.categories import CategoryResponse
+from app.schemas.categories import (
+    CategoryResponse
+)
 
 router = APIRouter(
-    tags=["Categories"]
+    tags=["Categories"],
+    dependencies=[general_rate_limit]  # Apply rate limiting to all category endpoints
 )
 
 
