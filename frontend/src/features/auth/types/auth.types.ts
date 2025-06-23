@@ -28,37 +28,13 @@ export interface SignupCredentials {
 }
 
 /**
- * Authentication response from the API
- */
-export interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
-  user: User;
-}
-
-/**
- * Token storage interface
- */
-export interface TokenStorage {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
-}
-
-/**
- * Authentication state interface for the store
+ * Authentication state interface for the store  
  */
 export interface AuthState {
   user: User | null;
-  token: string | null;
-  refreshToken: string | null;
-  tokenExpiry: number | null;
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  isRefreshing: boolean;
 }
 
 /**
@@ -70,8 +46,9 @@ export interface AuthActions {
   logout: (options?: { skipSessionCheck?: boolean }) => Promise<void>;
   logoutWithSessionAbandon: () => Promise<void>;
   clearError: () => void;
-  refreshAuthToken: () => Promise<void>;
+  getCurrentUser: () => Promise<void>;
   initializeAuth: () => Promise<void>;
+  clearAuth: () => void;
 }
 
 /**

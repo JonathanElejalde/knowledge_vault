@@ -20,13 +20,25 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
     ALLOWED_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     ALLOWED_HEADERS: List[str] = ["*"]
-    ALLOW_CREDENTIALS: bool = False
+    ALLOW_CREDENTIALS: bool = True  # Enable credentials for cookie support
 
     # Security settings
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for refresh tokens
+
+    # Cookie security settings
+    COOKIE_SECURE: bool = False  # Set to True in production (HTTPS)
+    COOKIE_SAMESITE: str = "lax"  # "strict" for production, "lax" for development
+    COOKIE_HTTP_ONLY: bool = True
+
+    # Rate limiting settings (requests per minute) - Industry standard values
+    RATE_LIMIT_LOGIN: str = "5/minute"  # 5 login attempts per minute per IP
+    RATE_LIMIT_LOGIN_USER: str = "3/minute"  # 3 attempts per minute per user
+    RATE_LIMIT_REGISTER: str = "2/minute"  # 2 registrations per minute per IP
+    RATE_LIMIT_REFRESH: str = "10/minute"  # 10 refresh attempts per minute
+    RATE_LIMIT_GENERAL: str = "100/minute"  # 100 general API requests per minute
 
     # AI
     DEEPSEEK_API_KEY: str

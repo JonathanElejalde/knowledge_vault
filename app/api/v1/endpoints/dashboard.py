@@ -2,7 +2,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User
 from app.db.session import get_db
 from app.crud import dashboard as crud_dashboard
@@ -15,7 +15,8 @@ from app.schemas.dashboard import (
 )
 
 router = APIRouter(
-    tags=["Dashboard"]
+    tags=["Dashboard"],
+    dependencies=[general_rate_limit]  # Apply rate limiting to all dashboard endpoints
 )
 
 # Valid period options
