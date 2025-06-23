@@ -16,6 +16,8 @@ setup_logging()
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
     logger.info("Starting Knowledge Vault API")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Allowed origins: {settings.ALLOWED_ORIGINS}")
     yield
     logger.info("Shutting down Knowledge Vault API")
 
@@ -26,13 +28,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
+# Configure CORS with environment-based settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Modify this in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=settings.ALLOW_CREDENTIALS,
+    allow_methods=settings.ALLOWED_METHODS,
+    allow_headers=settings.ALLOWED_HEADERS,
 )
 
 # Include routers

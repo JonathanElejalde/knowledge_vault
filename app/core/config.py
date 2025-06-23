@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -15,6 +15,12 @@ class Settings(BaseSettings):
 
     # Application settings
     ENVIRONMENT: str
+
+    # CORS settings
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    ALLOWED_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    ALLOWED_HEADERS: List[str] = ["*"]
+    ALLOW_CREDENTIALS: bool = False
 
     # Security settings
     SECRET_KEY: str
