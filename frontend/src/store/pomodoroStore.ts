@@ -3,18 +3,30 @@ import { persist } from 'zustand/middleware';
 
 type TimerState = 'idle' | 'work' | 'break' | 'longBreak';
 
+export interface PomodoroSessionData {
+  sessionId: string;
+  timerState: TimerState;
+  startTime: number;
+  duration: number; // in seconds
+  pausedTime: number; // total paused time in ms
+  completedIntervals: number;
+  selectedProjectId: string | null;
+  lastHeartbeat: number;
+}
+
 export interface PomodoroStoreState {
-  // Timer state
+  // Timer state - NOW PERSISTED for page refresh
   timerState: TimerState;
   isRunning: boolean;
   timeLeft: number; // in seconds
   completedIntervals: number;
   startTime: number | null; // timestamp when timer started, for accuracy
-  resumeTimeLeft: number | null; // time left when resuming from pause
+  pausedTime: number; // total time spent paused in ms
   
-  // Session info
+  // Session info - NOW PERSISTED
   currentSessionId: string | null;
   selectedProjectId: string | null;
+  lastHeartbeat: number;
   
   // Timer preferences (will be synced from the hook)
   workDuration: number; // in minutes
@@ -31,7 +43,6 @@ export interface PomodoroStoreState {
   resumeTimer: () => void;
   resetTimer: () => void;
   completeInterval: () => void;
-  startNextSession: () => void;
   updateTimeLeft: (time: number) => void;
   setPreferences: (prefs: {
     workDuration: number;
@@ -42,22 +53,136 @@ export interface PomodoroStoreState {
   setSelectedProjectId: (projectId: string | null) => void;
   setShowGlobalTimer: (show: boolean) => void;
   
+  // Session recovery and validation
+  validateSession: () => boolean;
+  recoverSession: () => void;
+  updateHeartbeat: () => void;
+  
   // Internal timer management
   _intervalId: NodeJS.Timeout | null;
   _startInterval: () => void;
   _clearInterval: () => void;
   _playSound: (soundFile: string) => void;
   
-  // Add cleanup function for logout
+  // Cleanup function for logout
   clearSessionState: () => void;
 }
 
+// Enhanced sound playing with background tab support
 const playSoundGlobally = (soundFile: string) => {
-  try {
-    const audio = new Audio(soundFile);
-    audio.play().catch(error => console.warn('Audio play failed:', error));
-  } catch (error) {
-    console.error('Failed to play sound:', error);
+  const playSound = async () => {
+    try {
+      // Strategy 1: Try standard Audio API first
+      const audio = new Audio(soundFile);
+      audio.volume = 0.8; // Slightly higher volume for background tabs
+      
+      // Preload the audio
+      audio.preload = 'auto';
+      
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        return true; // Success
+      }
+    } catch (error) {
+      console.warn('🔇 Standard audio failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
+    
+    // Strategy 2: Try with user gesture simulation (for background tabs)
+    try {
+      const audio = new Audio(soundFile);
+      audio.volume = 0.8;
+      
+      // Force play even in background (some browsers allow this)
+      audio.muted = false;
+      audio.currentTime = 0;
+      
+      await audio.play();
+      return true;
+    } catch (error) {
+      console.warn('🔇 Background audio failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
+    
+    return false; // All audio strategies failed
+  };
+
+  // Execute sound playing
+  playSound().then(success => {
+    if (!success) {
+      // Strategy 3: Show persistent notification with sound description
+      const isWorkComplete = soundFile.includes('positive');
+      const title = isWorkComplete ? '🍅 Pomodoro Complete!' : '☕ Break Time Over!';
+      const body = isWorkComplete 
+        ? 'Great work! Time for a break.' 
+        : 'Break finished. Ready for another Pomodoro?';
+      
+      // Show notification regardless of permission (fallback UI)
+      showNotificationFallback(title, body);
+      
+      // Also try browser notification if permission granted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const notification = new Notification(title, {
+          body: body,
+          icon: '/app_logo.png',
+          tag: 'pomodoro-timer', // Replace previous notifications
+          requireInteraction: true, // Keep visible until user interacts
+          silent: false, // Try to play system sound
+        });
+        
+        // Auto-close after 10 seconds
+        setTimeout(() => notification.close(), 10000);
+      }
+    }
+  });
+};
+
+// Fallback notification system for when audio fails
+const showNotificationFallback = (title: string, body: string) => {
+  // Check if page is visible
+  const isPageVisible = !document.hidden;
+  
+  if (!isPageVisible) {
+    // Try to focus the tab/window to get user attention
+    if (window.focus) {
+      window.focus();
+    }
+    
+    // Change page title to get attention
+    const originalTitle = document.title;
+    let flashCount = 0;
+    const flashTitle = () => {
+      if (flashCount < 6) { // Flash 3 times
+        document.title = flashCount % 2 === 0 ? '🔔 TIMER DONE!' : originalTitle;
+        flashCount++;
+        setTimeout(flashTitle, 1000);
+      } else {
+        document.title = originalTitle;
+      }
+    };
+    flashTitle();
+  }
+  
+  // Always log the completion for console monitoring
+  console.log(`%c${title}`, 'font-size: 16px; font-weight: bold; color: #4CAF50', body);
+};
+
+// Enhanced notification permission request
+const requestNotificationPermission = () => {
+  if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          // Test notification
+          new Notification('🍅 Pomodoro Timer Ready', {
+            body: 'You\'ll now receive notifications when sessions complete, even in background tabs.',
+            icon: '/app_logo.png',
+            tag: 'pomodoro-setup',
+          });
+        }
+      });
+    } else if (Notification.permission === 'denied') {
+      console.warn('🔔 Notifications blocked. Audio may not work in background tabs.');
+    }
   }
 };
 
@@ -78,10 +203,12 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       timeLeft: DEFAULT_PREFERENCES.workDuration * 60,
       completedIntervals: 0,
       startTime: null,
-      resumeTimeLeft: null,
+      pausedTime: 0,
       currentSessionId: null,
       selectedProjectId: null,
-      // PHASE 1: Use defaults, will be set by usePomodoro hook when preferences load
+      lastHeartbeat: Date.now(),
+      
+      // Timer preferences
       workDuration: DEFAULT_PREFERENCES.workDuration,
       breakDuration: DEFAULT_PREFERENCES.breakDuration,
       longBreakDuration: DEFAULT_PREFERENCES.longBreakDuration,
@@ -94,14 +221,18 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         const state = get();
         const now = Date.now();
         
+        // Request notification permission early
+        requestNotificationPermission();
+        
         set({
           isRunning: true,
           startTime: now,
-          resumeTimeLeft: null,
+          pausedTime: 0,
           currentSessionId: sessionId,
           selectedProjectId: projectId || state.selectedProjectId,
           timerState: state.timerState === 'idle' ? 'work' : state.timerState,
           timeLeft: state.timerState === 'idle' ? state.workDuration * 60 : state.timeLeft,
+          lastHeartbeat: now,
         });
         
         state._startInterval();
@@ -109,22 +240,28 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
 
       pauseTimer: () => {
         const state = get();
+        if (!state.isRunning) return;
+        
+        // Calculate additional paused time
+        const now = Date.now();
+        const currentSessionTime = state.startTime ? now - state.startTime : 0;
+        
         set({ 
-          isRunning: false, 
-          startTime: null,
-          resumeTimeLeft: null, // Clear when pausing
+          isRunning: false,
+          pausedTime: state.pausedTime + (now - (state.lastHeartbeat || now)),
+          lastHeartbeat: now,
         });
         state._clearInterval();
       },
 
       resumeTimer: () => {
         const state = get();
+        if (state.isRunning) return;
+        
         const now = Date.now();
-        // When resuming, store the current timeLeft as our baseline
         set({ 
-          isRunning: true, 
-          startTime: now,
-          resumeTimeLeft: state.timeLeft, // Store current time when resuming
+          isRunning: true,
+          lastHeartbeat: now,
         });
         state._startInterval();
       },
@@ -138,22 +275,23 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
           timeLeft: state.workDuration * 60,
           completedIntervals: 0,
           startTime: null,
-          resumeTimeLeft: null,
+          pausedTime: 0,
           currentSessionId: null,
+          lastHeartbeat: Date.now(),
         });
       },
 
       completeInterval: () => {
         const state = get();
         
-        // Prevent multiple calls in rapid succession (important for background tab scenarios)
-        if (state.timeLeft > 1) {
-          return;
-        }
+        // Prevent multiple calls
+        if (state.timeLeft > 1) return;
 
         state._clearInterval();
+        const now = Date.now();
 
         if (state.timerState === 'work') {
+          // Work session completed
           state._playSound('/sounds/positive-notification.wav');
 
           const newCompletedIntervals = state.completedIntervals + 1;
@@ -164,12 +302,16 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
             timerState: isLongBreak ? 'longBreak' : 'break',
             timeLeft: isLongBreak ? state.longBreakDuration * 60 : state.breakDuration * 60,
             isRunning: true,
-            startTime: Date.now(),
+            startTime: now,
+            pausedTime: 0,
+            lastHeartbeat: now,
           });
           
+          // Auto-start break
           state._startInterval();
 
         } else if (state.timerState === 'break' || state.timerState === 'longBreak') {
+          // Break completed
           state._playSound('/sounds/bell-notification.wav');
           
           set({
@@ -177,24 +319,18 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
             timeLeft: state.workDuration * 60,
             isRunning: false,
             startTime: null,
+            pausedTime: 0,
             currentSessionId: null,
+            lastHeartbeat: now,
           });
         }
       },
 
-      startNextSession: () => {
-        const state = get();
-        if (state.isRunning) return;
-
-        set({
-          isRunning: true,
-          startTime: Date.now(),
-        });
-        state._startInterval();
-      },
-
       updateTimeLeft: (time: number) => {
-        set({ timeLeft: Math.max(0, time) });
+        set({ 
+          timeLeft: Math.max(0, time),
+          lastHeartbeat: Date.now(),
+        });
       },
 
       setPreferences: (prefs) => {
@@ -216,6 +352,58 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         set({ showGlobalTimer: show });
       },
 
+      // Session validation and recovery
+      validateSession: () => {
+        const state = get();
+        if (!state.currentSessionId || !state.startTime) return false;
+        
+        const now = Date.now();
+        const timeSinceHeartbeat = now - state.lastHeartbeat;
+        const maxValidTime = 15 * 60 * 1000; // 15 minutes
+        
+        return timeSinceHeartbeat < maxValidTime;
+      },
+
+      recoverSession: () => {
+        const state = get();
+        if (!state.validateSession()) {
+          console.log('🔄 Session invalid, clearing state');
+          state.clearSessionState();
+          return;
+        }
+        
+        if (!state.startTime) return;
+        
+        const now = Date.now();
+        const totalElapsed = Math.floor((now - state.startTime - state.pausedTime) / 1000);
+        const expectedDuration = state.timerState === 'work' ? state.workDuration * 60 :
+                               state.timerState === 'break' ? state.breakDuration * 60 :
+                               state.longBreakDuration * 60;
+        
+        if (totalElapsed >= expectedDuration) {
+          // Timer should have completed
+          console.log('🎯 Timer completed while away');
+          set({ timeLeft: 0 });
+          state.completeInterval();
+        } else {
+          // Update time left and restart if was running
+          const newTimeLeft = Math.max(0, expectedDuration - totalElapsed);
+          set({ 
+            timeLeft: newTimeLeft,
+            lastHeartbeat: now,
+          });
+          
+          if (state.isRunning) {
+            console.log('⏰ Recovering running timer');
+            state._startInterval();
+          }
+        }
+      },
+
+      updateHeartbeat: () => {
+        set({ lastHeartbeat: Date.now() });
+      },
+
       _playSound: (soundFile: string) => {
         playSoundGlobally(soundFile);
       },
@@ -229,30 +417,24 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
 
         const intervalId = setInterval(() => {
           const currentState = get();
-          if (!currentState.isRunning) return;
+          if (!currentState.isRunning || !currentState.startTime) return;
 
-          // Always use timestamp-based calculation for accuracy (especially important for background tabs)
-          let newTimeLeft: number;
+          // Timestamp-based calculation for accuracy
+          const now = Date.now();
+          const totalElapsed = Math.floor((now - currentState.startTime - currentState.pausedTime) / 1000);
           
-          if (currentState.startTime) {
-            const elapsed = Math.floor((Date.now() - currentState.startTime) / 1000);
-            
-            // Use resumeTimeLeft if available (when resuming), otherwise calculate from full duration
-            const baselineTime = currentState.resumeTimeLeft !== null 
-              ? currentState.resumeTimeLeft
-              : currentState.timerState === 'work' ? currentState.workDuration * 60 :
-                currentState.timerState === 'break' ? currentState.breakDuration * 60 :
-                currentState.timerState === 'longBreak' ? currentState.longBreakDuration * 60 :
-                currentState.timeLeft;
-            
-            newTimeLeft = Math.max(0, baselineTime - elapsed);
-          } else {
-            // Fallback: if no startTime, fall back to simple countdown (should rarely happen)
-            newTimeLeft = Math.max(0, currentState.timeLeft - 1);
+          const expectedDuration = currentState.timerState === 'work' ? currentState.workDuration * 60 :
+                                 currentState.timerState === 'break' ? currentState.breakDuration * 60 :
+                                 currentState.longBreakDuration * 60;
+          
+          const newTimeLeft = Math.max(0, expectedDuration - totalElapsed);
+          
+          // Update heartbeat every ~10 seconds
+          if (now - currentState.lastHeartbeat > 10000) {
+            currentState.updateHeartbeat();
           }
           
           if (newTimeLeft <= 0) {
-            // Set timeLeft to 0 before calling completeInterval to prevent race conditions
             set({ timeLeft: 0 });
             currentState.completeInterval();
           } else {
@@ -271,87 +453,58 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         }
       },
 
-      // Add cleanup function for logout
+      // Cleanup function for logout
       clearSessionState: () => {
         const state = get();
         state._clearInterval();
         set({
-          // Reset active timer state
           timerState: 'idle',
           isRunning: false,
-          timeLeft: state.workDuration * 60, // Reset to preference default
+          timeLeft: state.workDuration * 60,
           completedIntervals: 0,
           startTime: null,
-          resumeTimeLeft: null,
+          pausedTime: 0,
           currentSessionId: null,
           selectedProjectId: null,
-          // Keep preferences and UI settings
-          // workDuration, breakDuration, etc. stay as they are
-          // showGlobalTimer stays as it is
+          lastHeartbeat: Date.now(),
         });
       },
     }),
     {
       name: 'pomodoro-timer-store',
       partialize: (state) => ({
-        // ❌ PHASE 1: Remove preferences from persistence (they come from backend)
-        // workDuration: state.workDuration,
-        // breakDuration: state.breakDuration,
-        // longBreakDuration: state.longBreakDuration,
-        // longBreakInterval: state.longBreakInterval,
+        // ✅ NOW PERSIST: Timer state for page refresh recovery
+        timerState: state.timerState,
+        isRunning: state.isRunning,
+        timeLeft: state.timeLeft,
+        completedIntervals: state.completedIntervals,
+        startTime: state.startTime,
+        pausedTime: state.pausedTime,
+        currentSessionId: state.currentSessionId,
+        selectedProjectId: state.selectedProjectId,
+        lastHeartbeat: state.lastHeartbeat,
         
-        // ❌ PHASE 1: Remove active timer state from persistence  
-        // timerState: state.timerState,
-        // isRunning: state.isRunning,
-        // timeLeft: state.timeLeft,
-        // completedIntervals: state.completedIntervals,
-        // startTime: state.startTime,
-        // resumeTimeLeft: state.resumeTimeLeft,
-        // currentSessionId: state.currentSessionId,
-        // selectedProjectId: state.selectedProjectId,
-        
-        // ✅ PHASE 1: Only persist UI preferences
+        // UI preferences
         showGlobalTimer: state.showGlobalTimer,
+        
+        // Store preferences too (backup)
+        workDuration: state.workDuration,
+        breakDuration: state.breakDuration,
+        longBreakDuration: state.longBreakDuration,
+        longBreakInterval: state.longBreakInterval,
       }),
-      // ❌ PHASE 1: Remove auto-restart on app load
-      // onRehydrateStorage: () => (state) => {
-      //   if (state?.isRunning) {
-      //     state._startInterval();
-      //   }
-      // },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          console.log('🔄 Rehydrating Pomodoro state');
+          
+          // Validate and recover session after page refresh
+          setTimeout(() => {
+            state.recoverSession();
+          }, 100); // Small delay to ensure everything is initialized
+        }
+      },
     }
   )
 ); 
 
-// PHASE 1: Test helper function - remove after testing
-export const testPhase1Changes = () => {
-  console.log('🧪 TESTING PHASE 1 CHANGES');
-  
-  const state = usePomodoroStore.getState();
-  console.log('📊 Current store state:', {
-    timerState: state.timerState,
-    isRunning: state.isRunning,
-    timeLeft: state.timeLeft,
-    currentSessionId: state.currentSessionId,
-    showGlobalTimer: state.showGlobalTimer,
-  });
-  
-  // Check localStorage to see what's persisted
-  const persistedData = localStorage.getItem('pomodoro-timer-store');
-  console.log('💾 Persisted data:', persistedData ? JSON.parse(persistedData) : 'No data');
-  
-  // Test cleanup function
-  console.log('🧹 Testing cleanup function...');
-  state.clearSessionState();
-  
-  const stateAfterCleanup = usePomodoroStore.getState();
-  console.log('📊 State after cleanup:', {
-    timerState: stateAfterCleanup.timerState,
-    isRunning: stateAfterCleanup.isRunning,
-    timeLeft: stateAfterCleanup.timeLeft,
-    currentSessionId: stateAfterCleanup.currentSessionId,
-    showGlobalTimer: stateAfterCleanup.showGlobalTimer, // Should remain unchanged
-  });
-  
-  console.log('✅ Phase 1 test complete');
-}; 
+ 
