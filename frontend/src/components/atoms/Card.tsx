@@ -37,7 +37,13 @@ const cardVariants = cva(
         ].join(' '),
       },
       interactive: {
-        true: 'hover:shadow-[var(--shadow-md)] hover:border-border-strong cursor-pointer hover:-translate-y-0.5',
+        true: [
+          'cursor-pointer',
+          'hover:shadow-[var(--shadow-md)]',
+          'hover:-translate-y-1',
+          'active:translate-y-0',
+          'active:shadow-[var(--shadow-sm)]',
+        ].join(' '),
         false: '',
       },
       size: {

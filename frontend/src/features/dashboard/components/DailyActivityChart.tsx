@@ -8,8 +8,11 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts';
+import { BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { DailyActivity } from '@/services/api/types/dashboard';
 import { formatChartDate } from '../utils/formatters';
+import EmptyState from './EmptyState';
 
 interface DailyActivityChartProps {
   data: DailyActivity[];
@@ -24,6 +27,8 @@ interface ChartData {
 }
 
 export default function DailyActivityChart({ data, className }: DailyActivityChartProps) {
+  const navigate = useNavigate();
+  
   // Transform data for the chart
   const chartData: ChartData[] = data.map(item => ({
     date: item.date,
@@ -48,11 +53,22 @@ export default function DailyActivityChart({ data, className }: DailyActivityCha
     return null;
   };
 
-  if (chartData.length === 0) {
+  // Check if data is empty or has no activity
+  const hasData = chartData.length > 0 && chartData.some(d => d.sessions > 0 || d.notes > 0);
+  
+  if (!hasData) {
     return (
-      <div className={`flex items-center justify-center h-40 text-muted-foreground ${className}`}>
-        No activity data available
-      </div>
+      <EmptyState
+        icon={BarChart3}
+        title="No activity yet"
+        description="Complete sessions or create notes to see your daily activity"
+        action={{
+          label: "Start Pomodoro",
+          onClick: () => navigate("/pomodoro"),
+        }}
+        mood="insight"
+        className={className}
+      />
     );
   }
 

@@ -258,6 +258,47 @@
   animation: shimmer 1.5s var(--ease-in-out) infinite;
 }
 
+/* Interactive card hover - subtle lift with shadow */
+.card-interactive {
+  transition: transform var(--motion-duration) var(--motion-ease),
+              box-shadow var(--motion-duration) var(--motion-ease),
+              border-color var(--motion-duration) var(--motion-ease);
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Subtle scale on hover for buttons/icons */
+.hover-scale {
+  transition: transform var(--motion-duration-fast) var(--motion-ease);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-scale:active {
+  transform: scale(0.98);
+}
+
+/* Focus ring animation */
+.focus-ring-animated {
+  transition: box-shadow var(--motion-duration-fast) var(--motion-ease);
+}
+
+.focus-ring-animated:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--surface-base)), 
+              0 0 0 4px hsl(var(--accent-primary));
+}
+
 /* ============================================
  * REDUCED MOTION
  * ============================================ */

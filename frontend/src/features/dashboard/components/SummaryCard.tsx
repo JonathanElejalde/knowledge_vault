@@ -9,10 +9,10 @@ interface SummaryCardProps {
   description?: string;
   /** Visual mood for the card */
   mood?: 'default' | 'focus' | 'insight' | 'content' | 'growth';
+  /** Hero variant for primary stat - larger and more prominent */
+  variant?: 'default' | 'hero';
   /** Additional CSS classes */
   className?: string;
-  /** Style props for animation delays */
-  style?: React.CSSProperties;
 }
 
 const iconMoodClasses = {
@@ -29,24 +29,52 @@ export default function SummaryCard({
   icon: Icon, 
   description, 
   mood = 'default',
+  variant = 'default',
   className,
-  style,
 }: SummaryCardProps) {
+  const isHero = variant === 'hero';
+  
   return (
     <Card 
       mood={mood} 
       interactive 
-      className={cn('animate-fade-in-up h-full', className)}
-      style={style}
+      className={cn(
+        'h-full',
+        isHero && 'relative overflow-hidden',
+        className
+      )}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-label text-text-secondary">{title}</CardTitle>
-        <Icon className={cn("h-5 w-5", iconMoodClasses[mood])} />
+      {/* Hero background decoration - subtle gradient overlay */}
+      {isHero && (
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(135deg, var(--mood-focus-accent) 0%, transparent 50%)',
+            opacity: 0.03,
+          }}
+        />
+      )}
+      
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-3 px-4">
+        <CardTitle className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+          {title}
+        </CardTitle>
+        <Icon className={cn(
+          iconMoodClasses[mood],
+          isHero ? "h-5 w-5" : "h-4 w-4"
+        )} />
       </CardHeader>
-      <CardContent>
-        <div className="text-stat text-text-primary">{value}</div>
+      <CardContent className="relative px-4 pb-3 pt-0">
+        <div className={cn(
+          "text-text-primary font-semibold tracking-tight",
+          isHero ? "text-3xl" : "text-2xl"
+        )}>
+          {value}
+        </div>
         {description && (
-          <p className="text-caption text-text-tertiary mt-1">{description}</p>
+          <p className="text-xs text-text-tertiary mt-1">
+            {description}
+          </p>
         )}
       </CardContent>
     </Card>

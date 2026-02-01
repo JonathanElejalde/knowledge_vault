@@ -114,6 +114,15 @@
   /* Colored shadows for interactive elements */
   --shadow-primary: 0 4px 14px hsl(var(--accent-primary) / 0.25);
   --shadow-focus: 0 4px 14px hsl(var(--mood-focus-accent) / 0.25);
+
+  /* ============================================
+   * SIDEBAR SPECIFIC
+   * ============================================ */
+  --sidebar-bg: var(--surface-sunken);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-nav-hover: hsl(var(--accent-primary) / 0.08);
+  --sidebar-nav-active-bar: hsl(var(--accent-primary));
+  --sidebar-brand-bg: hsl(var(--accent-primary) / 0.04);
 }
 
 /* ============================================
@@ -198,4 +207,9 @@
   --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4);
   --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.4);
   --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.4);
+
+  /* Sidebar (dark mode) */
+  --sidebar-bg: var(--surface-sunken);
+  --sidebar-nav-hover: hsl(var(--accent-primary) / 0.12);
+  --sidebar-brand-bg: hsl(var(--accent-primary) / 0.08);
 }

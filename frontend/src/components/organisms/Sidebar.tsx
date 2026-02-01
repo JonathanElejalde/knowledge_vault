@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/atoms/Button"
-import { Clock, FileText, Home, Layers, BookOpen } from "lucide-react"
+import { Clock, FileText, Home, Layers, BookOpen, Settings } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
 const routes = [
@@ -14,16 +13,18 @@ const routes = [
 export default function Sidebar() {
   return (
     <nav 
-      className="hidden md:flex flex-col w-[var(--sidebar-width)] border-r border-border-subtle bg-surface-base" 
+      className="hidden md:flex flex-col w-[var(--sidebar-width)] bg-surface-base" 
       aria-label="Main sidebar"
     >
-      {/* Logo area */}
-      <div className="p-[var(--space-4)] border-b border-border-subtle min-h-[73px] flex items-center">
-        <h1 className="text-heading-4 text-text-primary font-bold">Knowledge Vault</h1>
+      {/* Logo area - minimal, clean */}
+      <div className="px-[var(--space-4)] py-[var(--space-5)] flex items-center gap-[var(--space-2)]">
+        <span className="text-lg font-semibold text-text-primary tracking-tight">
+          Knowledge Vault
+        </span>
       </div>
       
       {/* Navigation */}
-      <div className="flex flex-col gap-[var(--space-1)] p-[var(--space-2)] flex-1">
+      <div className="flex flex-col gap-[var(--space-0-5)] px-[var(--space-2)] flex-1">
         {routes.map((route) => (
           <NavLink
             to={route.path}
@@ -32,27 +33,47 @@ export default function Sidebar() {
             end
           >
             {({ isActive }) => (
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
+              <div 
                 className={cn(
-                  "w-full justify-start gap-[var(--space-2)] h-10",
-                  isActive && "bg-accent-primary-subtle border-accent-primary/20 text-accent-primary"
+                  "flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] rounded-[var(--radius-md)]",
+                  "transition-colors duration-150 cursor-pointer",
+                  "hover:bg-surface-sunken",
+                  isActive && "bg-surface-sunken"
                 )}
-                tabIndex={0}
               >
-                <route.icon className="h-4 w-4" aria-hidden="true" />
-                <span className="text-label">{route.name}</span>
-              </Button>
+                <route.icon 
+                  className={cn(
+                    "h-[18px] w-[18px] flex-shrink-0",
+                    isActive ? "text-text-primary" : "text-text-tertiary"
+                  )} 
+                  strokeWidth={isActive ? 2 : 1.5}
+                  aria-hidden="true" 
+                />
+                <span className={cn(
+                  "text-sm",
+                  isActive ? "text-text-primary font-medium" : "text-text-secondary"
+                )}>
+                  {route.name}
+                </span>
+              </div>
             )}
           </NavLink>
         ))}
       </div>
       
-      {/* Footer area (could add user info or settings) */}
-      <div className="p-[var(--space-4)] border-t border-border-subtle">
-        <p className="text-caption text-text-muted text-center">
-          Learning OS
-        </p>
+      {/* Footer area - minimal */}
+      <div className="px-[var(--space-2)] pb-[var(--space-4)]">
+        <div 
+          className={cn(
+            "flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] rounded-[var(--radius-md)]",
+            "transition-colors duration-150 cursor-pointer",
+            "hover:bg-surface-sunken",
+            "text-text-tertiary hover:text-text-secondary"
+          )}
+        >
+          <Settings className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          <span className="text-sm">Settings</span>
+        </div>
       </div>
     </nav>
   )

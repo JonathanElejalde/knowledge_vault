@@ -8,7 +8,10 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts';
+import { FolderOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { ProjectStats } from '@/services/api/types/dashboard';
+import EmptyState from './EmptyState';
 
 interface ProjectStatsChartProps {
   data: ProjectStats[];
@@ -22,6 +25,8 @@ interface ChartData {
 }
 
 export default function ProjectStatsChart({ data, className }: ProjectStatsChartProps) {
+  const navigate = useNavigate();
+  
   // Transform data for the chart
   const chartData: ChartData[] = data.map(item => ({
     projectName: item.project_name.length > 15 
@@ -54,9 +59,17 @@ export default function ProjectStatsChart({ data, className }: ProjectStatsChart
 
   if (chartData.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-40 text-muted-foreground ${className}`}>
-        No project data available
-      </div>
+      <EmptyState
+        icon={FolderOpen}
+        title="No project data"
+        description="Create projects and track sessions to see activity"
+        action={{
+          label: "Create Project",
+          onClick: () => navigate("/projects?action=new"),
+        }}
+        mood="growth"
+        className={className}
+      />
     );
   }
 

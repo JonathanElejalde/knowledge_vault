@@ -8,9 +8,12 @@ import {
   Tooltip,
   Cell
 } from 'recharts';
+import { Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { SessionTime } from '@/services/api/types/dashboard';
 import { formatChartDate, formatTime, getHourFromDateTime, getProjectColor } from '../utils/formatters';
 import { parseUTCToLocal } from '@/lib/utils/dateUtils';
+import EmptyState from './EmptyState';
 
 interface SessionTimelineChartProps {
   data: SessionTime[];
@@ -28,6 +31,8 @@ interface ChartData {
 }
 
 export default function SessionTimelineChart({ data, className }: SessionTimelineChartProps) {
+  const navigate = useNavigate();
+  
   // Transform data for the chart
   const chartData: ChartData[] = data
     .filter(item => item.duration !== null) // Only show sessions with duration
@@ -109,9 +114,17 @@ export default function SessionTimelineChart({ data, className }: SessionTimelin
 
   if (chartData.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-40 text-muted-foreground ${className}`}>
-        No session data available
-      </div>
+      <EmptyState
+        icon={Clock}
+        title="No sessions recorded"
+        description="Your focus timeline will appear here after completing Pomodoros"
+        action={{
+          label: "Start Focusing",
+          onClick: () => navigate("/pomodoro"),
+        }}
+        mood="focus"
+        className={className}
+      />
     );
   }
 

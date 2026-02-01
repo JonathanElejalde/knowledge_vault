@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/Card";
 import { BentoGrid, BentoItem } from "@/components/atoms/BentoGrid";
-import { Clock, FileText, Layers, CheckCircle } from "lucide-react";
+import { Clock, FileText, Layers } from "lucide-react";
 import SummaryCard from "./components/SummaryCard";
 import QuickActions from "./components/QuickActions";
 import PeriodSelector from "./components/PeriodSelector";
@@ -23,23 +23,40 @@ export default function DashboardPage() {
     setPeriod,
   } = useDashboard();
 
-  // Summary stats configuration with mood assignments
+  // Helper to get period label
+  const getPeriodLabel = () => {
+    switch (selectedPeriod) {
+      case '7d': return 'Last 7 days';
+      case '2w': return 'Last 2 weeks';
+      case '4w': return 'Last 4 weeks';
+      case '3m': return 'Last 3 months';
+      case '1y': return 'Last year';
+      default: return 'All time';
+    }
+  };
+
+  // Summary stats configuration with mood and variant assignments
+  // Layout: Hero (2 cols) + Notes (1 col) + Active Projects (1 col) = 4 columns
   const summaryStats = [
     { 
       id: "focusTime", 
       title: "Total Focus Time", 
       value: stats ? formatFocusTime(stats.total_focus_time) : "0m", 
       icon: Clock, 
-      description: `${selectedPeriod === '7d' ? 'Last 7 days' : selectedPeriod === '2w' ? 'Last 2 weeks' : selectedPeriod === '4w' ? 'Last 4 weeks' : selectedPeriod === '3m' ? 'Last 3 months' : selectedPeriod === '1y' ? 'Last year' : 'All time'}`,
+      description: getPeriodLabel(),
       mood: 'focus' as const,
+      variant: 'hero' as const,
+      span: 2 as const,
     },
     { 
       id: "notesCreated", 
       title: "Notes Created", 
       value: stats ? stats.notes_created.toString() : "0", 
       icon: FileText, 
-      description: `${selectedPeriod === '7d' ? 'Last 7 days' : selectedPeriod === '2w' ? 'Last 2 weeks' : selectedPeriod === '4w' ? 'Last 4 weeks' : selectedPeriod === '3m' ? 'Last 3 months' : selectedPeriod === '1y' ? 'Last year' : 'All time'}`,
+      description: getPeriodLabel(),
       mood: 'insight' as const,
+      variant: 'default' as const,
+      span: 1 as const,
     },
     { 
       id: "activeProjects", 
@@ -48,14 +65,8 @@ export default function DashboardPage() {
       icon: Layers, 
       description: "Currently in progress",
       mood: 'growth' as const,
-    },
-    { 
-      id: "completedProjects", 
-      title: "Completed Projects", 
-      value: stats ? stats.completed_projects.toString() : "0", 
-      icon: CheckCircle, 
-      description: "Successfully finished",
-      mood: 'growth' as const,
+      variant: 'default' as const,
+      span: 1 as const,
     },
   ];
 
@@ -73,29 +84,31 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl space-y-[var(--layout-section-gap)]">
-      {/* Header with period selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+    <div className="w-full px-[var(--space-6)] py-[var(--space-5)] space-y-[var(--space-6)]">
+      {/* Header Section - more compact */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+        {/* Title */}
         <div>
-          <h1 className="text-heading-2 text-text-primary">Dashboard</h1>
-          <p className="text-body-sm text-text-secondary mt-1">
+          <h1 className="text-2xl font-semibold text-text-primary">Dashboard</h1>
+          <p className="text-sm text-text-tertiary mt-1">
             Track your learning progress and focus time
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        
+        {/* Filters and Actions */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <PeriodSelector 
             selectedPeriod={selectedPeriod}
             onPeriodChange={setPeriod}
-            className="w-full sm:w-auto"
           />
           <QuickActions />
         </div>
-      </div>
+      </header>
 
-      {/* Summary cards in Bento Grid */}
-      <BentoGrid columns={4} gap="md">
-        {summaryStats.map((stat, index) => (
-          <BentoItem key={stat.id}>
+      {/* Summary cards in Bento Grid with staggered animation */}
+      <BentoGrid columns={4} gap="sm" className="stagger-children">
+        {summaryStats.map((stat) => (
+          <BentoItem key={stat.id} span={stat.span}>
             {isLoading ? (
               <SummaryCardSkeleton />
             ) : (
@@ -105,7 +118,7 @@ export default function DashboardPage() {
                 icon={stat.icon}
                 description={stat.description}
                 mood={stat.mood}
-                style={{ animationDelay: `${index * 50}ms` }}
+                variant={stat.variant}
               />
             )}
           </BentoItem>
@@ -113,21 +126,21 @@ export default function DashboardPage() {
       </BentoGrid>
 
       {/* Charts in Bento Grid */}
-      <BentoGrid columns={2} gap="lg">
+      <BentoGrid columns={2} gap="md">
         {/* Daily Activity Chart */}
         <BentoItem span={1}>
           <Card mood="insight" className="h-full">
-            <CardHeader>
-              <CardTitle>Daily Activity</CardTitle>
-              <CardDescription>Sessions and notes created by date</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Daily Activity</CardTitle>
+              <CardDescription className="text-xs">Sessions and notes by date</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <ChartLoadingSkeleton className="h-64" />
+                <ChartLoadingSkeleton className="h-48" />
               ) : (
                 <DailyActivityChart 
                   data={dailyActivity} 
-                  className="h-64"
+                  className="h-48"
                 />
               )}
             </CardContent>
@@ -137,17 +150,17 @@ export default function DashboardPage() {
         {/* Project Statistics Chart */}
         <BentoItem span={1}>
           <Card mood="growth" className="h-full">
-            <CardHeader>
-              <CardTitle>Project Activity</CardTitle>
-              <CardDescription>Sessions and notes by project</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Project Activity</CardTitle>
+              <CardDescription className="text-xs">Sessions and notes by project</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <ChartLoadingSkeleton className="h-64" />
+                <ChartLoadingSkeleton className="h-48" />
               ) : (
                 <ProjectStatsChart 
                   data={projectStats} 
-                  className="h-64"
+                  className="h-48"
                 />
               )}
             </CardContent>
@@ -155,19 +168,19 @@ export default function DashboardPage() {
         </BentoItem>
 
         {/* Session Timeline: spans both columns */}
-        <BentoItem span={2} height="tall">
+        <BentoItem span={2}>
           <Card mood="focus" className="h-full">
-            <CardHeader>
-              <CardTitle>Session Timeline</CardTitle>
-              <CardDescription>When you work throughout the day, colored by project</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Session Timeline</CardTitle>
+              <CardDescription className="text-xs">When you work throughout the day, colored by project</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <ChartLoadingSkeleton className="h-72" />
+                <ChartLoadingSkeleton className="h-44" />
               ) : (
                 <SessionTimelineChart 
                   data={sessionTimes} 
-                  className="h-72"
+                  className="h-44"
                 />
               )}
             </CardContent>
