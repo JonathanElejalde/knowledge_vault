@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/atoms/Button';
 import { Badge } from '@/components/atoms/Badge';
@@ -107,7 +107,7 @@ export default function ViewNotePage() {
           <div className="text-center">
             <h2 className="text-2xl font-semibold mb-2">Error loading note</h2>
             <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={handleBack}>
+            <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Notes
             </Button>
@@ -127,7 +127,7 @@ export default function ViewNotePage() {
             <p className="text-muted-foreground mb-4">
               The note you're looking for doesn't exist or has been deleted.
             </p>
-            <Button onClick={handleBack}>
+            <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Notes
             </Button>

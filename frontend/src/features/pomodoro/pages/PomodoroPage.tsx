@@ -87,7 +87,6 @@ export default function PomodoroPage() {
         
         {/* Actions */}
         <Button 
-          variant="outline" 
           onClick={() => setIsNewProjectOpen(true)}
           className="gap-2"
         >

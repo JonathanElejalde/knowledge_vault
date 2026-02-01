@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/atoms/Card';
+import { Card, CardContent, CardHeader } from '@/components/atoms/Card';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { 
@@ -16,8 +16,9 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/atoms/Dialog';
-import { FileText, Tag, MoreVertical, Edit, Trash2, Loader2, ExternalLink, Target } from 'lucide-react';
+import { Tag, MoreVertical, Edit, Trash2, Loader2, ExternalLink, Target } from 'lucide-react';
 import { formatUTCToLocalDate } from '@/lib/utils/dateUtils';
+import { cn } from '@/lib/utils';
 import type { Note } from '@/services/api/types/notes';
 
 interface NoteCardProps {
@@ -28,17 +29,22 @@ interface NoteCardProps {
   onView?: (note: Note) => void;
 }
 
+/**
+ * NoteCard - Deep Focus Design
+ * 
+ * Clean card with subtle hover effects and content mood styling.
+ */
 export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation();
     onEdit?.(note);
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation();
     setShowDeleteDialog(true);
   };
 
@@ -51,7 +57,6 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
       setShowDeleteDialog(false);
     } catch (error) {
       console.error('Failed to delete note:', error);
-      // Error handling - could be enhanced with toast notifications
     } finally {
       setIsDeleting(false);
     }
@@ -72,33 +77,27 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // For left clicks (including Ctrl+click), prevent default link behavior and use our callback
     if (e.button === 0) {
       e.preventDefault();
       
-      // Check if user wants to open in new tab (Ctrl/Cmd+Click)
       if (e.ctrlKey || e.metaKey) {
         const noteUrl = `/notes/${note.id}`;
         window.open(noteUrl, '_blank');
         return;
       }
       
-      // Regular left click - use the callback
       onView?.(note);
     }
     
-    // For middle click, prevent default and open in new tab
     if (e.button === 1) {
       e.preventDefault();
       const noteUrl = `/notes/${note.id}`;
       window.open(noteUrl, '_blank');
     }
-    
-    // For right clicks (button === 2), do nothing - let browser handle context menu
   };
 
   const handleOptionsClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click when clicking options
+    e.stopPropagation();
   };
 
   return (
@@ -113,47 +112,53 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
           }
         }}
         aria-label={`View note: ${note.title || 'Untitled Note'}`}
-        style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+        className="block no-underline"
       >
-        <Card className="cursor-pointer hover:bg-muted/50 transition-colors group relative">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-start">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <div>
-                  {projectName && (
-                    <>
-                      {projectName} • {' '}
-                    </>
+        <Card 
+          interactive
+          className="group"
+        >
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start gap-3">
+              <div className="flex-1 min-w-0">
+                {/* Meta row: Project + Date + Match score */}
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="text-xs text-text-tertiary">
+                    {projectName && (
+                      <span className="text-accent-primary font-medium">{projectName}</span>
+                    )}
+                    {projectName && ' · '}
+                    {formatUTCToLocalDate(note.updated_at)}
+                  </span>
+                  
+                  {/* Relevance Score - semantic search results */}
+                  {note.similarity_score !== null && note.similarity_score !== undefined && note.similarity_score > 0 && (
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 flex items-center gap-1",
+                        "bg-accent-primary-subtle border-accent-primary/30 text-accent-primary"
+                      )}
+                    >
+                      <Target className="h-2.5 w-2.5" />
+                      {Math.round(note.similarity_score * 100)}% match
+                    </Badge>
                   )}
-                  {formatUTCToLocalDate(note.updated_at)}
                 </div>
                 
-                {/* Relevance Score - only shown for semantic search results */}
-                {note.similarity_score !== null && note.similarity_score !== undefined && note.similarity_score > 0 && (
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs px-2 py-0.5 flex items-center gap-1 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
-                  >
-                    <Target className="h-3 w-3" />
-                    {Math.round(note.similarity_score * 100)}% match
-                  </Badge>
-                )}
+                {/* Title */}
+                <h3 className="text-base font-semibold text-text-primary line-clamp-2 leading-snug">
+                  {note.title || 'Untitled Note'}
+                </h3>
               </div>
-              <CardTitle className="text-lg line-clamp-2">
-                {note.title || 'Untitled Note'}
-              </CardTitle>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-              <FileText className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
               
-              {/* Options Dropdown */}
+              {/* Options Dropdown - appears on hover */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
+                    className="h-7 w-7 -mr-2 -mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={handleOptionsClick}
                     aria-label="Note options"
                   >
@@ -168,7 +173,7 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
                     </DropdownMenuItem>
                   )}
                   {onEdit && (
-                    <DropdownMenuItem onClick={handleEdit} className="cursor-pointer">
+                    <DropdownMenuItem onClick={handleEdit}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
@@ -176,7 +181,7 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
                   {onDelete && (
                     <DropdownMenuItem 
                       onClick={handleDeleteClick} 
-                      className="cursor-pointer text-destructive focus:text-destructive"
+                      className="text-semantic-danger focus:text-semantic-danger"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
@@ -185,34 +190,35 @@ export function NoteCard({ note, projectName, onEdit, onDelete, onView }: NoteCa
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <CardDescription className="line-clamp-3 mb-3">
-            {getContentPreview(note.content)}
-          </CardDescription>
+          </CardHeader>
           
-          {/* Tags */}
-          {note.tags && note.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {note.tags.slice(0, 4).map((tag) => (
-                <Badge 
-                  key={tag} 
-                  variant="secondary" 
-                  className="text-xs px-2 py-0.5 flex items-center gap-1"
-                >
-                  <Tag className="h-3 w-3" />
-                  {tag}
-                </Badge>
-              ))}
-              {note.tags.length > 4 && (
-                <Badge variant="outline" className="text-xs px-2 py-0.5">
-                  +{note.tags.length - 4} more
-                </Badge>
-              )}
-            </div>
-          )}
-        </CardContent>
+          <CardContent className="pt-0">
+            {/* Content preview */}
+            <p className="text-sm text-text-secondary line-clamp-2 mb-3">
+              {getContentPreview(note.content)}
+            </p>
+            
+            {/* Tags */}
+            {note.tags && note.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {note.tags.slice(0, 4).map((tag) => (
+                  <Badge 
+                    key={tag} 
+                    variant="secondary" 
+                    className="text-[10px] px-2 py-0.5 flex items-center gap-1"
+                  >
+                    <Tag className="h-2.5 w-2.5" />
+                    {tag}
+                  </Badge>
+                ))}
+                {note.tags.length > 4 && (
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                    +{note.tags.length - 4} more
+                  </Badge>
+                )}
+              </div>
+            )}
+          </CardContent>
         </Card>
       </a>
 

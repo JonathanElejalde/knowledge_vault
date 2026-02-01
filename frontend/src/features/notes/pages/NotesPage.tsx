@@ -3,12 +3,21 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/atoms/Card';
-import { PlusCircle, Search, Brain, Type, Send } from 'lucide-react';
+import { FilePlus, Search, Brain, Type, Send } from 'lucide-react';
 import { ProjectsSidebar } from '../components/ProjectsSidebar';
 import { NotesList } from '../components/NotesList';
 import { useNotes } from '../hooks/internal';
+import { cn } from '@/lib/utils';
 import type { Note } from '@/services/api/types/notes';
 
+/**
+ * NotesPage - Deep Focus Design
+ * 
+ * Layout structure:
+ * 1. Header: Title + description (left) | New Note action (right)
+ * 2. Search: Input with semantic/keyword toggle
+ * 3. Main: Sidebar (project filter) + Notes list
+ */
 export default function NotesPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,7 +40,6 @@ export default function NotesPage() {
   } = useNotes();
 
   const handleNoteClick = (note: Note) => {
-    // Navigate to note view page, passing current location for back navigation
     navigate(`/notes/${note.id}`, {
       state: { from: location }
     });
@@ -47,86 +55,113 @@ export default function NotesPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // If semantic search is active, trigger the search manually
     if (isSemanticSearch) {
       triggerSemanticSearch();
     }
   };
 
   return (
-    <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl space-y-[var(--space-6)]">
-      {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8">
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+        {/* Title & Description */}
         <div>
-          <h1 className="text-heading-2 text-text-primary">Notes</h1>
-          <p className="text-body-sm text-text-secondary mt-1">
-            Your learning insights and summaries
+          <h2 className="text-3xl font-bold text-text-primary tracking-tight">
+            Notes
+          </h2>
+          <p className="mt-2 text-text-tertiary text-sm max-w-xl">
+            Capture and organize your learning insights. Search by keyword or use AI-powered semantic search.
           </p>
         </div>
-        <Button onClick={() => navigate('/notes/new')}>
-          <PlusCircle className="mr-2 h-4 w-4" />
+        
+        {/* Actions */}
+        <Button 
+          onClick={() => navigate('/notes/new')}
+          className="gap-2"
+        >
+          <FilePlus className="h-4 w-4" />
           New Note
         </Button>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center gap-[var(--space-3)] animate-fade-in-up" style={{ animationDelay: '50ms' }}>
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md flex">
-          <div className="relative flex-1">
-            <Search className="absolute left-[var(--space-2-5)] top-[var(--space-2-5)] h-4 w-4 text-text-tertiary" />
-            <Input
-              type="text"
-              placeholder={isSemanticSearch ? "Describe what you're looking for..." : "Search notes..."}
-              className={`pl-[var(--space-8)] ${isSemanticSearch ? 'pr-12' : ''}`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {isSemanticSearch && (
-              <Button
-                type="submit"
-                size="icon-sm"
-                className="absolute right-1 top-1"
-                disabled={!searchQuery.trim()}
-                title="Search with AI"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+      {/* Search and Mode Toggle */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+        {/* Search Input */}
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-lg w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+          <Input
+            type="text"
+            placeholder={isSemanticSearch ? "Describe what you're looking for..." : "Search notes..."}
+            className={cn("pl-10", isSemanticSearch && "pr-12")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {isSemanticSearch && (
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+              disabled={!searchQuery.trim()}
+              title="Search with AI"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </form>
         
-        {/* Search Mode Toggle */}
-        <div className="flex items-center gap-[var(--space-1)] p-[var(--space-1)] bg-surface-sunken rounded-[var(--radius-lg)]">
-          <Button
+        {/* Search Mode Toggle - Pill style */}
+        <nav 
+          className="inline-flex items-center gap-1 p-1 bg-surface-sunken rounded-lg"
+          role="tablist"
+          aria-label="Search mode"
+        >
+          <button
             type="button"
-            variant={!isSemanticSearch ? "default" : "ghost"}
-            size="sm"
+            role="tab"
+            aria-selected={!isSemanticSearch}
             onClick={() => setIsSemanticSearch(false)}
-            title="Keyword search"
+            className={cn(
+              "px-4 py-1.5 rounded-md",
+              "text-xs font-medium whitespace-nowrap",
+              "transition-colors flex items-center gap-1.5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-1",
+              !isSemanticSearch 
+                ? "bg-surface-base dark:bg-surface-raised text-text-primary shadow-sm ring-1 ring-border-subtle"
+                : "text-text-tertiary hover:text-accent-primary"
+            )}
           >
-            <Type className="h-3.5 w-3.5 mr-1.5" />
+            <Type className="h-3.5 w-3.5" />
             Keyword
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant={isSemanticSearch ? "default" : "ghost"}
-            size="sm"
+            role="tab"
+            aria-selected={isSemanticSearch}
             onClick={() => setIsSemanticSearch(true)}
-            title="AI-powered semantic search"
+            className={cn(
+              "px-4 py-1.5 rounded-md",
+              "text-xs font-medium whitespace-nowrap",
+              "transition-colors flex items-center gap-1.5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-1",
+              isSemanticSearch 
+                ? "bg-surface-base dark:bg-surface-raised text-text-primary shadow-sm ring-1 ring-border-subtle"
+                : "text-text-tertiary hover:text-accent-primary"
+            )}
           >
-            <Brain className="h-3.5 w-3.5 mr-1.5" />
+            <Brain className="h-3.5 w-3.5" />
             Semantic
-          </Button>
-        </div>
+          </button>
+        </nav>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--space-6)]">
+      {/* Main Content - 3 column grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar - Projects Filter */}
-        <div className="md:col-span-1 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-          <Card mood="growth" className="sticky top-[var(--space-4)]">
-            <CardHeader className="pb-[var(--space-2)]">
-              <CardTitle className="text-label">Filter by Project</CardTitle>
+        <div className="lg:col-span-1">
+          <Card className="sticky top-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Filter by Project</CardTitle>
             </CardHeader>
             <CardContent>
               <ProjectsSidebar
@@ -138,37 +173,34 @@ export default function NotesPage() {
         </div>
 
         {/* Notes List */}
-        <div className="md:col-span-2 animate-fade-in-up" style={{ animationDelay: '150ms' }}>
+        <div className="lg:col-span-3">
           {/* Search mode indicator */}
           {isSemanticSearch && searchQuery && !notes.length && !isLoading && (
-            <Card mood="insight" className="mb-[var(--space-4)]">
-              <CardContent className="py-[var(--space-3)]">
-                <div className="flex items-center gap-[var(--space-2)] text-body-sm text-mood-insight-accent">
-                  <Brain className="h-4 w-4" />
-                  <span>Click the send button to search with AI for: <span className="font-medium">"{searchQuery}"</span></span>
-                </div>
-              </CardContent>
-            </Card>
+            <div className={cn(
+              "flex items-center gap-3 p-4 mb-6 rounded-lg",
+              "bg-accent-primary-subtle/50 border border-accent-primary/20"
+            )}>
+              <Brain className="h-4 w-4 text-accent-primary flex-shrink-0" />
+              <p className="text-sm text-text-secondary">
+                Click the send button to search with AI for: <span className="font-medium text-text-primary">"{searchQuery}"</span>
+              </p>
+            </div>
           )}
           
           {searchQuery && ((isSemanticSearch && notes.length > 0) || (!isSemanticSearch)) && (
-            <Card mood="content" className="mb-[var(--space-4)]">
-              <CardContent className="py-[var(--space-3)]">
-                <div className="flex items-center gap-[var(--space-2)] text-body-sm text-text-secondary">
-                  {isSemanticSearch ? (
-                    <>
-                      <Brain className="h-4 w-4 text-mood-insight-accent" />
-                      <span>AI search results for: <span className="font-medium text-text-primary">"{searchQuery}"</span></span>
-                    </>
-                  ) : (
-                    <>
-                      <Type className="h-4 w-4" />
-                      <span>Keyword search results for: <span className="font-medium text-text-primary">"{searchQuery}"</span></span>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <div className={cn(
+              "flex items-center gap-3 p-4 mb-6 rounded-lg",
+              "bg-surface-sunken border border-border-subtle"
+            )}>
+              {isSemanticSearch ? (
+                <Brain className="h-4 w-4 text-accent-primary flex-shrink-0" />
+              ) : (
+                <Type className="h-4 w-4 text-text-muted flex-shrink-0" />
+              )}
+              <p className="text-sm text-text-secondary">
+                {isSemanticSearch ? 'AI' : 'Keyword'} search results for: <span className="font-medium text-text-primary">"{searchQuery}"</span>
+              </p>
+            </div>
           )}
           
           <NotesList
@@ -181,6 +213,7 @@ export default function NotesPage() {
             onNoteClick={handleNoteClick}
             onNoteEdit={handleNoteEdit}
             onNoteDelete={handleNoteDelete}
+            onCreateNew={() => navigate('/notes/new')}
           />
         </div>
       </div>

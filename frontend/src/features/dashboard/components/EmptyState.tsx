@@ -80,7 +80,6 @@ export default function EmptyState({
           variant={action.variant === 'secondary' ? 'outline' : 'default'}
           size="sm"
           onClick={action.onClick}
-          className="text-xs"
         >
           {action.label}
         </Button>

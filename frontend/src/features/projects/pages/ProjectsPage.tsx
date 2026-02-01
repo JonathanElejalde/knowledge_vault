@@ -1,17 +1,25 @@
 import { useState } from "react";
-import { PlusCircle, Search } from "lucide-react";
+import { FolderPlus, Search } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/Tabs";
 import { useToast, ToastTitle, ToastDescription } from "@/components/atoms/Toast";
 import { NewProjectDialog } from "../components/NewProjectDialog";
 import { EditProjectDialog } from "../components/EditProjectDialog";
 import { ProjectsList } from "../components/ProjectsList";
+import { StatusTabs } from "../components/StatusTabs";
 import ProjectsLoading from "./ProjectsLoading";
 import { useProjects } from "../hooks/internal";
 import type { ProjectFormData } from "../types";
 import type { LearningProject } from "@/services/api/types/learningProjects";
 
+/**
+ * ProjectsPage - Deep Focus Design
+ * 
+ * Layout structure:
+ * 1. Header: Title + description (left) | New Project action (right)
+ * 2. Filters: Search input + Status tabs
+ * 3. Projects grid with infinite scroll
+ */
 export default function ProjectsPage() {
   // UI state
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
@@ -166,70 +174,76 @@ export default function ProjectsPage() {
   // Error state
   if (error) {
     return (
-      <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl">
-        <div className="text-center">
-          <h2 className="text-heading-3 text-danger mb-[var(--space-2)]">Error</h2>
-          <p className="text-body-sm text-text-tertiary">{error.message}</p>
-          <Button onClick={() => window.location.reload()} className="mt-[var(--space-4)]">
-            Try Again
-          </Button>
+      <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-semantic-danger mb-2">Failed to load projects</p>
+            <p className="text-sm text-text-tertiary mb-4">{error.message}</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl space-y-[var(--space-6)]">
-      {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8">
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+        {/* Title & Description */}
         <div>
-          <h1 className="text-heading-2 text-text-primary">Learning Projects</h1>
-          <p className="text-body-sm text-text-secondary mt-1">Manage your learning journey</p>
+          <h2 className="text-3xl font-bold text-text-primary tracking-tight">
+            Learning Projects
+          </h2>
+          <p className="mt-2 text-text-tertiary text-sm max-w-xl">
+            Organize your learning journey into focused projects. Track progress, take notes, and build knowledge systematically.
+          </p>
         </div>
-        <Button onClick={() => setIsNewProjectOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
+        
+        {/* Actions */}
+        <Button 
+          onClick={() => setIsNewProjectOpen(true)}
+          className="gap-2"
+        >
+          <FolderPlus className="h-4 w-4" />
           New Project
         </Button>
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-[var(--space-4)] animate-fade-in-up" style={{ animationDelay: '50ms' }}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+        {/* Search Input */}
         <div className="relative flex-1 max-w-md w-full">
-          <Search className="absolute left-[var(--space-2-5)] top-[var(--space-2-5)] h-4 w-4 text-text-tertiary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
           <Input 
             type="search" 
             placeholder="Search projects..." 
-            className="pl-[var(--space-8)]"
+            className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Tabs 
+        
+        {/* Status Tabs */}
+        <StatusTabs 
           value={activeTab} 
-          onValueChange={(value) => setActiveTab(value as any)} 
-          className="w-full sm:w-auto"
-        >
-          <TabsList className="grid w-full grid-cols-4 sm:flex">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="in_progress">In Progress</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="abandoned">Abandoned</TabsTrigger>
-          </TabsList>
-        </Tabs>
+          onValueChange={setActiveTab} 
+        />
       </div>
 
       {/* Projects List */}
-      <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-        <ProjectsList
-          projects={projects}
-          isLoadingMore={isLoadingMore}
-          hasMore={hasMore}
-          onLoadMore={loadMore}
-          onEdit={handleEditClick}
-          onStatusChange={handleStatusChange}
-          onDelete={handleDeleteProject}
-        />
-      </div>
+      <ProjectsList
+        projects={projects}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        onLoadMore={loadMore}
+        onEdit={handleEditClick}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDeleteProject}
+        onCreateNew={() => setIsNewProjectOpen(true)}
+      />
 
       {/* Dialogs */}
       <NewProjectDialog

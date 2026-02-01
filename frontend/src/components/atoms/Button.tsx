@@ -23,13 +23,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: [
-          'bg-accent-primary text-text-inverse',
+          'bg-accent-primary !text-white',
           'hover:bg-accent-primary-hover',
           'shadow-[var(--shadow-sm)]',
           'hover:shadow-[var(--shadow-md)]',
         ].join(' '),
         destructive: [
-          'bg-danger text-text-inverse',
+          'bg-danger !text-white',
           'hover:bg-danger/90',
         ].join(' '),
         outline: [
@@ -52,16 +52,16 @@ const buttonVariants = cva(
         ].join(' '),
         // New mood-aware variants
         focus: [
-          'bg-mood-focus-accent text-text-inverse',
+          'bg-mood-focus-accent !text-white',
           'hover:opacity-90',
           'shadow-[var(--shadow-focus)]',
         ].join(' '),
         insight: [
-          'bg-mood-insight-accent text-text-inverse',
+          'bg-mood-insight-accent !text-white',
           'hover:opacity-90',
         ].join(' '),
         growth: [
-          'bg-mood-growth-accent text-text-inverse',
+          'bg-mood-growth-accent !text-white',
           'hover:opacity-90',
         ].join(' '),
       },
