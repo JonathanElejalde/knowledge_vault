@@ -282,6 +282,20 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
   const isPaused = !isRunning && timerState !== 'idle'
   const isIdle = timerState === 'idle'
 
+  // Get timer color based on state
+  const getTimerColor = () => {
+    switch (timerState) {
+      case "work":
+        return "stroke-accent-primary"; // Deep Focus Blue for work
+      case "break":
+        return "stroke-mood-growth-accent"; // Green for break
+      case "longBreak":
+        return "stroke-mood-insight-accent"; // Blue for long break
+      default:
+        return "stroke-accent-primary";
+    }
+  };
+
   return (
     <div className="flex flex-col items-center">
       {/* Circular Timer Display */}
@@ -293,9 +307,8 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
             cy="50" 
             r="45" 
             fill="none" 
-            stroke="currentColor" 
             strokeWidth="4" 
-            className="text-muted" 
+            className="stroke-border-subtle" 
           />
           {/* Progress circle */}
           <circle
@@ -303,20 +316,13 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
             cy="50"
             r="45"
             fill="none"
-            stroke="currentColor"
             strokeWidth="4"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
             className={cn(
               "transition-all duration-1000 ease-in-out",
-              timerState === "work"
-                ? "text-primary"
-                : timerState === "break"
-                  ? "text-green-500"
-                  : timerState === "longBreak"
-                    ? "text-blue-500"
-                    : "text-primary",
+              getTimerColor(),
               isPaused && "opacity-60 animate-pulse"
             )}
           />
@@ -324,8 +330,8 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
         {/* Timer content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-4xl font-bold">{formatTime(timeLeft)}</div>
-          <div className="text-sm text-muted-foreground mt-2 capitalize">
+          <div className="text-4xl font-bold text-text-primary">{formatTime(timeLeft)}</div>
+          <div className="text-sm text-text-tertiary mt-2 capitalize">
             {isIdle 
               ? "Ready" 
               : isPaused 
@@ -333,7 +339,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
                 : timerState.replace(/([A-Z])/g, " $1").trim()
             }
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
+          <div className="text-xs text-text-muted mt-1">
             {completedIntervals} / {preferences.long_break_interval} intervals
           </div>
         </div>
@@ -342,7 +348,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
       {/* Selected Project Display - Subtle */}
       {selectedProjectId && (
         <div className="mb-3 text-center">
-          <div className="text-xs text-muted-foreground/70">
+          <div className="text-xs text-text-tertiary">
             {isLoadingProjectName ? (
               <span className="animate-pulse">Loading project...</span>
             ) : (
@@ -354,19 +360,19 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
       {/* Project Selection Prompt */}
       {timerState === 'idle' && !selectedProjectId && (
-        <div className="mb-4 text-sm text-muted-foreground animate-pulse">
+        <div className="mb-4 text-sm text-text-tertiary animate-pulse">
           Please select a project to start your session
         </div>
       )}
 
       {/* Control Buttons */}
-      <div className="flex space-x-2 mb-4">
+      <div className="flex gap-2 mb-4">
         {/* Start/Pause/Resume Button */}
         {!isRunning ? (
           <Button 
             onClick={handlePlayPause} 
             size="icon" 
-            variant="default"
+            className="bg-accent-primary hover:bg-accent-primary-hover text-text-inverse h-12 w-12 rounded-full shadow-md"
             disabled={!canStartTimer && isIdle}
             title={
               isIdle 
@@ -381,7 +387,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
           <Button 
             onClick={handlePlayPause} 
             size="icon" 
-            variant="default"
+            className="bg-accent-primary hover:bg-accent-primary-hover text-text-inverse h-12 w-12 rounded-full shadow-md"
             title="Pause current session"
           >
             <Pause className="h-5 w-5" />
@@ -396,6 +402,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
               <Button 
                 size="icon" 
                 variant="destructive"
+                className="h-12 w-12 rounded-full"
                 title="Abandon current session"
               >
                 <Square className="h-5 w-5" />
@@ -404,11 +411,11 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="flex items-center">
-                  <AlertTriangle className="w-5 h-5 text-orange-500 mr-2" />
+                <DialogTitle className="flex items-center text-text-primary">
+                  <AlertTriangle className="w-5 h-5 text-semantic-warning mr-2" />
                   Abandon Pomodoro?
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-text-secondary">
                   Are you sure you want to abandon this Pomodoro session? 
                   Your progress will be saved based on the time you've already worked.
                 </DialogDescription>
@@ -431,6 +438,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
             <Button 
               size="icon" 
               variant="outline"
+              className="h-12 w-12 rounded-full"
               title="Configure Pomodoro settings"
             >
               <Settings className="h-5 w-5" />
@@ -439,8 +447,8 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Timer Settings</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-text-primary">Timer Settings</DialogTitle>
+              <DialogDescription className="text-text-secondary">
                 Customize your Pomodoro timer durations
               </DialogDescription>
             </DialogHeader>
@@ -448,7 +456,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
             <div className="space-y-6 py-4">
               {/* Work Duration */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Work Time: {localWorkTime} minutes</label>
+                <label className="text-sm font-medium text-text-primary">Work Time: {localWorkTime} minutes</label>
                 <Slider 
                   value={[localWorkTime]} 
                   min={1} 
@@ -460,7 +468,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
               {/* Break Duration */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Break Time: {localBreakTime} minutes</label>
+                <label className="text-sm font-medium text-text-primary">Break Time: {localBreakTime} minutes</label>
                 <Slider
                   value={[localBreakTime]}
                   min={1}
@@ -472,7 +480,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
               {/* Long Break Duration */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Long Break Time: {localLongBreakTime} minutes</label>
+                <label className="text-sm font-medium text-text-primary">Long Break Time: {localLongBreakTime} minutes</label>
                 <Slider
                   value={[localLongBreakTime]}
                   min={1}
@@ -484,7 +492,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
               {/* Long Break Interval */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Intervals Before Long Break: {localIntervalsBeforeLongBreak}</label>
+                <label className="text-sm font-medium text-text-primary">Intervals Before Long Break: {localIntervalsBeforeLongBreak}</label>
                 <Slider
                   value={[localIntervalsBeforeLongBreak]}
                   min={1}
@@ -496,11 +504,11 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
               {/* Warning message for active session */}
               {hasActiveSession && (
-                <div className="flex items-start space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-4 bg-semantic-warning-subtle border border-semantic-warning/30 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-semantic-warning mt-0.5 flex-shrink-0" />
                   <div className="text-sm">
-                    <p className="font-medium text-orange-800 mb-1">Session in Progress</p>
-                    <p className="text-orange-700">
+                    <p className="font-medium text-text-primary mb-1">Session in Progress</p>
+                    <p className="text-text-secondary">
                       Settings cannot be saved while a Pomodoro session is active. 
                       Please complete or abandon your current session to apply changes.
                     </p>
@@ -510,7 +518,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
 
               <Button 
                 onClick={handleUpdatePreferences} 
-                className="w-full"
+                className="w-full bg-accent-primary hover:bg-accent-primary-hover text-text-inverse"
                 disabled={isUpdatingPreferences || hasActiveSession}
               >
                 {isUpdatingPreferences 
@@ -528,6 +536,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
         <Button 
           variant="outline" 
           size="icon" 
+          className="h-12 w-12 rounded-full"
           onClick={toggleNotesWindow}
           title="Open Quick Notes (for current session) in a new window"
         >
@@ -539,7 +548,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
       {/* Loading State */}
       {isLoadingPreferences && (
         <div className="text-center p-4">
-          <p className="text-sm text-muted-foreground">Loading preferences...</p>
+          <p className="text-sm text-text-tertiary">Loading preferences...</p>
         </div>
       )}
     </div>
