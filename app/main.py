@@ -14,6 +14,7 @@ settings = get_settings()
 # Setup logging
 setup_logging()
 
+
 def parse_allowed_origins(origins):
     """Parse ALLOWED_ORIGINS from environment variable (could be JSON string or list)."""
     if isinstance(origins, str):
@@ -24,30 +25,66 @@ def parse_allowed_origins(origins):
             return [origins]
     return origins
 
-def parse_allowed_methods(methods):
-    """Parse ALLOWED_METHODS from environment variable (could be JSON string or list)."""
-    if isinstance(methods, str):
-        try:
-            parsed = json.loads(methods)
-            return parsed if isinstance(parsed, list) else [parsed]
-        except json.JSONDecodeError:
-            return [methods]
-    return methods
 
-def parse_allowed_headers(headers):
-    """Parse ALLOWED_HEADERS from environment variable (could be JSON string or list)."""
-    if isinstance(headers, str):
-        try:
-            parsed = json.loads(headers)
-            return parsed if isinstance(parsed, list) else [parsed]
-        except json.JSONDecodeError:
-            return [headers]
-    return headers
+def get_allowed_origins():
+    """Get allowed origins with development-friendly additions.
+    
+    In development, adds both localhost and 127.0.0.1 variants since
+    browsers treat them as different origins.
+    """
+    origins = parse_allowed_origins(settings.ALLOWED_ORIGINS)
+    
+    if settings.ENVIRONMENT == "development":
+        dev_origins = set(origins)
+        for origin in list(dev_origins):
+            if "localhost" in origin:
+                dev_origins.add(origin.replace("localhost", "127.0.0.1"))
+            if "127.0.0.1" in origin:
+                dev_origins.add(origin.replace("127.0.0.1", "localhost"))
+        return list(dev_origins)
+    
+    return origins
 
-# Parse configuration properly
-allowed_origins = parse_allowed_origins(settings.ALLOWED_ORIGINS)
-allowed_methods = parse_allowed_methods(settings.ALLOWED_METHODS)
-allowed_headers = parse_allowed_headers(settings.ALLOWED_HEADERS)
+
+def get_trusted_hosts(origins: list, environment: str) -> list:
+    """Get list of trusted hosts for TrustedHostMiddleware."""
+    if environment == "development":
+        return ["*"]  # Allow all hosts in development (needed for WSL)
+    
+    hosts = ["localhost", "127.0.0.1"]
+    
+    for origin in origins:
+        if isinstance(origin, str):
+            hostname = origin.replace("http://", "").replace("https://", "")
+            hostname = hostname.split(":")[0]
+            if hostname and hostname not in hosts:
+                hosts.append(hostname)
+    
+    if environment == "production":
+        hosts.append("*.fly.dev")
+    
+    return hosts
+
+
+# Parse configuration
+allowed_origins = get_allowed_origins()
+
+# Allowed headers for CORS (wildcards not allowed when credentials=True)
+ALLOWED_HEADERS = [
+    "Accept",
+    "Accept-Language",
+    "Content-Language",
+    "Content-Type",
+    "Authorization",
+    "X-Timezone",
+    "X-Requested-With",
+    "Cache-Control",
+    "Pragma",
+    "Origin",
+]
+
+ALLOWED_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,76 +96,31 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down Knowledge Vault API")
 
+
 app = FastAPI(
     title="Knowledge Vault API",
     description="API for the Knowledge Vault application",
     version="1.0.0",
     lifespan=lifespan,
-    # Completely disable docs in production for security
     docs_url="/docs" if settings.ENABLE_DOCS else None,
     redoc_url="/redoc" if settings.ENABLE_DOCS else None,
     openapi_url="/openapi.json" if settings.ENABLE_DOCS else None,
 )
 
-# Configure trusted hosts - Include both frontend origins AND backend hostname
-def get_trusted_hosts(origins, environment):
-    """Get list of trusted hosts for TrustedHostMiddleware."""
-    hosts = ["localhost", "127.0.0.1", "*.localhost"]
-    
-    # Add frontend origins (from ALLOWED_ORIGINS)
-    for origin in origins:
-        if isinstance(origin, str):
-            # Remove protocol and extract hostname
-            hostname = origin.replace("http://", "").replace("https://", "")
-            # Remove port if present
-            hostname = hostname.split(":")[0]
-            if hostname and hostname not in hosts:
-                hosts.append(hostname)
-    
-    # Add backend hostname based on environment
-    if environment == "production":
-        # Add Fly.io app hostname - replace with your actual app name
-        hosts.extend([
-            "*.fly.dev"  # Allow all fly.dev subdomains for flexibility
-        ])
-    
-    return hosts
 
-# Add trusted host middleware for security
-trusted_hosts = get_trusted_hosts(allowed_origins, settings.ENVIRONMENT)
-logger.info(f"Trusted hosts: {trusted_hosts}")
-app.add_middleware(
-    TrustedHostMiddleware, 
-    allowed_hosts=trusted_hosts
-)
-
-# Configure CORS with environment-based settings for cross-origin authentication
-logger.info(f"CORS Configuration - Origins: {allowed_origins}, Credentials: {settings.ALLOW_CREDENTIALS}")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=settings.ALLOW_CREDENTIALS,  # Critical for cookie support
-    allow_methods=allowed_methods,
-    allow_headers=allowed_headers,
-    # Essential for cross-origin cookies to work properly
-    expose_headers=["Set-Cookie", "Authorization"] if settings.ENVIRONMENT == "production" else [],
-)
-
-# Add security headers middleware
+# Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
     response = await call_next(request)
     
-    # Security headers - Apply to all endpoints
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     
-    # Content Security Policy - Strict policy for production API
+    # Content Security Policy
     if settings.ENABLE_DOCS and request.url.path in ["/docs", "/redoc"]:
-        # Swagger UI requires specific external resources and inline scripts (development only)
         csp_policy = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
@@ -140,10 +132,8 @@ async def add_security_headers(request: Request, call_next):
             "base-uri 'self';"
         )
     elif settings.ENABLE_DOCS and request.url.path == "/openapi.json":
-        # OpenAPI JSON endpoint (development only)
         csp_policy = "default-src 'self';"
     else:
-        # Strict CSP for production API endpoints
         csp_policy = (
             "default-src 'self'; "
             "script-src 'self'; "
@@ -160,6 +150,26 @@ async def add_security_headers(request: Request, call_next):
     
     return response
 
+
+# CORS Middleware - Must be added before TrustedHostMiddleware
+# Middleware execution order is REVERSE of add order
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=ALLOWED_METHODS,
+    allow_headers=ALLOWED_HEADERS,
+    expose_headers=["Set-Cookie"],
+)
+
+# Trusted Host Middleware (runs first due to being added last)
+trusted_hosts = get_trusted_hosts(allowed_origins, settings.ENVIRONMENT)
+logger.info(f"Trusted hosts: {trusted_hosts}")
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=trusted_hosts
+)
+
 # Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(api_router, prefix="/api/v1") 
+app.include_router(api_router, prefix="/api/v1")
