@@ -13,36 +13,47 @@ const routes = [
 
 export default function Sidebar() {
   return (
-    <nav className="hidden md:flex flex-col w-64 border-r bg-background" aria-label="Main sidebar">
-      <div className="p-4 border-b min-h-[73px] flex items-center">
-        <h1 className="text-xl font-bold">Knowledge Vault</h1>
+    <nav 
+      className="hidden md:flex flex-col w-[var(--sidebar-width)] border-r border-border-subtle bg-surface-base" 
+      aria-label="Main sidebar"
+    >
+      {/* Logo area */}
+      <div className="p-[var(--space-4)] border-b border-border-subtle min-h-[73px] flex items-center">
+        <h1 className="text-heading-4 text-text-primary font-bold">Knowledge Vault</h1>
       </div>
-      <div className="flex flex-col gap-1 p-2 flex-1">
+      
+      {/* Navigation */}
+      <div className="flex flex-col gap-[var(--space-1)] p-[var(--space-2)] flex-1">
         {routes.map((route) => (
           <NavLink
             to={route.path}
             key={route.path}
-            className={({ isActive }) =>
-              cn(
-                "w-full justify-start gap-2 h-10",
-                isActive ? "bg-secondary" : "hover:bg-secondary/50"
-              )
-            }
+            className="block"
             end
           >
             {({ isActive }) => (
               <Button
                 variant={isActive ? "secondary" : "ghost"}
-                className={cn("w-full justify-start gap-2 h-10", isActive ? "bg-secondary" : "hover:bg-secondary/50")}
+                className={cn(
+                  "w-full justify-start gap-[var(--space-2)] h-10",
+                  isActive && "bg-accent-primary-subtle border-accent-primary/20 text-accent-primary"
+                )}
                 tabIndex={0}
               >
                 <route.icon className="h-4 w-4" aria-hidden="true" />
-                {route.name}
+                <span className="text-label">{route.name}</span>
               </Button>
             )}
           </NavLink>
         ))}
       </div>
+      
+      {/* Footer area (could add user info or settings) */}
+      <div className="p-[var(--space-4)] border-t border-border-subtle">
+        <p className="text-caption text-text-muted text-center">
+          Learning OS
+        </p>
+      </div>
     </nav>
   )
-} 
+}

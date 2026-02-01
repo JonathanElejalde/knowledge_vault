@@ -1,0 +1,201 @@
+/**
+ * Design Tokens: Colors
+ * 
+ * Semantic color system supporting multiple theme presets.
+ * Uses CSS custom properties with HSL values for easy manipulation.
+ */
+
+:root {
+  /* ============================================
+   * SURFACE HIERARCHY
+   * Ground → Base → Raised → Overlay (elevation)
+   * ============================================ */
+  --surface-ground: 0 0% 98%;
+  --surface-base: 0 0% 100%;
+  --surface-raised: 0 0% 100%;
+  --surface-overlay: 0 0% 100%;
+  --surface-sunken: 220 14% 96%;
+
+  /* ============================================
+   * TEXT HIERARCHY
+   * Primary → Secondary → Tertiary → Muted
+   * ============================================ */
+  --text-primary: 240 10% 4%;
+  --text-secondary: 240 6% 35%;
+  --text-tertiary: 240 5% 55%;
+  --text-muted: 240 4% 65%;
+  --text-inverse: 0 0% 100%;
+
+  /* ============================================
+   * ACCENT COLORS (Switchable by preset)
+   * ============================================ */
+  --accent-primary: 221 83% 53%;
+  --accent-primary-hover: 221 83% 47%;
+  --accent-primary-subtle: 221 83% 96%;
+  --accent-primary-muted: 221 40% 90%;
+
+  --accent-secondary: 262 83% 58%;
+  --accent-secondary-hover: 262 83% 52%;
+  --accent-secondary-subtle: 262 83% 96%;
+
+  /* ============================================
+   * SEMANTIC COLORS
+   * ============================================ */
+  --semantic-success: 142 71% 45%;
+  --semantic-success-subtle: 142 71% 95%;
+  --semantic-success-text: 142 71% 30%;
+
+  --semantic-warning: 38 92% 50%;
+  --semantic-warning-subtle: 38 92% 95%;
+  --semantic-warning-text: 38 92% 30%;
+
+  --semantic-danger: 0 84% 60%;
+  --semantic-danger-subtle: 0 84% 96%;
+  --semantic-danger-text: 0 84% 35%;
+
+  --semantic-info: 199 89% 48%;
+  --semantic-info-subtle: 199 89% 95%;
+  --semantic-info-text: 199 89% 30%;
+
+  /* ============================================
+   * BORDER & DIVIDER
+   * ============================================ */
+  --border-subtle: 220 13% 91%;
+  --border-default: 220 13% 85%;
+  --border-strong: 220 13% 75%;
+  --border-focus: var(--accent-primary);
+
+  /* ============================================
+   * COMPONENT-SPECIFIC (Mood System)
+   * ============================================ */
+  
+  /* Focus mood (Pomodoro, timers) - warm tones */
+  --mood-focus-bg: 32 95% 97%;
+  --mood-focus-bg-hover: 32 95% 95%;
+  --mood-focus-border: 32 80% 85%;
+  --mood-focus-accent: 24 95% 53%;
+  --mood-focus-text: 24 80% 25%;
+
+  /* Insight mood (Dashboard, stats) - cool tones */
+  --mood-insight-bg: 221 91% 97%;
+  --mood-insight-bg-hover: 221 91% 95%;
+  --mood-insight-border: 221 60% 88%;
+  --mood-insight-accent: 221 83% 53%;
+  --mood-insight-text: 221 70% 25%;
+
+  /* Content mood (Notes, reading) - neutral */
+  --mood-content-bg: 0 0% 100%;
+  --mood-content-bg-hover: 220 14% 98%;
+  --mood-content-border: 220 13% 90%;
+  --mood-content-accent: 240 5% 45%;
+  --mood-content-text: 240 10% 10%;
+
+  /* Growth mood (Projects, progress) - green tones */
+  --mood-growth-bg: 142 76% 97%;
+  --mood-growth-bg-hover: 142 76% 95%;
+  --mood-growth-border: 142 50% 85%;
+  --mood-growth-accent: 142 71% 45%;
+  --mood-growth-text: 142 60% 22%;
+
+  /* ============================================
+   * SHADOWS (Computed from accent)
+   * ============================================ */
+  --shadow-color: 220 13% 70%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.06);
+  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.08), 
+               0 1px 2px hsl(var(--shadow-color) / 0.06);
+  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.08), 
+               0 2px 4px -2px hsl(var(--shadow-color) / 0.06);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.08), 
+               0 4px 6px -4px hsl(var(--shadow-color) / 0.06);
+  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.08), 
+               0 8px 10px -6px hsl(var(--shadow-color) / 0.06);
+  
+  /* Colored shadows for interactive elements */
+  --shadow-primary: 0 4px 14px hsl(var(--accent-primary) / 0.25);
+  --shadow-focus: 0 4px 14px hsl(var(--mood-focus-accent) / 0.25);
+}
+
+/* ============================================
+ * DARK MODE
+ * ============================================ */
+.dark {
+  /* Surfaces */
+  --surface-ground: 240 10% 4%;
+  --surface-base: 240 10% 6%;
+  --surface-raised: 240 10% 9%;
+  --surface-overlay: 240 10% 12%;
+  --surface-sunken: 240 10% 3%;
+
+  /* Text */
+  --text-primary: 0 0% 98%;
+  --text-secondary: 240 5% 75%;
+  --text-tertiary: 240 4% 55%;
+  --text-muted: 240 4% 45%;
+  --text-inverse: 240 10% 4%;
+
+  /* Accents (slightly adjusted for dark backgrounds) */
+  --accent-primary: 217 91% 60%;
+  --accent-primary-hover: 217 91% 65%;
+  --accent-primary-subtle: 217 91% 15%;
+  --accent-primary-muted: 217 40% 20%;
+
+  --accent-secondary: 262 83% 65%;
+  --accent-secondary-hover: 262 83% 70%;
+  --accent-secondary-subtle: 262 83% 15%;
+
+  /* Semantic */
+  --semantic-success: 142 71% 50%;
+  --semantic-success-subtle: 142 71% 12%;
+  --semantic-success-text: 142 71% 70%;
+
+  --semantic-warning: 38 92% 55%;
+  --semantic-warning-subtle: 38 92% 12%;
+  --semantic-warning-text: 38 92% 70%;
+
+  --semantic-danger: 0 84% 60%;
+  --semantic-danger-subtle: 0 84% 12%;
+  --semantic-danger-text: 0 84% 70%;
+
+  --semantic-info: 199 89% 55%;
+  --semantic-info-subtle: 199 89% 12%;
+  --semantic-info-text: 199 89% 70%;
+
+  /* Borders */
+  --border-subtle: 240 10% 15%;
+  --border-default: 240 10% 20%;
+  --border-strong: 240 10% 30%;
+
+  /* Moods (Dark variants) */
+  --mood-focus-bg: 24 60% 8%;
+  --mood-focus-bg-hover: 24 60% 12%;
+  --mood-focus-border: 24 50% 20%;
+  --mood-focus-accent: 24 95% 60%;
+  --mood-focus-text: 24 80% 85%;
+
+  --mood-insight-bg: 221 60% 8%;
+  --mood-insight-bg-hover: 221 60% 12%;
+  --mood-insight-border: 221 50% 20%;
+  --mood-insight-accent: 221 83% 60%;
+  --mood-insight-text: 221 70% 85%;
+
+  --mood-content-bg: 240 10% 7%;
+  --mood-content-bg-hover: 240 10% 10%;
+  --mood-content-border: 240 10% 18%;
+  --mood-content-accent: 240 5% 65%;
+  --mood-content-text: 0 0% 95%;
+
+  --mood-growth-bg: 142 50% 8%;
+  --mood-growth-bg-hover: 142 50% 12%;
+  --mood-growth-border: 142 40% 20%;
+  --mood-growth-accent: 142 71% 55%;
+  --mood-growth-text: 142 60% 85%;
+
+  /* Shadows (darker, more subtle) */
+  --shadow-color: 0 0% 0%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.3);
+  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.4);
+  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.4);
+  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.4);
+}

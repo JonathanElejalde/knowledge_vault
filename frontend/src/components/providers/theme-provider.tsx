@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useColorMode, type ColorMode } from './design-system-provider';
 
-type Theme = 'dark' | 'light' | 'system';
+/**
+ * @deprecated Use DesignSystemProvider and useColorMode/useDesignSystem instead.
+ * This provider is kept for backward compatibility only.
+ */
+
+type Theme = ColorMode; // 'dark' | 'light' | 'system'
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -13,58 +19,43 @@ interface ThemeProviderState {
   setTheme: (theme: Theme) => void;
 }
 
-const initialState: ThemeProviderState = {
-  theme: 'system',
-  setTheme: () => null,
-};
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined);
 
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
-
+/**
+ * @deprecated Use DesignSystemProvider instead.
+ * This component now wraps the new design system for backward compatibility.
+ */
 export function ThemeProvider({
   children,
-  defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
-  ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const { colorMode, setColorMode } = useColorMode();
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-      return;
-    }
-
-    root.classList.add(theme);
-  }, [theme]);
-
-  const value = {
-    theme,
-    setTheme: (newTheme: Theme) => {
-      localStorage.setItem(storageKey, newTheme);
-      setTheme(newTheme);
-    },
+  const value: ThemeProviderState = {
+    theme: colorMode,
+    setTheme: setColorMode,
   };
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
+    <ThemeProviderContext.Provider value={value}>
       {children}
     </ThemeProviderContext.Provider>
   );
 }
 
+/**
+ * @deprecated Use useColorMode from design-system-provider instead.
+ */
 export const useTheme = () => {
-  const context = useContext(ThemeProviderContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+  // Try new design system first
+  try {
+    const { colorMode, setColorMode } = useColorMode();
+    return { theme: colorMode, setTheme: setColorMode };
+  } catch {
+    // Fall back to legacy context
+    const context = useContext(ThemeProviderContext);
+    if (context === undefined) {
+      throw new Error('useTheme must be used within a ThemeProvider or DesignSystemProvider');
+    }
+    return context;
   }
-  return context;
-}; 
+};

@@ -166,11 +166,11 @@ export default function ProjectsPage() {
   // Error state
   if (error) {
     return (
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-destructive mb-2">Error</h2>
-          <p className="text-muted-foreground">{error.message}</p>
-          <Button onClick={() => window.location.reload()} className="mt-4">
+          <h2 className="text-heading-3 text-danger mb-[var(--space-2)]">Error</h2>
+          <p className="text-body-sm text-text-tertiary">{error.message}</p>
+          <Button onClick={() => window.location.reload()} className="mt-[var(--space-4)]">
             Try Again
           </Button>
         </div>
@@ -179,12 +179,12 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl space-y-[var(--space-6)]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Learning Projects</h1>
-          <p className="text-muted-foreground">Manage your learning journey</p>
+          <h1 className="text-heading-2 text-text-primary">Learning Projects</h1>
+          <p className="text-body-sm text-text-secondary mt-1">Manage your learning journey</p>
         </div>
         <Button onClick={() => setIsNewProjectOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -193,13 +193,13 @@ export default function ProjectsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex items-center mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-[var(--space-4)] animate-fade-in-up" style={{ animationDelay: '50ms' }}>
+        <div className="relative flex-1 max-w-md w-full">
+          <Search className="absolute left-[var(--space-2-5)] top-[var(--space-2-5)] h-4 w-4 text-text-tertiary" />
           <Input 
             type="search" 
             placeholder="Search projects..." 
-            className="pl-8"
+            className="pl-[var(--space-8)]"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -207,9 +207,9 @@ export default function ProjectsPage() {
         <Tabs 
           value={activeTab} 
           onValueChange={(value) => setActiveTab(value as any)} 
-          className="ml-auto"
+          className="w-full sm:w-auto"
         >
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4 sm:flex">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="in_progress">In Progress</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
@@ -219,15 +219,17 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects List */}
-      <ProjectsList
-        projects={projects}
-        isLoadingMore={isLoadingMore}
-        hasMore={hasMore}
-        onLoadMore={loadMore}
-        onEdit={handleEditClick}
-        onStatusChange={handleStatusChange}
-        onDelete={handleDeleteProject}
-      />
+      <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+        <ProjectsList
+          projects={projects}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          onLoadMore={loadMore}
+          onEdit={handleEditClick}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDeleteProject}
+        />
+      </div>
 
       {/* Dialogs */}
       <NewProjectDialog
@@ -246,4 +248,4 @@ export default function ProjectsPage() {
       )}
     </div>
   );
-} 
+}

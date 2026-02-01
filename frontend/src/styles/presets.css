@@ -1,0 +1,120 @@
+/**
+ * Theme Presets
+ * 
+ * Visual personality presets that modify base tokens.
+ * Each preset adjusts colors, radius, and motion for a distinct feel.
+ */
+
+/* CALM PRESET (Default) - Soft, muted colors. Gentle transitions. */
+.theme-calm {
+  --accent-primary: 221 70% 52%;
+  --accent-primary-hover: 221 70% 46%;
+  --accent-primary-subtle: 221 50% 96%;
+  --accent-secondary: 262 55% 55%;
+  --radius-base: var(--radius-lg);
+  --card-radius: var(--radius-xl);
+  --button-radius: var(--radius-md);
+  --motion-duration: 250ms;
+  --motion-ease: var(--ease-out);
+  --shadow-color: 220 20% 80%;
+}
+
+.dark.theme-calm, .theme-calm.dark {
+  --accent-primary: 217 75% 58%;
+  --accent-primary-hover: 217 75% 65%;
+  --shadow-color: 0 0% 0%;
+}
+
+/* VIBRANT PRESET - High saturation, bold colors. Energetic feel. */
+.theme-vibrant {
+  --accent-primary: 217 100% 55%;
+  --accent-primary-hover: 217 100% 48%;
+  --accent-primary-subtle: 217 100% 95%;
+  --accent-secondary: 330 85% 55%;
+  --accent-secondary-hover: 330 85% 48%;
+  --mood-focus-bg: 32 100% 96%;
+  --mood-focus-accent: 24 100% 50%;
+  --mood-insight-bg: 217 100% 96%;
+  --mood-insight-accent: 217 100% 55%;
+  --mood-growth-bg: 142 85% 96%;
+  --mood-growth-accent: 142 80% 42%;
+  --radius-base: var(--radius-xl);
+  --card-radius: var(--radius-2xl);
+  --button-radius: var(--radius-lg);
+  --motion-duration: 150ms;
+  --motion-ease: var(--ease-spring);
+  --shadow-md: 0 4px 10px -1px hsl(var(--accent-primary) / 0.12), 0 2px 4px -2px hsl(var(--accent-primary) / 0.08);
+}
+
+.dark.theme-vibrant, .theme-vibrant.dark {
+  --accent-primary: 217 100% 62%;
+  --accent-secondary: 330 85% 62%;
+  --mood-focus-bg: 24 80% 10%;
+  --mood-insight-bg: 217 80% 10%;
+  --mood-growth-bg: 142 60% 10%;
+}
+
+/* MINIMAL PRESET - Monochromatic, subtle. Content-first approach. */
+.theme-minimal {
+  --accent-primary: 240 5% 35%;
+  --accent-primary-hover: 240 5% 25%;
+  --accent-primary-subtle: 240 5% 96%;
+  --accent-secondary: 240 5% 45%;
+  --mood-focus-bg: 0 0% 98%;
+  --mood-focus-border: 0 0% 90%;
+  --mood-focus-accent: 240 5% 35%;
+  --mood-focus-text: 240 5% 20%;
+  --mood-insight-bg: 0 0% 98%;
+  --mood-insight-border: 0 0% 90%;
+  --mood-insight-accent: 240 5% 35%;
+  --mood-growth-bg: 0 0% 98%;
+  --mood-growth-border: 0 0% 90%;
+  --mood-growth-accent: 240 5% 35%;
+  --radius-base: var(--radius-sm);
+  --card-radius: var(--radius-md);
+  --button-radius: var(--radius-sm);
+  --motion-duration: 200ms;
+  --motion-ease: var(--ease-in-out);
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.04);
+  --shadow-md: 0 2px 4px hsl(0 0% 0% / 0.06);
+  --shadow-lg: 0 4px 8px hsl(0 0% 0% / 0.08);
+}
+
+.dark.theme-minimal, .theme-minimal.dark {
+  --accent-primary: 0 0% 70%;
+  --accent-primary-hover: 0 0% 80%;
+  --mood-focus-bg: 0 0% 8%;
+  --mood-insight-bg: 0 0% 8%;
+  --mood-growth-bg: 0 0% 8%;
+}
+
+/* FOREST PRESET - Nature-inspired. Green accents, earthy tones. */
+.theme-forest {
+  --accent-primary: 152 60% 40%;
+  --accent-primary-hover: 152 60% 35%;
+  --accent-primary-subtle: 152 40% 95%;
+  --accent-secondary: 38 75% 50%;
+  --surface-ground: 40 20% 97%;
+  --surface-sunken: 40 15% 94%;
+  --mood-focus-bg: 38 60% 96%;
+  --mood-focus-accent: 38 75% 50%;
+  --mood-insight-bg: 152 40% 96%;
+  --mood-insight-accent: 152 60% 40%;
+  --mood-growth-bg: 85 40% 96%;
+  --mood-growth-accent: 85 50% 40%;
+  --radius-base: var(--radius-lg);
+  --card-radius: var(--radius-xl);
+  --motion-duration: 280ms;
+  --motion-ease: var(--ease-out);
+}
+
+.dark.theme-forest, .theme-forest.dark {
+  --accent-primary: 152 55% 50%;
+  --accent-secondary: 38 70% 55%;
+  --surface-ground: 150 10% 5%;
+  --surface-base: 150 10% 7%;
+  --surface-raised: 150 10% 10%;
+  --mood-focus-bg: 38 40% 10%;
+  --mood-insight-bg: 152 30% 10%;
+  --mood-growth-bg: 85 30% 10%;
+}

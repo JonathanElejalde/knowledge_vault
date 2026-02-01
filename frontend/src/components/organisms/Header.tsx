@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/Avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/atoms/Sheet"
 import { Menu, Bell, LogOut } from "lucide-react"
 import Sidebar from "./Sidebar"
-import { ModeToggle } from "@/components/molecules/ModeToggle"
+import { ThemeSwitcher } from "@/components/molecules/ThemeSwitcher"
 import { useAuth } from "@/features/auth/hooks/useAuth"
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog"
 import {
@@ -56,7 +56,7 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b px-4 py-4 flex items-center justify-between bg-background">
+    <header className="border-b border-border-subtle px-4 py-4 flex items-center justify-between bg-surface-base">
       {/* Mobile menu */}
       <div className="flex items-center gap-2 md:hidden">
         <Sheet>
@@ -70,11 +70,11 @@ export default function Header() {
             <Sidebar />
           </SheetContent>
         </Sheet>
-        <h1 className="text-lg font-bold">Knowledge Vault</h1>
+        <h1 className="text-lg font-bold text-text-primary">Knowledge Vault</h1>
       </div>
       {/* Right actions */}
       <div className="flex items-center gap-2 ml-auto">
-        <ModeToggle />
+        <ThemeSwitcher />
         <Button variant="ghost" size="icon" aria-label="Notifications">
           <Bell className="h-5 w-5" />
           <span className="sr-only">Notifications</span>
@@ -91,7 +91,7 @@ export default function Header() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem 
               onClick={handleLogout} 
-              className="text-destructive"
+              className="text-danger"
               disabled={isLoggingOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
@@ -102,12 +102,12 @@ export default function Header() {
       </div>
 
       {/* Logout Confirmation Dialog */}
-             <LogoutConfirmDialog
-         isOpen={showLogoutConfirm}
-         onClose={() => setShowLogoutConfirm(false)}
-         onConfirmAbandon={handleConfirmAbandonAndLogout}
-         isLoading={isLoggingOut}
-       />
+      <LogoutConfirmDialog
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirmAbandon={handleConfirmAbandonAndLogout}
+        isLoading={isLoggingOut}
+      />
     </header>
   )
-} 
+}
