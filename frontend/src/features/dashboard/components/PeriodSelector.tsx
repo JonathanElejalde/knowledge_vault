@@ -59,12 +59,12 @@ export default function PeriodSelector({
         </DropdownMenu>
       </div>
 
-      {/* Desktop: Segmented Control */}
-      <div 
+      {/* Desktop: Segmented Control - matches mockup pill design */}
+      <nav 
         className={cn(
           "hidden sm:inline-flex items-center gap-1 p-1",
-          "bg-surface-sunken rounded-[var(--radius-lg)]",
-          "border border-border-subtle",
+          "bg-surface-sunken rounded-lg",
+          "w-full sm:w-auto overflow-x-auto",
           className
         )}
         role="tablist"
@@ -79,16 +79,17 @@ export default function PeriodSelector({
               role="tab"
               aria-selected={isActive}
               className={cn(
-                "px-3 py-2 rounded-[var(--radius-md)]",
-                "text-body-sm font-medium whitespace-nowrap",
-                "transition-all duration-[var(--motion-duration)]",
+                "px-4 py-1.5 rounded-md",
+                "text-xs font-medium whitespace-nowrap",
+                "transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-1",
                 // Default state
-                "text-text-secondary hover:text-text-primary hover:bg-surface-base/50",
-                // Active state
+                "text-text-tertiary hover:text-accent-primary",
+                // Active state - white/dark bg with ring
                 isActive && [
-                  "bg-surface-base text-text-primary",
-                  "shadow-sm",
+                  "bg-surface-base dark:bg-surface-raised",
+                  "text-text-primary shadow-sm",
+                  "ring-1 ring-border-subtle",
                 ]
               )}
             >
@@ -96,7 +97,7 @@ export default function PeriodSelector({
             </button>
           );
         })}
-      </div>
+      </nav>
     </>
   );
 }

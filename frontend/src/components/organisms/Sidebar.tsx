@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { Clock, FileText, Home, Layers, BookOpen, Settings } from "lucide-react"
+import { Clock, FileText, Home, Layers, BookOpen, LogOut, Diamond } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
 const routes = [
@@ -10,21 +10,40 @@ const routes = [
   { name: "Anki Decks", path: "/anki", icon: BookOpen },
 ]
 
+/**
+ * Sidebar Component - Deep Focus Design
+ * 
+ * Collapsible sidebar:
+ * - Mobile: Hidden (uses Sheet from Header)
+ * - Tablet (md): Icon-only mode (w-20)
+ * - Desktop (lg): Full mode with labels (w-64)
+ * 
+ * Features the "Deep Focus Blue" accent on active items.
+ */
 export default function Sidebar() {
   return (
-    <nav 
-      className="hidden md:flex flex-col w-[var(--sidebar-width)] bg-surface-base" 
+    <aside 
+      className={cn(
+        "hidden md:flex flex-col flex-shrink-0",
+        "w-20 lg:w-64",
+        "bg-surface-base border-r border-border-subtle",
+        "transition-all duration-300"
+      )}
       aria-label="Main sidebar"
     >
-      {/* Logo area - minimal, clean */}
-      <div className="px-[var(--space-4)] py-[var(--space-5)] flex items-center gap-[var(--space-2)]">
-        <span className="text-lg font-semibold text-text-primary tracking-tight">
+      {/* Logo area */}
+      <div className={cn(
+        "h-16 flex items-center justify-center lg:justify-start lg:px-6",
+        "border-b border-border-subtle lg:border-none"
+      )}>
+        <Diamond className="h-6 w-6 text-accent-primary flex-shrink-0" aria-hidden="true" />
+        <span className="hidden lg:block ml-3 font-semibold text-lg tracking-tight text-text-primary">
           Knowledge Vault
         </span>
       </div>
       
       {/* Navigation */}
-      <div className="flex flex-col gap-[var(--space-0-5)] px-[var(--space-2)] flex-1">
+      <nav className="flex-1 px-3 py-6 space-y-1">
         {routes.map((route) => (
           <NavLink
             to={route.path}
@@ -35,23 +54,29 @@ export default function Sidebar() {
             {({ isActive }) => (
               <div 
                 className={cn(
-                  "flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] rounded-[var(--radius-md)]",
-                  "transition-colors duration-150 cursor-pointer",
-                  "hover:bg-surface-sunken",
-                  isActive && "bg-surface-sunken"
+                  "flex items-center px-3 py-2.5 rounded-[var(--radius-md)]",
+                  "text-sm font-medium group transition-colors",
+                  // Default state
+                  "text-text-tertiary hover:text-text-primary hover:bg-accent-primary-subtle",
+                  // Active state - Deep Focus Blue
+                  isActive && [
+                    "bg-accent-primary/10 text-accent-primary",
+                    "dark:bg-accent-primary/20 dark:text-accent-primary"
+                  ]
                 )}
               >
                 <route.icon 
                   className={cn(
-                    "h-[18px] w-[18px] flex-shrink-0",
-                    isActive ? "text-text-primary" : "text-text-tertiary"
+                    "h-5 w-5 flex-shrink-0",
+                    "group-hover:scale-110 transition-transform",
+                    isActive ? "text-accent-primary" : ""
                   )} 
                   strokeWidth={isActive ? 2 : 1.5}
                   aria-hidden="true" 
                 />
                 <span className={cn(
-                  "text-sm",
-                  isActive ? "text-text-primary font-medium" : "text-text-secondary"
+                  "hidden lg:block ml-3",
+                  isActive && "text-accent-primary"
                 )}>
                   {route.name}
                 </span>
@@ -59,22 +84,20 @@ export default function Sidebar() {
             )}
           </NavLink>
         ))}
-      </div>
+      </nav>
       
-      {/* Footer area - minimal */}
-      <div className="px-[var(--space-2)] pb-[var(--space-4)]">
-        <div 
+      {/* Footer area - Mobile only logout */}
+      <div className="p-4 border-t border-border-subtle lg:hidden">
+        <button 
           className={cn(
-            "flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] rounded-[var(--radius-md)]",
-            "transition-colors duration-150 cursor-pointer",
-            "hover:bg-surface-sunken",
-            "text-text-tertiary hover:text-text-secondary"
+            "flex items-center justify-center w-full p-2 rounded-[var(--radius-md)]",
+            "hover:bg-surface-sunken text-text-tertiary transition-colors"
           )}
+          aria-label="Logout"
         >
-          <Settings className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.5} aria-hidden="true" />
-          <span className="text-sm">Settings</span>
-        </div>
+          <LogOut className="h-5 w-5" />
+        </button>
       </div>
-    </nav>
+    </aside>
   )
 }

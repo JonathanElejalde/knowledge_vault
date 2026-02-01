@@ -9,52 +9,67 @@ interface EmptyStateProps {
   action?: {
     label: string;
     onClick: () => void;
+    variant?: 'primary' | 'secondary';
   };
   /** Visual mood to match parent card */
   mood?: 'focus' | 'insight' | 'growth' | 'content';
+  /** Whether to show the dotted border container (default: true) */
+  showContainer?: boolean;
   className?: string;
 }
 
+const iconBgClasses = {
+  focus: 'bg-surface-sunken dark:bg-surface-raised',
+  insight: 'bg-surface-sunken dark:bg-surface-raised',
+  growth: 'bg-surface-sunken dark:bg-surface-raised',
+  content: 'bg-surface-sunken dark:bg-surface-raised',
+} as const;
+
 const iconMoodClasses = {
   focus: 'text-mood-focus-accent',
-  insight: 'text-mood-insight-accent',
+  insight: 'text-accent-primary',
   growth: 'text-mood-growth-accent',
   content: 'text-text-muted',
 } as const;
 
-const buttonMoodVariants = {
-  focus: 'focus' as const,
-  insight: 'default' as const,
-  growth: 'growth' as const,
-  content: 'default' as const,
-} as const;
-
+/**
+ * EmptyState - Deep Focus Design
+ * 
+ * Engaging empty state with:
+ * - Dotted border container (matches mockup)
+ * - Soft dot pattern background
+ * - Centered icon, title, description, CTA
+ */
 export default function EmptyState({
   icon: Icon,
   title,
   description,
   action,
   mood = 'content',
+  showContainer = true,
   className,
 }: EmptyStateProps) {
-  return (
-    <div className={cn(
-      "flex flex-col items-center justify-center py-6 px-4 text-center h-full",
-      className
-    )}>
-      {/* Icon */}
-      <div className="mb-3 p-3 rounded-full bg-surface-sunken">
-        <Icon className={cn("h-5 w-5 opacity-60", iconMoodClasses[mood])} strokeWidth={1.5} />
+  const content = (
+    <div className="text-center p-6 relative z-10">
+      {/* Icon in circle */}
+      <div className={cn(
+        "inline-flex items-center justify-center h-12 w-12 rounded-full mb-4",
+        iconBgClasses[mood]
+      )}>
+        <Icon 
+          className={cn("h-6 w-6", iconMoodClasses[mood])} 
+          strokeWidth={1.5} 
+        />
       </div>
       
       {/* Title */}
-      <p className="text-sm font-medium text-text-secondary mb-1">
+      <h4 className="text-sm font-medium text-text-primary mb-1">
         {title}
-      </p>
+      </h4>
       
       {/* Description */}
       {description && (
-        <p className="text-xs text-text-tertiary max-w-[200px] mb-3">
+        <p className="text-xs text-text-tertiary max-w-xs mx-auto mb-4">
           {description}
         </p>
       )}
@@ -62,7 +77,7 @@ export default function EmptyState({
       {/* CTA Button */}
       {action && (
         <Button 
-          variant={buttonMoodVariants[mood]}
+          variant={action.variant === 'secondary' ? 'outline' : 'default'}
           size="sm"
           onClick={action.onClick}
           className="text-xs"
@@ -70,6 +85,37 @@ export default function EmptyState({
           {action.label}
         </Button>
       )}
+    </div>
+  );
+
+  if (!showContainer) {
+    return (
+      <div className={cn(
+        "flex flex-col items-center justify-center h-full",
+        className
+      )}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(
+      "h-full flex items-center justify-center",
+      "bg-surface-sunken/50 dark:bg-surface-raised/30 rounded-lg",
+      "border border-dashed border-border-subtle",
+      "relative overflow-hidden",
+      className
+    )}>
+      {/* Subtle dot pattern background */}
+      <div 
+        className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(hsl(var(--accent-primary)) 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+        }}
+      />
+      {content}
     </div>
   );
 }

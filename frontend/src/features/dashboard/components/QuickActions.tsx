@@ -7,7 +7,16 @@ import {
 } from "@/components/atoms/DropdownMenu";
 import { useNavigate } from "react-router-dom";
 import { Play, FileText, FolderPlus, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
+/**
+ * QuickActions - Deep Focus Design
+ * 
+ * Action buttons with:
+ * - Primary: "Start Pomodoro" (accent blue)
+ * - Secondary: Button group (New Note, Add Project) in unified container
+ * - Mobile: Primary button + dropdown for secondary
+ */
 export default function QuickActions() {
   const navigate = useNavigate();
 
@@ -24,36 +33,51 @@ export default function QuickActions() {
   };
 
   return (
-    <div className="flex items-center gap-[var(--space-2)]">
-      {/* Primary Action - Always visible */}
+    <div className="flex flex-col sm:flex-row gap-3">
+      {/* Primary Action - Deep Focus Blue */}
       <Button 
         onClick={handleStartPomodoro}
-        variant="focus"
-        className="gap-[var(--space-2)] whitespace-nowrap"
+        className={cn(
+          "gap-2 whitespace-nowrap",
+          "bg-accent-primary hover:bg-accent-primary-hover text-text-inverse",
+          "shadow-sm transition-all",
+          "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-primary"
+        )}
       >
         <Play className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Start Pomodoro</span>
-        <span className="sm:hidden">Start</span>
+        Start Pomodoro
       </Button>
       
-      {/* Desktop: Show all buttons */}
-      <div className="hidden sm:flex items-center gap-[var(--space-2)]">
-        <Button 
-          variant="outline" 
+      {/* Desktop: Unified button group */}
+      <div className={cn(
+        "hidden sm:flex rounded-[var(--radius-md)] shadow-sm",
+        "bg-surface-base border border-border-subtle",
+        "divide-x divide-border-subtle overflow-hidden"
+      )}>
+        <button 
           onClick={handleNewNote}
-          className="gap-[var(--space-2)] whitespace-nowrap"
+          className={cn(
+            "px-4 py-2 text-sm font-medium",
+            "text-text-secondary hover:text-accent-primary",
+            "hover:bg-accent-primary-subtle",
+            "flex items-center gap-2 group transition-colors"
+          )}
         >
-          <FileText className="h-4 w-4" aria-hidden="true" />
+          <FileText className="h-4 w-4 text-text-muted group-hover:text-accent-primary transition-colors" />
           New Note
-        </Button>
-        <Button 
-          variant="outline" 
+        </button>
+        <button 
           onClick={handleAddProject}
-          className="gap-[var(--space-2)] whitespace-nowrap"
+          className={cn(
+            "px-4 py-2 text-sm font-medium",
+            "text-text-secondary hover:text-accent-primary",
+            "hover:bg-accent-primary-subtle",
+            "flex items-center gap-2 group transition-colors"
+          )}
         >
-          <FolderPlus className="h-4 w-4" aria-hidden="true" />
+          <FolderPlus className="h-4 w-4 text-text-muted group-hover:text-accent-primary transition-colors" />
           Add Project
-        </Button>
+        </button>
       </div>
 
       {/* Mobile: Dropdown for secondary actions */}

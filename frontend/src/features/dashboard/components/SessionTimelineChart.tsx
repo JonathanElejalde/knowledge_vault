@@ -74,10 +74,10 @@ export default function SessionTimelineChart({ data, className }: SessionTimelin
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-medium mb-1">{data.displayDate}</p>
-          <p className="text-sm mb-1">Time: {formatTime(data.startTime)}</p>
-          <p className="text-sm mb-1">Duration: {data.duration}m</p>
+        <div className="bg-surface-base border border-border-subtle rounded-lg p-3 shadow-[var(--shadow-lg)]">
+          <p className="font-medium text-text-primary mb-1">{data.displayDate}</p>
+          <p className="text-sm text-text-secondary mb-1">Time: {formatTime(data.startTime)}</p>
+          <p className="text-sm text-text-secondary mb-1">Duration: {data.duration}m</p>
           <p className="text-sm" style={{ color: data.color }}>
             Project: {data.projectName || 'No project'}
           </p>
@@ -88,25 +88,25 @@ export default function SessionTimelineChart({ data, className }: SessionTimelin
   };
 
   const CustomLegend = () => (
-    <div className="flex flex-wrap gap-2 justify-center mt-2">
+    <div className="flex flex-wrap gap-3 justify-center mt-3">
       {projectColors.map(({ project, color }) => (
-        <div key={project} className="flex items-center gap-1">
+        <div key={project} className="flex items-center gap-1.5">
           <div 
             className="w-3 h-3 rounded-full" 
             style={{ backgroundColor: color }}
           />
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-text-tertiary">
             {project && project.length > 20 ? `${project.substring(0, 20)}...` : project}
           </span>
         </div>
       ))}
       {chartData.some(item => !item.projectName) && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <div 
             className="w-3 h-3 rounded-full" 
             style={{ backgroundColor: getProjectColor(null) }}
           />
-          <span className="text-xs text-muted-foreground">No project</span>
+          <span className="text-xs text-text-tertiary">No project</span>
         </div>
       )}
     </div>
@@ -117,7 +117,7 @@ export default function SessionTimelineChart({ data, className }: SessionTimelin
       <EmptyState
         icon={Clock}
         title="No sessions recorded"
-        description="Your focus timeline will appear here after completing Pomodoros"
+        description="Your focus timeline will appear here."
         action={{
           label: "Start Focusing",
           onClick: () => navigate("/pomodoro"),
@@ -156,7 +156,7 @@ export default function SessionTimelineChart({ data, className }: SessionTimelin
             label={{ value: 'Hour of Day', angle: -90, position: 'insideLeft' }}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Scatter dataKey="y" fill="hsl(var(--primary))">
+          <Scatter dataKey="y" fill="hsl(var(--accent-primary))">
             {scatterData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}

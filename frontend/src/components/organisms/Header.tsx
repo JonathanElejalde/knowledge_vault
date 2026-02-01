@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/atoms/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/Avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/atoms/Sheet"
-import { Menu, Bell, LogOut } from "lucide-react"
+import { Menu, Bell, LogOut, User } from "lucide-react"
 import Sidebar from "./Sidebar"
 import { ThemeSwitcher } from "@/components/molecules/ThemeSwitcher"
 import { useAuth } from "@/features/auth/hooks/useAuth"
@@ -13,7 +13,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/atoms/DropdownMenu"
+import { cn } from "@/lib/utils"
 
+/**
+ * Header Component - Deep Focus Design
+ * 
+ * Clean, minimal header with:
+ * - Mobile: Menu + title
+ * - Desktop: Just the right-side actions (theme, notifications, user)
+ */
 export default function Header() {
   const { logout, logoutWithSessionAbandon, user } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -25,11 +33,9 @@ export default function Header() {
       await logout();
     } catch (error) {
       if (error instanceof Error && error.message === 'ACTIVE_POMODORO_SESSION') {
-        // Show confirmation dialog for active session
         setShowLogoutConfirm(true);
       } else {
         console.error('Logout failed:', error);
-        // Handle other logout errors if needed
       }
     } finally {
       setIsLoggingOut(false);
@@ -43,7 +49,6 @@ export default function Header() {
       setShowLogoutConfirm(false);
     } catch (error) {
       console.error('Failed to abandon session and logout:', error);
-      // Even if abandon fails, we should still try to logout
       try {
         await logout({ skipSessionCheck: true });
         setShowLogoutConfirm(false);
@@ -56,9 +61,12 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b border-border-subtle px-4 py-4 flex items-center justify-between bg-surface-base">
-      {/* Mobile menu */}
-      <div className="flex items-center gap-2 md:hidden">
+    <header className={cn(
+      "h-16 flex items-center justify-between px-6 lg:px-8",
+      "bg-surface-ground border-b border-border-subtle lg:border-none"
+    )}>
+      {/* Mobile menu + title */}
+      <div className="flex items-center gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Open menu">
@@ -66,32 +74,56 @@ export default function Header() {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0">
+          <SheetContent side="left" className="p-0 w-64">
             <Sidebar />
           </SheetContent>
         </Sheet>
-        <h1 className="text-lg font-bold text-text-primary">Knowledge Vault</h1>
+        <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
       </div>
+
       {/* Right actions */}
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex items-center ml-auto gap-4">
         <ThemeSwitcher />
-        <Button variant="ghost" size="icon" aria-label="Notifications">
+        
+        {/* Notifications */}
+        <button 
+          className="text-text-muted hover:text-text-secondary transition-colors relative"
+          aria-label="Notifications"
+        >
           <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+          {/* Notification indicator */}
+          <span className={cn(
+            "absolute top-0 right-0 block h-2 w-2 rounded-full",
+            "bg-accent-primary ring-2 ring-surface-ground",
+            "transform translate-x-1/2 -translate-y-1/2"
+          )} />
+        </button>
+        
+        {/* User avatar */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder-user.jpg" alt={user?.username || "User"} />
-                <AvatarFallback>{user?.username?.slice(0, 2).toUpperCase() || "KV"}</AvatarFallback>
-              </Avatar>
-            </Button>
+            <button className={cn(
+              "h-8 w-8 rounded-full flex items-center justify-center",
+              "bg-surface-sunken text-text-tertiary",
+              "hover:bg-accent-primary-subtle hover:text-accent-primary",
+              "cursor-pointer transition-colors"
+            )}>
+              {user?.username ? (
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="/placeholder-user.jpg" alt={user.username} />
+                  <AvatarFallback className="text-xs">
+                    {user.username.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <User className="h-4 w-4" />
+              )}
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem 
               onClick={handleLogout} 
-              className="text-danger"
+              className="text-semantic-danger"
               disabled={isLoggingOut}
             >
               <LogOut className="mr-2 h-4 w-4" />

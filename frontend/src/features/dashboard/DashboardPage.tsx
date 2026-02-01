@@ -1,6 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/Card";
-import { BentoGrid, BentoItem } from "@/components/atoms/BentoGrid";
-import { Clock, FileText, Layers } from "lucide-react";
+import { Clock, FileText, Layers, MoreHorizontal } from "lucide-react";
 import SummaryCard from "./components/SummaryCard";
 import QuickActions from "./components/QuickActions";
 import PeriodSelector from "./components/PeriodSelector";
@@ -10,7 +9,18 @@ import SessionTimelineChart from "./components/SessionTimelineChart";
 import { ChartLoadingSkeleton, SummaryCardSkeleton } from "./components/LoadingSkeleton";
 import { useDashboard } from "./hooks/useDashboard";
 import { formatFocusTime } from "./utils/formatters";
+import { cn } from "@/lib/utils";
 
+/**
+ * DashboardPage - Deep Focus Design
+ * 
+ * Layout structure:
+ * 1. Header: Title + description (left) | Filters + Actions (right)
+ * 2. Period tabs
+ * 3. Summary cards: 3-column grid (Focus Time, Notes, Projects)
+ * 4. Charts: 2-column grid (Daily Activity, Project Activity)
+ * 5. Session Timeline: Full width
+ */
 export default function DashboardPage() {
   const {
     stats,
@@ -35,8 +45,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Summary stats configuration with mood and variant assignments
-  // Layout: Hero (2 cols) + Notes (1 col) + Active Projects (1 col) = 4 columns
+  // Summary stats configuration
   const summaryStats = [
     { 
       id: "focusTime", 
@@ -45,8 +54,6 @@ export default function DashboardPage() {
       icon: Clock, 
       description: getPeriodLabel(),
       mood: 'focus' as const,
-      variant: 'hero' as const,
-      span: 2 as const,
     },
     { 
       id: "notesCreated", 
@@ -55,28 +62,24 @@ export default function DashboardPage() {
       icon: FileText, 
       description: getPeriodLabel(),
       mood: 'insight' as const,
-      variant: 'default' as const,
-      span: 1 as const,
     },
     { 
       id: "activeProjects", 
       title: "Active Projects", 
       value: stats ? stats.active_projects.toString() : "0", 
       icon: Layers, 
-      description: "Currently in progress",
+      description: "In Progress",
       mood: 'growth' as const,
-      variant: 'default' as const,
-      span: 1 as const,
     },
   ];
 
   if (error) {
     return (
-      <div className="container mx-auto p-[var(--layout-page-padding)] max-w-6xl">
+      <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <p className="text-danger mb-2">Failed to load dashboard data</p>
-            <p className="text-body-sm text-text-tertiary">{error}</p>
+            <p className="text-semantic-danger mb-2">Failed to load dashboard data</p>
+            <p className="text-sm text-text-tertiary">{error}</p>
           </div>
         </div>
       </div>
@@ -84,109 +87,112 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full px-[var(--space-6)] py-[var(--space-5)] space-y-[var(--space-6)]">
-      {/* Header Section - more compact */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-        {/* Title */}
+    <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8">
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+        {/* Title & Description */}
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Dashboard</h1>
-          <p className="text-sm text-text-tertiary mt-1">
-            Track your learning progress and focus time
+          <h2 className="text-3xl font-bold text-text-primary tracking-tight">
+            Dashboard
+          </h2>
+          <p className="mt-2 text-text-tertiary text-sm max-w-xl">
+            Track your deep work sessions and knowledge accumulation. Focus on the process, not just the outcome.
           </p>
         </div>
         
-        {/* Filters and Actions */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <PeriodSelector 
-            selectedPeriod={selectedPeriod}
-            onPeriodChange={setPeriod}
-          />
-          <QuickActions />
-        </div>
-      </header>
+        {/* Actions */}
+        <QuickActions />
+      </div>
 
-      {/* Summary cards in Bento Grid with staggered animation */}
-      <BentoGrid columns={4} gap="sm" className="stagger-children">
+      {/* Period Selector */}
+      <div className="mb-8">
+        <PeriodSelector 
+          selectedPeriod={selectedPeriod}
+          onPeriodChange={setPeriod}
+        />
+      </div>
+
+      {/* Summary Cards Grid - 3 columns on md+, stack on mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {summaryStats.map((stat) => (
-          <BentoItem key={stat.id} span={stat.span}>
+          isLoading ? (
+            <SummaryCardSkeleton key={stat.id} />
+          ) : (
+            <SummaryCard
+              key={stat.id}
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              description={stat.description}
+              mood={stat.mood}
+            />
+          )
+        ))}
+      </div>
+
+      {/* Charts Grid - 2 columns on lg+, stack on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Daily Activity Chart */}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-base font-semibold">Daily Activity</CardTitle>
+              <CardDescription className="text-xs">Sessions and notes by date</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
             {isLoading ? (
-              <SummaryCardSkeleton />
+              <ChartLoadingSkeleton className="h-[280px]" />
             ) : (
-              <SummaryCard
-                title={stat.title}
-                value={stat.value}
-                icon={stat.icon}
-                description={stat.description}
-                mood={stat.mood}
-                variant={stat.variant}
+              <DailyActivityChart 
+                data={dailyActivity} 
+                className="h-[280px]"
               />
             )}
-          </BentoItem>
-        ))}
-      </BentoGrid>
-
-      {/* Charts in Bento Grid */}
-      <BentoGrid columns={2} gap="md">
-        {/* Daily Activity Chart */}
-        <BentoItem span={1}>
-          <Card mood="insight" className="h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Daily Activity</CardTitle>
-              <CardDescription className="text-xs">Sessions and notes by date</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <ChartLoadingSkeleton className="h-48" />
-              ) : (
-                <DailyActivityChart 
-                  data={dailyActivity} 
-                  className="h-48"
-                />
-              )}
-            </CardContent>
-          </Card>
-        </BentoItem>
+          </CardContent>
+        </Card>
 
         {/* Project Statistics Chart */}
-        <BentoItem span={1}>
-          <Card mood="growth" className="h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Project Activity</CardTitle>
+        <Card className="flex flex-col">
+          <CardHeader className="pb-2 flex flex-row justify-between items-start">
+            <div>
+              <CardTitle className="text-base font-semibold">Project Activity</CardTitle>
               <CardDescription className="text-xs">Sessions and notes by project</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <ChartLoadingSkeleton className="h-48" />
-              ) : (
-                <ProjectStatsChart 
-                  data={projectStats} 
-                  className="h-48"
-                />
-              )}
-            </CardContent>
-          </Card>
-        </BentoItem>
+            </div>
+            <button className="text-text-muted hover:text-text-secondary transition-colors">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <ChartLoadingSkeleton className="h-[280px]" />
+            ) : (
+              <ProjectStatsChart 
+                data={projectStats} 
+                className="h-[280px]"
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Session Timeline: spans both columns */}
-        <BentoItem span={2}>
-          <Card mood="focus" className="h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Session Timeline</CardTitle>
-              <CardDescription className="text-xs">When you work throughout the day, colored by project</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <ChartLoadingSkeleton className="h-44" />
-              ) : (
-                <SessionTimelineChart 
-                  data={sessionTimes} 
-                  className="h-44"
-                />
-              )}
-            </CardContent>
-          </Card>
-        </BentoItem>
-      </BentoGrid>
+      {/* Session Timeline - Full Width */}
+      <Card className="mb-8">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold">Session Timeline</CardTitle>
+          <CardDescription className="text-xs">When you work throughout the day</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <ChartLoadingSkeleton className="h-[250px]" />
+          ) : (
+            <SessionTimelineChart 
+              data={sessionTimes} 
+              className="h-[250px]"
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

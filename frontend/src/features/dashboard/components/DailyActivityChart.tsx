@@ -40,8 +40,8 @@ export default function DailyActivityChart({ data, className }: DailyActivityCha
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-medium mb-2">{label}</p>
+        <div className="bg-surface-base border border-border-subtle rounded-lg p-3 shadow-[var(--shadow-lg)]">
+          <p className="font-medium text-text-primary mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.value}
@@ -61,10 +61,11 @@ export default function DailyActivityChart({ data, className }: DailyActivityCha
       <EmptyState
         icon={BarChart3}
         title="No activity yet"
-        description="Complete sessions or create notes to see your daily activity"
+        description="Complete sessions or create notes to see your daily activity visualized here."
         action={{
-          label: "Start Pomodoro",
-          onClick: () => navigate("/pomodoro"),
+          label: "View Notes",
+          onClick: () => navigate("/notes"),
+          variant: "secondary",
         }}
         mood="insight"
         className={className}
@@ -100,14 +101,14 @@ export default function DailyActivityChart({ data, className }: DailyActivityCha
             dataKey="sessions" 
             name="Sessions"
             stackId="activity"
-            fill="hsl(var(--primary))" 
+            fill="hsl(var(--accent-primary))" 
             radius={[0, 0, 4, 4]}
           />
           <Bar 
             dataKey="notes" 
             name="Notes"
             stackId="activity"
-            fill="hsl(var(--secondary))" 
+            fill="hsl(var(--mood-growth-accent))" 
             radius={[4, 4, 0, 0]}
           />
         </BarChart>

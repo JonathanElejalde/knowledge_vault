@@ -44,8 +44,8 @@ export default function ProjectStatsChart({ data, className }: ProjectStatsChart
       );
       
       return (
-        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-medium mb-2">{originalProject?.project_name || label}</p>
+        <div className="bg-surface-base border border-border-subtle rounded-lg p-3 shadow-[var(--shadow-lg)]">
+          <p className="font-medium text-text-primary mb-2">{originalProject?.project_name || label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.value}
@@ -62,10 +62,11 @@ export default function ProjectStatsChart({ data, className }: ProjectStatsChart
       <EmptyState
         icon={FolderOpen}
         title="No project data"
-        description="Create projects and track sessions to see activity"
+        description="Create projects and track sessions to see how your focus is distributed."
         action={{
           label: "Create Project",
           onClick: () => navigate("/projects?action=new"),
+          variant: "secondary",
         }}
         mood="growth"
         className={className}
@@ -104,14 +105,14 @@ export default function ProjectStatsChart({ data, className }: ProjectStatsChart
             dataKey="sessions" 
             name="Sessions"
             stackId="project"
-            fill="hsl(var(--primary))" 
+            fill="hsl(var(--accent-primary))" 
             radius={[0, 0, 4, 4]}
           />
           <Bar 
             dataKey="notes" 
             name="Notes"
             stackId="project"
-            fill="hsl(var(--secondary))" 
+            fill="hsl(var(--mood-growth-accent))" 
             radius={[4, 4, 0, 0]}
           />
         </BarChart>
