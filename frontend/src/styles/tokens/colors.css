@@ -1,46 +1,79 @@
 /**
  * Design Tokens: Colors
  * 
- * "Deep Focus" semantic color system.
+ * "Calm Web" semantic color system.
  * Uses CSS custom properties with HSL values for easy manipulation.
- * Primary: Royal Blue (#2563EB) — focused, calm, professional
- * Neutrals: Zinc-based palette for clean, modern surfaces
+ * 
+ * ═══════════════════════════════════════════════════════════════════
+ * PALETTE SWAP GUIDE
+ * ═══════════════════════════════════════════════════════════════════
+ * 
+ * To change the app's color scheme, update the 6 palette tokens below.
+ * All other colors derive from these base values.
+ * 
+ * Current: Calm Web (Color Hunt #F7FBFC #D6E6F2 #B9D7EA #769FCD)
+ * 
+ * | Token          | Role                  | Current Value     |
+ * |----------------|-----------------------|-------------------|
+ * | palette-cloud  | Backgrounds           | 195 33% 98%       |
+ * | palette-mist   | Subtle surfaces       | 207 47% 89%       |
+ * | palette-steel  | Borders, hover        | 205 53% 82%       |
+ * | palette-ocean  | Primary accent, CTAs  | 213 47% 64%       |
+ * | palette-deep   | Hover states          | 215 50% 52%       |
+ * | palette-abyss  | Active/pressed        | 218 55% 42%       |
+ * 
+ * Convert hex to HSL: https://htmlcolors.com/hex-to-hsl
+ * Find palettes: https://colorhunt.co
+ * 
+ * ═══════════════════════════════════════════════════════════════════
  */
 
 :root {
   /* ============================================
-   * SURFACE HIERARCHY (Zinc-based)
-   * Ground → Base → Raised → Overlay (elevation)
+   * CALM WEB PALETTE (Base Reference)
+   * Named tokens for the core palette
    * ============================================ */
-  --surface-ground: 240 6% 98%;      /* zinc-50: #fafafa */
-  --surface-base: 0 0% 100%;          /* white */
-  --surface-raised: 0 0% 100%;        /* white */
-  --surface-overlay: 0 0% 100%;       /* white */
-  --surface-sunken: 240 5% 96%;       /* zinc-100: #f4f4f5 */
+  --palette-cloud: 195 33% 98%;       /* #F7FBFC - lightest, backgrounds */
+  --palette-mist: 207 47% 89%;        /* #D6E6F2 - subtle surfaces */
+  --palette-steel: 205 53% 82%;       /* #B9D7EA - borders, hover */
+  --palette-ocean: 213 47% 64%;       /* #769FCD - primary accent */
+  --palette-deep: 215 50% 52%;        /* Darker variant for hover */
+  --palette-abyss: 218 55% 42%;       /* Darkest for active states */
 
   /* ============================================
-   * TEXT HIERARCHY (Zinc-based)
-   * Primary → Secondary → Tertiary → Muted
+   * SURFACE HIERARCHY
+   * Ground → Base → Raised → Overlay (elevation)
+   * Using Calm Web palette for cohesive feel
    * ============================================ */
-  --text-primary: 240 6% 10%;         /* zinc-900 */
-  --text-secondary: 240 4% 35%;       /* zinc-600 */
-  --text-tertiary: 240 4% 46%;        /* zinc-500 */
-  --text-muted: 240 4% 65%;           /* zinc-400 */
+  --surface-ground: var(--palette-cloud);    /* #F7FBFC - page background */
+  --surface-base: 0 0% 100%;                  /* pure white - cards */
+  --surface-raised: 0 0% 100%;                /* white - elevated elements */
+  --surface-overlay: 0 0% 100%;               /* white - modals */
+  --surface-sunken: var(--palette-mist);      /* #D6E6F2 - inset areas */
+
+  /* ============================================
+   * TEXT HIERARCHY
+   * High contrast for accessibility
+   * ============================================ */
+  --text-primary: 215 25% 15%;        /* Dark navy - main text */
+  --text-secondary: 213 18% 35%;      /* Muted navy - secondary */
+  --text-tertiary: 210 12% 50%;       /* Gray-blue - tertiary */
+  --text-muted: 208 10% 65%;          /* Light gray-blue - muted */
   --text-inverse: 0 0% 100%;          /* white */
 
   /* ============================================
-   * ACCENT COLORS - Deep Focus Blue
-   * Primary: #2563EB (blue-600)
+   * ACCENT COLORS - Calm Web Blue
+   * Primary: #769FCD (Ocean Blue)
    * ============================================ */
-  --accent-primary: 217 91% 60%;      /* blue-500: hover-friendly base */
-  --accent-primary-hover: 221 83% 53%; /* blue-600: #2563EB - main action */
-  --accent-primary-active: 224 76% 48%; /* blue-700: pressed state */
-  --accent-primary-subtle: 214 95% 95%; /* blue-50: light backgrounds */
-  --accent-primary-muted: 214 32% 91%; /* muted blue for subtle uses */
+  --accent-primary: var(--palette-ocean);     /* #769FCD - main accent */
+  --accent-primary-hover: var(--palette-deep); /* darker on hover */
+  --accent-primary-active: var(--palette-abyss); /* darkest on press */
+  --accent-primary-subtle: 207 47% 95%;       /* very light blue bg */
+  --accent-primary-muted: var(--palette-mist); /* #D6E6F2 - subtle uses */
 
-  --accent-secondary: 262 83% 58%;
-  --accent-secondary-hover: 262 83% 52%;
-  --accent-secondary-subtle: 262 83% 96%;
+  --accent-secondary: 255 45% 60%;    /* Soft purple */
+  --accent-secondary-hover: 255 45% 52%;
+  --accent-secondary-subtle: 255 45% 96%;
 
   /* ============================================
    * SEMANTIC COLORS
@@ -62,44 +95,46 @@
   --semantic-info-text: 199 89% 30%;
 
   /* ============================================
-   * BORDER & DIVIDER (Zinc-based)
+   * BORDER & DIVIDER (Calm Web Palette)
+   * Using steel blue for cohesive feel
    * ============================================ */
-  --border-subtle: 240 6% 90%;        /* zinc-200: #e4e4e7 */
-  --border-default: 240 5% 84%;       /* zinc-300 */
-  --border-strong: 240 4% 65%;        /* zinc-400 */
+  --border-subtle: 207 35% 88%;       /* Light mist - subtle borders */
+  --border-default: var(--palette-steel); /* #B9D7EA - default borders */
+  --border-strong: 210 30% 70%;       /* Stronger border */
   --border-focus: var(--accent-primary);
 
   /* ============================================
    * COMPONENT-SPECIFIC (Mood System)
+   * Harmonized with Calm Web palette
    * ============================================ */
   
-  /* Focus mood (Pomodoro, timers) - warm tones */
-  --mood-focus-bg: 32 95% 97%;
-  --mood-focus-bg-hover: 32 95% 95%;
-  --mood-focus-border: 32 80% 85%;
-  --mood-focus-accent: 24 95% 53%;
-  --mood-focus-text: 24 80% 25%;
+  /* Focus mood (Pomodoro, timers) - warm tones, calmer saturation */
+  --mood-focus-bg: 35 60% 97%;
+  --mood-focus-bg-hover: 35 60% 94%;
+  --mood-focus-border: 35 45% 82%;
+  --mood-focus-accent: 28 70% 55%;
+  --mood-focus-text: 28 50% 28%;
 
-  /* Insight mood (Dashboard, stats) - cool tones */
-  --mood-insight-bg: 221 91% 97%;
-  --mood-insight-bg-hover: 221 91% 95%;
-  --mood-insight-border: 221 60% 88%;
-  --mood-insight-accent: 221 83% 53%;
-  --mood-insight-text: 221 70% 25%;
+  /* Insight mood (Dashboard, stats) - using Calm Web blues */
+  --mood-insight-bg: 207 47% 96%;     /* Based on palette-mist */
+  --mood-insight-bg-hover: 207 47% 93%;
+  --mood-insight-border: 205 40% 85%;
+  --mood-insight-accent: var(--palette-ocean); /* #769FCD */
+  --mood-insight-text: 215 45% 30%;
 
-  /* Content mood (Notes, reading) - neutral */
-  --mood-content-bg: 0 0% 100%;
-  --mood-content-bg-hover: 220 14% 98%;
-  --mood-content-border: 220 13% 90%;
-  --mood-content-accent: 240 5% 45%;
-  --mood-content-text: 240 10% 10%;
+  /* Content mood (Notes, reading) - soft neutral with blue undertone */
+  --mood-content-bg: 200 20% 99%;
+  --mood-content-bg-hover: 200 20% 97%;
+  --mood-content-border: 200 15% 88%;
+  --mood-content-accent: 210 15% 50%;
+  --mood-content-text: 215 20% 18%;
 
-  /* Growth mood (Projects, progress) - green tones */
-  --mood-growth-bg: 142 76% 97%;
-  --mood-growth-bg-hover: 142 76% 95%;
-  --mood-growth-border: 142 50% 85%;
-  --mood-growth-accent: 142 71% 45%;
-  --mood-growth-text: 142 60% 22%;
+  /* Growth mood (Projects, progress) - soft sage green */
+  --mood-growth-bg: 145 45% 97%;
+  --mood-growth-bg-hover: 145 45% 94%;
+  --mood-growth-border: 145 35% 82%;
+  --mood-growth-accent: 145 50% 45%;
+  --mood-growth-text: 145 40% 25%;
 
   /* ============================================
    * SHADOWS (Computed from accent)
@@ -120,105 +155,114 @@
   --shadow-focus: 0 4px 14px hsl(var(--mood-focus-accent) / 0.25);
 
   /* ============================================
-   * SIDEBAR SPECIFIC
+   * SIDEBAR SPECIFIC (Calm Web Theme)
    * ============================================ */
   --sidebar-bg: 0 0% 100%;            /* white surface */
   --sidebar-border: var(--border-subtle);
-  --sidebar-nav-hover: 214 95% 95%;   /* blue-50 hover */
-  --sidebar-nav-active: 217 91% 60%;  /* accent primary */
-  --sidebar-nav-active-bg: 217 91% 95%; /* active background */
+  --sidebar-nav-hover: 207 47% 95%;   /* soft blue hover (mist-based) */
+  --sidebar-nav-active: var(--palette-ocean); /* #769FCD */
+  --sidebar-nav-active-bg: 207 47% 93%; /* active background */
   --sidebar-nav-active-bar: hsl(var(--accent-primary));
-  --sidebar-brand-bg: hsl(var(--accent-primary) / 0.04);
+  --sidebar-brand-bg: hsl(var(--accent-primary) / 0.06);
 }
 
 /* ============================================
- * DARK MODE (Zinc-based)
+ * DARK MODE (Calm Web - Deep Ocean)
+ * Complementary dark palette with blue undertones
  * ============================================ */
 .dark {
-  /* Surfaces (Zinc dark palette) */
-  --surface-ground: 240 6% 10%;       /* zinc-900: #18181b */
-  --surface-base: 240 4% 16%;         /* zinc-800: #27272a */
-  --surface-raised: 240 4% 16%;       /* zinc-800 */
-  --surface-overlay: 240 4% 16%;      /* zinc-800 */
-  --surface-sunken: 240 6% 10%;       /* zinc-900 */
+  /* Dark palette base colors */
+  --palette-cloud: 215 25% 12%;       /* Dark navy ground */
+  --palette-mist: 215 22% 18%;        /* Elevated surface */
+  --palette-steel: 210 20% 28%;       /* Dark borders */
+  --palette-ocean: 213 55% 68%;       /* Brighter accent for dark */
+  --palette-deep: 210 60% 75%;        /* Hover state */
+  --palette-abyss: 213 50% 62%;       /* Active state */
 
-  /* Text (Zinc light palette) */
-  --text-primary: 0 0% 98%;           /* zinc-50 */
-  --text-secondary: 240 5% 75%;       /* zinc-300 */
-  --text-tertiary: 240 4% 55%;        /* zinc-400 */
-  --text-muted: 240 4% 45%;           /* zinc-500 */
-  --text-inverse: 240 6% 10%;         /* zinc-900 */
+  /* Surfaces (Deep ocean dark) */
+  --surface-ground: 215 25% 10%;      /* Deep navy background */
+  --surface-base: 215 22% 15%;        /* Card surfaces */
+  --surface-raised: 215 20% 18%;      /* Elevated elements */
+  --surface-overlay: 215 22% 18%;     /* Modals, popovers */
+  --surface-sunken: 215 25% 8%;       /* Inset areas */
 
-  /* Accents (brighter for dark backgrounds) */
-  --accent-primary: 217 91% 60%;      /* blue-500 */
-  --accent-primary-hover: 213 94% 68%; /* blue-400 */
-  --accent-primary-active: 217 91% 55%;
-  --accent-primary-subtle: 217 91% 15%;
-  --accent-primary-muted: 217 40% 20%;
+  /* Text (Light with blue undertone) */
+  --text-primary: 200 20% 95%;        /* Near white, cool */
+  --text-secondary: 205 15% 75%;      /* Light blue-gray */
+  --text-tertiary: 210 12% 58%;       /* Muted blue-gray */
+  --text-muted: 210 10% 45%;          /* Very muted */
+  --text-inverse: 215 25% 12%;        /* Dark for inverse */
 
-  --accent-secondary: 262 83% 65%;
-  --accent-secondary-hover: 262 83% 70%;
-  --accent-secondary-subtle: 262 83% 15%;
+  /* Accents (Brighter for dark backgrounds) */
+  --accent-primary: 213 55% 68%;      /* Brighter ocean blue */
+  --accent-primary-hover: 210 60% 75%; /* Lighter on hover */
+  --accent-primary-active: 213 50% 62%;
+  --accent-primary-subtle: 215 40% 18%; /* Subtle dark blue bg */
+  --accent-primary-muted: 215 30% 22%; /* Muted dark blue */
 
-  /* Semantic */
-  --semantic-success: 142 71% 50%;
-  --semantic-success-subtle: 142 71% 12%;
-  --semantic-success-text: 142 71% 70%;
+  --accent-secondary: 255 40% 70%;
+  --accent-secondary-hover: 255 40% 78%;
+  --accent-secondary-subtle: 255 30% 18%;
 
-  --semantic-warning: 38 92% 55%;
-  --semantic-warning-subtle: 38 92% 12%;
-  --semantic-warning-text: 38 92% 70%;
+  /* Semantic (Adjusted for dark) */
+  --semantic-success: 145 55% 55%;
+  --semantic-success-subtle: 145 40% 14%;
+  --semantic-success-text: 145 50% 72%;
 
-  --semantic-danger: 0 84% 60%;
-  --semantic-danger-subtle: 0 84% 12%;
-  --semantic-danger-text: 0 84% 70%;
+  --semantic-warning: 38 75% 58%;
+  --semantic-warning-subtle: 38 50% 14%;
+  --semantic-warning-text: 38 70% 72%;
 
-  --semantic-info: 199 89% 55%;
-  --semantic-info-subtle: 199 89% 12%;
-  --semantic-info-text: 199 89% 70%;
+  --semantic-danger: 0 70% 62%;
+  --semantic-danger-subtle: 0 50% 14%;
+  --semantic-danger-text: 0 65% 72%;
 
-  /* Borders (Zinc dark) */
-  --border-subtle: 240 4% 26%;        /* zinc-700: #3f3f46 */
-  --border-default: 240 4% 20%;       /* zinc-800 */
-  --border-strong: 240 4% 35%;        /* zinc-600 */
+  --semantic-info: 200 70% 60%;
+  --semantic-info-subtle: 200 50% 14%;
+  --semantic-info-text: 200 65% 72%;
 
-  /* Moods (Dark variants) */
-  --mood-focus-bg: 24 60% 8%;
-  --mood-focus-bg-hover: 24 60% 12%;
-  --mood-focus-border: 24 50% 20%;
-  --mood-focus-accent: 24 95% 60%;
-  --mood-focus-text: 24 80% 85%;
+  /* Borders (Calm dark blue-gray) */
+  --border-subtle: 215 18% 22%;
+  --border-default: 210 15% 28%;
+  --border-strong: 210 12% 38%;
 
-  --mood-insight-bg: 221 60% 8%;
-  --mood-insight-bg-hover: 221 60% 12%;
-  --mood-insight-border: 221 50% 20%;
-  --mood-insight-accent: 221 83% 60%;
-  --mood-insight-text: 221 70% 85%;
+  /* Moods (Dark variants - harmonized) */
+  --mood-focus-bg: 28 40% 10%;
+  --mood-focus-bg-hover: 28 40% 14%;
+  --mood-focus-border: 28 35% 22%;
+  --mood-focus-accent: 28 65% 62%;
+  --mood-focus-text: 28 55% 82%;
 
-  --mood-content-bg: 240 10% 7%;
-  --mood-content-bg-hover: 240 10% 10%;
-  --mood-content-border: 240 10% 18%;
-  --mood-content-accent: 240 5% 65%;
-  --mood-content-text: 0 0% 95%;
+  --mood-insight-bg: 213 35% 12%;
+  --mood-insight-bg-hover: 213 35% 16%;
+  --mood-insight-border: 213 30% 24%;
+  --mood-insight-accent: 213 55% 68%;
+  --mood-insight-text: 210 45% 82%;
 
-  --mood-growth-bg: 142 50% 8%;
-  --mood-growth-bg-hover: 142 50% 12%;
-  --mood-growth-border: 142 40% 20%;
-  --mood-growth-accent: 142 71% 55%;
-  --mood-growth-text: 142 60% 85%;
+  --mood-content-bg: 215 20% 10%;
+  --mood-content-bg-hover: 215 20% 14%;
+  --mood-content-border: 215 15% 22%;
+  --mood-content-accent: 210 20% 62%;
+  --mood-content-text: 200 15% 92%;
 
-  /* Shadows (darker, more subtle) */
-  --shadow-color: 0 0% 0%;
-  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.3);
-  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.4);
-  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4);
-  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.4);
-  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.4);
+  --mood-growth-bg: 145 30% 10%;
+  --mood-growth-bg-hover: 145 30% 14%;
+  --mood-growth-border: 145 25% 22%;
+  --mood-growth-accent: 145 45% 55%;
+  --mood-growth-text: 145 40% 82%;
 
-  /* Sidebar (dark mode) */
-  --sidebar-bg: 240 4% 16%;           /* zinc-800 */
-  --sidebar-nav-hover: 217 91% 15%;   /* dark blue hover */
-  --sidebar-nav-active: 217 91% 60%;
-  --sidebar-nav-active-bg: 217 91% 20%;
-  --sidebar-brand-bg: hsl(var(--accent-primary) / 0.08);
+  /* Shadows (Deeper, more dramatic) */
+  --shadow-color: 220 50% 5%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.4);
+  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.5);
+  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.5);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.5);
+  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.5);
+
+  /* Sidebar (dark mode - Calm Web) */
+  --sidebar-bg: 215 22% 15%;
+  --sidebar-nav-hover: 213 35% 18%;
+  --sidebar-nav-active: 213 55% 68%;
+  --sidebar-nav-active-bg: 213 40% 20%;
+  --sidebar-brand-bg: hsl(var(--accent-primary) / 0.1);
 }

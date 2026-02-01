@@ -45,13 +45,13 @@ export function ProjectCard({ project, onEdit, onStatusChange, onDelete }: Proje
   return (
     <Card 
       interactive
-      className="group flex flex-col h-full hover:border-mood-growth-border"
+      className="group flex flex-col h-full hover:border-accent-primary/50"
     >
       <CardHeader className="flex-1">
         {/* Top row: Category + Actions */}
         <div className="flex items-start justify-between gap-2 mb-3">
           {project.category_name ? (
-            <span className="text-xs font-medium text-mood-growth-accent uppercase tracking-wider">
+            <span className="text-xs font-medium text-accent-primary uppercase tracking-wider">
               {project.category_name}
             </span>
           ) : (

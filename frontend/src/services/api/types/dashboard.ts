@@ -28,11 +28,24 @@ export interface SessionTime {
   project_name: string | null; // Associated project name (can be null)
 }
 
+export interface FocusHeatmapCell {
+  day_of_week: number; // 0=Monday, 6=Sunday
+  hour: number; // 0-23
+  total_minutes: number; // Total focus minutes in this slot
+  session_count: number; // Number of sessions in this slot
+}
+
+export interface FocusHeatmapData {
+  cells: FocusHeatmapCell[]; // Sparse array of cells with data
+  max_minutes: number; // Maximum minutes in any cell (for normalization)
+}
+
 export interface DashboardData {
   stats: DashboardStats;
   project_stats: ProjectStats[];
   daily_activity: DailyActivity[];
   session_times: SessionTime[];
+  focus_heatmap: FocusHeatmapData;
 }
 
 export interface DashboardFilters {

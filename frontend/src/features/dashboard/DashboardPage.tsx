@@ -1,32 +1,28 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/Card";
-import { Clock, FileText, Layers, MoreHorizontal } from "lucide-react";
+import { Clock, FileText, Layers } from "lucide-react";
 import SummaryCard from "./components/SummaryCard";
 import QuickActions from "./components/QuickActions";
 import PeriodSelector from "./components/PeriodSelector";
 import DailyActivityChart from "./components/DailyActivityChart";
-import ProjectStatsChart from "./components/ProjectStatsChart";
-import SessionTimelineChart from "./components/SessionTimelineChart";
+import FocusHeatmap from "./components/FocusHeatmap";
 import { ChartLoadingSkeleton, SummaryCardSkeleton } from "./components/LoadingSkeleton";
 import { useDashboard } from "./hooks/useDashboard";
 import { formatFocusTime } from "./utils/formatters";
-import { cn } from "@/lib/utils";
 
 /**
  * DashboardPage - Deep Focus Design
  * 
  * Layout structure:
- * 1. Header: Title + description (left) | Filters + Actions (right)
- * 2. Period tabs
+ * 1. Header: Title + description (left) | Actions (right)
+ * 2. Period selector tabs
  * 3. Summary cards: 3-column grid (Focus Time, Notes, Projects)
- * 4. Charts: 2-column grid (Daily Activity, Project Activity)
- * 5. Session Timeline: Full width
+ * 4. Charts: 2-column grid (Daily Activity, Focus Patterns Heatmap)
  */
 export default function DashboardPage() {
   const {
     stats,
-    projectStats,
     dailyActivity,
-    sessionTimes,
+    focusHeatmap,
     selectedPeriod,
     isLoading,
     error,
@@ -131,7 +127,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Grid - 2 columns on lg+, stack on mobile */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Activity Chart */}
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
@@ -152,23 +148,20 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Project Statistics Chart */}
+        {/* Focus Patterns Heatmap */}
         <Card className="flex flex-col">
-          <CardHeader className="pb-2 flex flex-row justify-between items-start">
+          <CardHeader className="pb-2">
             <div>
-              <CardTitle className="text-base font-semibold">Project Activity</CardTitle>
-              <CardDescription className="text-xs">Sessions and notes by project</CardDescription>
+              <CardTitle className="text-base font-semibold">Focus Patterns</CardTitle>
+              <CardDescription className="text-xs">When you typically do deep work</CardDescription>
             </div>
-            <button className="text-text-muted hover:text-text-secondary transition-colors">
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <ChartLoadingSkeleton className="h-[280px]" />
             ) : (
-              <ProjectStatsChart 
-                data={projectStats} 
+              <FocusHeatmap 
+                data={focusHeatmap} 
                 className="h-[280px]"
               />
             )}
@@ -176,23 +169,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Session Timeline - Full Width */}
-      <Card className="mb-8">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Session Timeline</CardTitle>
-          <CardDescription className="text-xs">When you work throughout the day</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <ChartLoadingSkeleton className="h-[250px]" />
-          ) : (
-            <SessionTimelineChart 
-              data={sessionTimes} 
-              className="h-[250px]"
-            />
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

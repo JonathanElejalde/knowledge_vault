@@ -3,55 +3,62 @@
  * 
  * Visual personality presets that modify base tokens.
  * Each preset adjusts colors, radius, and motion for a distinct feel.
+ * 
+ * Base Palette (Calm Web - Color Hunt):
+ *   #F7FBFC → Cloud White (backgrounds)
+ *   #D6E6F2 → Mist Blue (subtle surfaces)
+ *   #B9D7EA → Steel Blue (borders)
+ *   #769FCD → Ocean Blue (primary accent)
  */
 
-/* CALM PRESET (Default) - Soft, muted colors. Gentle transitions. */
+/* CALM PRESET (Default) - Calm Web palette. Soft blues, gentle transitions. */
 .theme-calm {
-  --accent-primary: 221 70% 52%;
-  --accent-primary-hover: 221 70% 46%;
-  --accent-primary-subtle: 221 50% 96%;
-  --accent-secondary: 262 55% 55%;
+  /* Uses base Calm Web colors from colors.css */
+  --accent-primary: var(--palette-ocean);     /* #769FCD */
+  --accent-primary-hover: var(--palette-deep); /* Darker hover */
+  --accent-primary-subtle: 207 47% 95%;        /* Light mist */
+  --accent-secondary: 255 40% 62%;             /* Soft lavender */
   --radius-base: var(--radius-lg);
   --card-radius: var(--radius-xl);
   --button-radius: var(--radius-md);
   --motion-duration: 250ms;
   --motion-ease: var(--ease-out);
-  --shadow-color: 220 20% 80%;
+  --shadow-color: 207 30% 75%;                 /* Blue-tinted shadow */
 }
 
 .dark.theme-calm, .theme-calm.dark {
-  --accent-primary: 217 75% 58%;
-  --accent-primary-hover: 217 75% 65%;
-  --shadow-color: 0 0% 0%;
+  --accent-primary: 213 55% 68%;               /* Brighter ocean */
+  --accent-primary-hover: 210 60% 75%;
+  --shadow-color: 220 50% 5%;
 }
 
 /* VIBRANT PRESET - High saturation, bold colors. Energetic feel. */
 .theme-vibrant {
-  --accent-primary: 217 100% 55%;
-  --accent-primary-hover: 217 100% 48%;
-  --accent-primary-subtle: 217 100% 95%;
-  --accent-secondary: 330 85% 55%;
-  --accent-secondary-hover: 330 85% 48%;
-  --mood-focus-bg: 32 100% 96%;
-  --mood-focus-accent: 24 100% 50%;
-  --mood-insight-bg: 217 100% 96%;
-  --mood-insight-accent: 217 100% 55%;
-  --mood-growth-bg: 142 85% 96%;
-  --mood-growth-accent: 142 80% 42%;
+  --accent-primary: 213 75% 55%;               /* Saturated ocean */
+  --accent-primary-hover: 213 80% 48%;
+  --accent-primary-subtle: 207 70% 95%;
+  --accent-secondary: 330 75% 55%;             /* Vibrant pink */
+  --accent-secondary-hover: 330 75% 48%;
+  --mood-focus-bg: 35 90% 96%;
+  --mood-focus-accent: 28 90% 52%;
+  --mood-insight-bg: 207 80% 96%;
+  --mood-insight-accent: 213 75% 55%;
+  --mood-growth-bg: 145 70% 96%;
+  --mood-growth-accent: 145 65% 42%;
   --radius-base: var(--radius-xl);
   --card-radius: var(--radius-2xl);
   --button-radius: var(--radius-lg);
   --motion-duration: 150ms;
   --motion-ease: var(--ease-spring);
-  --shadow-md: 0 4px 10px -1px hsl(var(--accent-primary) / 0.12), 0 2px 4px -2px hsl(var(--accent-primary) / 0.08);
+  --shadow-md: 0 4px 10px -1px hsl(var(--accent-primary) / 0.15), 0 2px 4px -2px hsl(var(--accent-primary) / 0.1);
 }
 
 .dark.theme-vibrant, .theme-vibrant.dark {
-  --accent-primary: 217 100% 62%;
-  --accent-secondary: 330 85% 62%;
-  --mood-focus-bg: 24 80% 10%;
-  --mood-insight-bg: 217 80% 10%;
-  --mood-growth-bg: 142 60% 10%;
+  --accent-primary: 213 75% 65%;
+  --accent-secondary: 330 70% 65%;
+  --mood-focus-bg: 28 60% 12%;
+  --mood-insight-bg: 213 60% 12%;
+  --mood-growth-bg: 145 50% 12%;
 }
 
 /* MINIMAL PRESET - Monochromatic, subtle. Content-first approach. */
@@ -88,33 +95,35 @@
   --mood-growth-bg: 0 0% 8%;
 }
 
-/* FOREST PRESET - Nature-inspired. Green accents, earthy tones. */
+/* FOREST PRESET - Nature-inspired. Sage greens, earthy tones. */
 .theme-forest {
-  --accent-primary: 152 60% 40%;
-  --accent-primary-hover: 152 60% 35%;
-  --accent-primary-subtle: 152 40% 95%;
-  --accent-secondary: 38 75% 50%;
-  --surface-ground: 40 20% 97%;
-  --surface-sunken: 40 15% 94%;
-  --mood-focus-bg: 38 60% 96%;
-  --mood-focus-accent: 38 75% 50%;
-  --mood-insight-bg: 152 40% 96%;
-  --mood-insight-accent: 152 60% 40%;
-  --mood-growth-bg: 85 40% 96%;
-  --mood-growth-accent: 85 50% 40%;
+  --accent-primary: 155 45% 42%;               /* Sage green */
+  --accent-primary-hover: 155 48% 36%;
+  --accent-primary-subtle: 155 35% 95%;
+  --accent-secondary: 38 60% 52%;              /* Warm amber */
+  --surface-ground: 45 15% 97%;                /* Warm cream */
+  --surface-sunken: 45 12% 93%;
+  --mood-focus-bg: 38 50% 96%;
+  --mood-focus-accent: 38 60% 52%;
+  --mood-insight-bg: 155 35% 96%;
+  --mood-insight-accent: 155 45% 42%;
+  --mood-growth-bg: 90 35% 96%;
+  --mood-growth-accent: 90 42% 42%;
   --radius-base: var(--radius-lg);
   --card-radius: var(--radius-xl);
   --motion-duration: 280ms;
   --motion-ease: var(--ease-out);
+  --shadow-color: 45 15% 70%;                  /* Warm shadow */
 }
 
 .dark.theme-forest, .theme-forest.dark {
-  --accent-primary: 152 55% 50%;
-  --accent-secondary: 38 70% 55%;
-  --surface-ground: 150 10% 5%;
-  --surface-base: 150 10% 7%;
-  --surface-raised: 150 10% 10%;
-  --mood-focus-bg: 38 40% 10%;
-  --mood-insight-bg: 152 30% 10%;
-  --mood-growth-bg: 85 30% 10%;
+  --accent-primary: 155 45% 52%;
+  --accent-secondary: 38 55% 58%;
+  --surface-ground: 155 12% 8%;
+  --surface-base: 155 10% 12%;
+  --surface-raised: 155 8% 15%;
+  --mood-focus-bg: 38 35% 12%;
+  --mood-insight-bg: 155 28% 12%;
+  --mood-growth-bg: 90 25% 12%;
+  --shadow-color: 155 20% 5%;
 }

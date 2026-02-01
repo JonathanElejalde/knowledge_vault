@@ -101,14 +101,14 @@ export default function DailyActivityChart({ data, className }: DailyActivityCha
             dataKey="sessions" 
             name="Sessions"
             stackId="activity"
-            fill="hsl(var(--accent-primary))" 
+            fill="hsl(var(--palette-ocean))" 
             radius={[0, 0, 4, 4]}
           />
           <Bar 
             dataKey="notes" 
             name="Notes"
             stackId="activity"
-            fill="hsl(var(--mood-growth-accent))" 
+            fill="hsl(var(--palette-steel))" 
             radius={[4, 4, 0, 0]}
           />
         </BarChart>

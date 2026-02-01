@@ -1,30 +1,29 @@
 import React from 'react';
-import { useDesignSystem, type ThemePreset, type ColorMode } from '@/components/providers/design-system-provider';
+import { useColorMode, type ColorMode } from '@/components/providers/design-system-provider';
 import { Button } from '@/components/atoms/Button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/atoms/DropdownMenu';
-import { Palette, Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
  * ThemeSwitcher
  * 
- * Dropdown menu for switching between theme presets and color modes.
- * Shows current selection and provides preview indicators.
+ * Simple dropdown for switching between light/dark/system color modes.
+ * 
+ * Note: The preset system is retained in the codebase for future palette swaps.
+ * To change the color palette, edit the CSS variables in:
+ * - src/styles/tokens/colors.css (base palette tokens)
+ * - src/styles/presets.css (preset overrides)
+ * 
+ * The `theme-calm` preset is applied by default. To swap palettes:
+ * 1. Update the --palette-* tokens in colors.css
+ * 2. Or modify the .theme-calm class in presets.css
  */
-
-const presetOptions: { value: ThemePreset; label: string; description: string }[] = [
-  { value: 'calm', label: 'Calm', description: 'Soft, reading-focused' },
-  { value: 'vibrant', label: 'Vibrant', description: 'Bold, energetic' },
-  { value: 'minimal', label: 'Minimal', description: 'Monochrome, subtle' },
-  { value: 'forest', label: 'Forest', description: 'Nature-inspired' },
-];
 
 const colorModeOptions: { value: ColorMode; label: string; icon: React.ElementType }[] = [
   { value: 'light', label: 'Light', icon: Sun },
@@ -37,7 +36,10 @@ interface ThemeSwitcherProps {
 }
 
 export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
-  const { preset, colorMode, setPreset, setColorMode } = useDesignSystem();
+  const { colorMode, resolvedColorMode, setColorMode } = useColorMode();
+
+  // Show the current mode's icon in the trigger
+  const CurrentIcon = resolvedColorMode === 'dark' ? Moon : Sun;
 
   return (
     <DropdownMenu>
@@ -46,30 +48,12 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
           variant="ghost"
           size="icon"
           className={cn('relative', className)}
-          aria-label="Theme settings"
+          aria-label="Color mode"
         >
-          <Palette className="h-5 w-5" />
+          <CurrentIcon className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Theme Preset</DropdownMenuLabel>
-        {presetOptions.map((option) => (
-          <DropdownMenuItem
-            key={option.value}
-            onClick={() => setPreset(option.value)}
-            className={cn(
-              'flex flex-col items-start gap-0.5 cursor-pointer',
-              preset === option.value && 'bg-accent-primary-subtle'
-            )}
-          >
-            <span className="font-medium">{option.label}</span>
-            <span className="text-caption text-text-tertiary">{option.description}</span>
-          </DropdownMenuItem>
-        ))}
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuLabel>Color Mode</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="w-40">
         {colorModeOptions.map((option) => {
           const Icon = option.icon;
           return (

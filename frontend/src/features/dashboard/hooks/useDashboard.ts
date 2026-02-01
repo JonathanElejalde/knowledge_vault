@@ -5,18 +5,16 @@ import type {
   DashboardData, 
   DashboardPeriod,
   DashboardStats,
-  ProjectStats,
   DailyActivity,
-  SessionTime
+  FocusHeatmapData
 } from '@/services/api/types/dashboard';
 
 interface UseDashboardState {
   // Data
   dashboardData: DashboardData | null;
   stats: DashboardStats | null;
-  projectStats: ProjectStats[];
   dailyActivity: DailyActivity[];
-  sessionTimes: SessionTime[];
+  focusHeatmap: FocusHeatmapData;
   
   // UI State
   selectedPeriod: DashboardPeriod;
@@ -36,9 +34,11 @@ export function useDashboard(): UseDashboardState {
 
   // Memoized derived data
   const stats = useMemo(() => dashboardData?.stats || null, [dashboardData]);
-  const projectStats = useMemo(() => dashboardData?.project_stats || [], [dashboardData]);
   const dailyActivity = useMemo(() => dashboardData?.daily_activity || [], [dashboardData]);
-  const sessionTimes = useMemo(() => dashboardData?.session_times || [], [dashboardData]);
+  const focusHeatmap = useMemo(
+    () => dashboardData?.focus_heatmap || { cells: [], max_minutes: 0 },
+    [dashboardData]
+  );
 
   const fetchDashboardData = useCallback(async (period: DashboardPeriod) => {
     try {
@@ -83,9 +83,8 @@ export function useDashboard(): UseDashboardState {
   return {
     dashboardData,
     stats,
-    projectStats,
     dailyActivity,
-    sessionTimes,
+    focusHeatmap,
     selectedPeriod,
     isLoading,
     error,
