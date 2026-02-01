@@ -47,12 +47,33 @@ class SessionTimeResponse(BaseModel):
         from_attributes = True
 
 
+class FocusHeatmapCell(BaseModel):
+    """Schema for a single cell in the focus heatmap."""
+    day_of_week: int = Field(description="Day of week (0=Monday, 6=Sunday)", ge=0, le=6)
+    hour: int = Field(description="Hour of day (0-23)", ge=0, le=23)
+    total_minutes: int = Field(description="Total focus minutes in this slot", ge=0)
+    session_count: int = Field(description="Number of sessions in this slot", ge=0)
+
+    class Config:
+        from_attributes = True
+
+
+class FocusHeatmapResponse(BaseModel):
+    """Schema for focus heatmap data aggregated by day-of-week and hour."""
+    cells: List[FocusHeatmapCell] = Field(description="Heatmap cells with aggregated focus data")
+    max_minutes: int = Field(description="Maximum minutes in any cell (for normalization)", ge=0)
+
+    class Config:
+        from_attributes = True
+
+
 class DashboardResponse(BaseModel):
     """Complete dashboard response schema."""
     stats: DashboardStatsResponse = Field(description="Dashboard statistics")
     project_stats: List[ProjectStatsResponse] = Field(description="Statistics by project")
     daily_activity: List[DailyActivityResponse] = Field(description="Daily activity chart data (timezone-aware)")
     session_times: List[SessionTimeResponse] = Field(description="Session times chart data")
+    focus_heatmap: FocusHeatmapResponse = Field(description="Focus heatmap aggregated by day-of-week and hour")
 
     class Config:
         from_attributes = True 

@@ -12,6 +12,8 @@ from app.schemas.dashboard import (
     ProjectStatsResponse,
     DailyActivityResponse,
     SessionTimeResponse,
+    FocusHeatmapCell,
+    FocusHeatmapResponse,
     DashboardResponse
 )
 
@@ -302,6 +304,69 @@ async def get_session_times(
     ]
 
 
+async def get_focus_heatmap(
+    db: AsyncSession, user_id: UUID, period: str = '7d', user_timezone: str = 'UTC'
+) -> FocusHeatmapResponse:
+    """Get focus heatmap data aggregated by day-of-week and hour.
+    
+    Aggregates session data into a grid of day-of-week (0-6, Mon-Sun) × hour (0-23),
+    showing total focus minutes and session counts for each slot.
+    
+    Args:
+        db: The database session.
+        user_id: The ID of the user.
+        period: Time period ('7d', '2w', '4w', '3m', '1y', 'all').
+        user_timezone: User's timezone for accurate hour extraction.
+        
+    Returns:
+        FocusHeatmapResponse with cells and max_minutes for normalization.
+    """
+    start_date, end_date = _get_date_range(period)
+    
+    # Build conditions
+    conditions = [
+        Session.user_id == user_id,
+        Session.actual_duration.isnot(None),  # Only completed sessions
+    ]
+    
+    if period != 'all':
+        conditions.append(Session.created_at >= start_date)
+    
+    # PostgreSQL: Extract day of week and hour from start_time converted to user's timezone
+    # ISODOW gives 1=Monday, 7=Sunday, so we subtract 1 to get 0=Monday, 6=Sunday
+    local_time_expr = text(f"start_time AT TIME ZONE '{user_timezone}'")
+    day_of_week_expr = func.extract('isodow', local_time_expr) - 1
+    hour_expr = func.extract('hour', local_time_expr)
+    
+    query = (
+        select(
+            day_of_week_expr.label('day_of_week'),
+            hour_expr.label('hour'),
+            func.sum(Session.actual_duration).label('total_minutes'),
+            func.count(Session.id).label('session_count')
+        )
+        .where(and_(*conditions))
+        .group_by(day_of_week_expr, hour_expr)
+    )
+    
+    result = await db.execute(query)
+    rows = result.fetchall()
+    
+    cells = [
+        FocusHeatmapCell(
+            day_of_week=int(row.day_of_week),
+            hour=int(row.hour),
+            total_minutes=int(row.total_minutes or 0),
+            session_count=int(row.session_count or 0)
+        )
+        for row in rows
+    ]
+    
+    max_minutes = max((cell.total_minutes for cell in cells), default=0)
+    
+    return FocusHeatmapResponse(cells=cells, max_minutes=max_minutes)
+
+
 async def get_dashboard_data(
     db: AsyncSession, user_id: UUID, period: str = '7d', user_timezone: str = 'UTC'
 ) -> DashboardResponse:
@@ -324,10 +389,12 @@ async def get_dashboard_data(
     project_stats = await get_project_stats(db, user_id, period)
     daily_activity = await get_daily_activity(db, user_id, period, user_timezone)
     session_times = await get_session_times(db, user_id, period)
+    focus_heatmap = await get_focus_heatmap(db, user_id, period, user_timezone)
     
     return DashboardResponse(
         stats=stats,
         project_stats=project_stats,
         daily_activity=daily_activity,
-        session_times=session_times
+        session_times=session_times,
+        focus_heatmap=focus_heatmap
     ) 
