@@ -18,7 +18,8 @@ export interface ProjectStats {
 
 export interface DailyActivity {
   date: string; // Local date: "2024-01-15" (in user's timezone)
-  sessions_count: number; // Sessions on this local date
+  sessions_count: number; // Completed sessions on this local date
+  abandoned_sessions_count: number; // Abandoned sessions on this local date
   notes_count: number; // Notes created on this local date
 }
 

@@ -141,7 +141,7 @@ export default function DashboardPage() {
               <ChartLoadingSkeleton className="h-[280px]" />
             ) : (
               <DailyActivityChart 
-                data={dailyActivity} 
+                data={dailyActivity}
                 className="h-[280px]"
               />
             )}

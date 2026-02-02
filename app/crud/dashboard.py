@@ -1,9 +1,12 @@
-from datetime import datetime, timedelta, date, UTC
+from datetime import datetime, timedelta, date as date_type, UTC
 from typing import List, Tuple, Optional
 from uuid import UUID
-from sqlalchemy import select, func, and_, case, text
+from zoneinfo import ZoneInfo
+
+from sqlalchemy import select, func, and_, case, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from dateutil.relativedelta import relativedelta
 from loguru import logger
 
 from app.db.models import Session, Note, LearningProject, User
@@ -19,13 +22,16 @@ from app.schemas.dashboard import (
 
 
 def _get_date_range(period: str) -> Tuple[datetime, datetime]:
-    """Get the date range based on the period selection.
+    """Get the date range based on the period selection (UTC-based).
+    
+    Used for filtering database queries. For user-facing date ranges,
+    use _get_local_date_range instead.
     
     Args:
         period: One of '7d', '2w', '4w', '3m', '1y', 'all'
         
     Returns:
-        Tuple of (start_date, end_date)
+        Tuple of (start_date, end_date) in UTC
     """
     now = datetime.now(UTC)
     
@@ -46,6 +52,60 @@ def _get_date_range(period: str) -> Tuple[datetime, datetime]:
         start_date = now - timedelta(days=7)
     
     return start_date, now
+
+
+def _get_local_date_range(period: str, user_timezone: str) -> Tuple[date_type, date_type]:
+    """Get the date range in user's local timezone.
+    
+    Calculates the date range relative to the user's local "today".
+    
+    Args:
+        period: One of '7d', '2w', '4w', '3m', '1y', 'all'
+        user_timezone: User's timezone string (e.g., 'America/New_York')
+        
+    Returns:
+        Tuple of (start_date, end_date) as date objects in user's local timezone.
+        For 'all' period, returns (None, today) - caller must determine start.
+    """
+    tz = ZoneInfo(user_timezone)
+    today = datetime.now(tz).date()
+    
+    if period == '7d':
+        start_date = today - timedelta(days=6)
+    elif period == '2w':
+        start_date = today - timedelta(days=13)
+    elif period == '4w':
+        start_date = today - timedelta(days=27)
+    elif period == '3m':
+        start_date = today - relativedelta(months=3) + timedelta(days=1)
+    elif period == '1y':
+        start_date = today - relativedelta(years=1) + timedelta(days=1)
+    elif period == 'all':
+        # For 'all', return None as start - caller must find earliest activity
+        return None, today
+    else:
+        # Default to 7 days if invalid period
+        start_date = today - timedelta(days=6)
+    
+    return start_date, today
+
+
+def _generate_date_range(start_date: date_type, end_date: date_type) -> List[date_type]:
+    """Generate a list of all dates from start_date to end_date inclusive.
+    
+    Args:
+        start_date: Start date (inclusive)
+        end_date: End date (inclusive)
+        
+    Returns:
+        List of date objects in ascending order
+    """
+    dates = []
+    current = start_date
+    while current <= end_date:
+        dates.append(current)
+        current += timedelta(days=1)
+    return dates
 
 
 async def get_dashboard_stats(
@@ -190,10 +250,60 @@ async def get_project_stats(
     ]
 
 
+async def _get_earliest_activity_date(
+    db: AsyncSession, user_id: UUID, user_timezone: str
+) -> Optional[date_type]:
+    """Get the earliest activity date for a user in their local timezone.
+    
+    Checks both sessions and notes to find the earliest created_at date.
+    
+    Args:
+        db: The database session.
+        user_id: The ID of the user.
+        user_timezone: User's timezone for date conversion.
+        
+    Returns:
+        The earliest activity date in user's local timezone, or None if no activity.
+    """
+    # Get earliest session date
+    earliest_session_query = (
+        select(
+            func.min(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
+        )
+        .where(Session.user_id == user_id)
+    )
+    
+    # Get earliest note date
+    earliest_note_query = (
+        select(
+            func.min(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
+        )
+        .where(Note.user_id == user_id)
+    )
+    
+    session_result = await db.execute(earliest_session_query)
+    note_result = await db.execute(earliest_note_query)
+    
+    earliest_session = session_result.scalar()
+    earliest_note = note_result.scalar()
+    
+    if earliest_session is None and earliest_note is None:
+        return None
+    if earliest_session is None:
+        return earliest_note
+    if earliest_note is None:
+        return earliest_session
+    
+    return min(earliest_session, earliest_note)
+
+
 async def get_daily_activity(
     db: AsyncSession, user_id: UUID, period: str = '7d', user_timezone: str = 'UTC'
 ) -> List[DailyActivityResponse]:
     """Get daily activity chart data grouped by user's local timezone.
+    
+    Returns all dates in the requested period, including dates with zero activity.
+    Dates are calculated relative to the user's local "today".
     
     Args:
         db: The database session.
@@ -202,26 +312,53 @@ async def get_daily_activity(
         user_timezone: User's timezone (e.g., 'America/Bogota', 'UTC').
         
     Returns:
-        List of daily activity data grouped by local date.
+        List of daily activity data for all dates in the range, sorted ascending.
     """
-    start_date, end_date = _get_date_range(period)
+    # Get local date range based on user's timezone
+    start_date, end_date = _get_local_date_range(period, user_timezone)
     
-    # Build conditions
-    session_conditions = [Session.user_id == user_id]
+    # For 'all' period, find the earliest activity date
+    if start_date is None:
+        start_date = await _get_earliest_activity_date(db, user_id, user_timezone)
+        if start_date is None:
+            # No activity at all, return empty array
+            return []
+    
+    # Generate the complete date range
+    all_dates = _generate_date_range(start_date, end_date)
+    
+    # Build conditions for database queries
+    # We still need to filter by UTC time for the database query to be efficient
+    utc_start, utc_end = _get_date_range(period)
+    
+    base_session_conditions = [Session.user_id == user_id]
     note_conditions = [Note.user_id == user_id]
     
     if period != 'all':
-        session_conditions.append(Session.created_at >= start_date)
-        note_conditions.append(Note.created_at >= start_date)
+        base_session_conditions.append(Session.created_at >= utc_start)
+        note_conditions.append(Note.created_at >= utc_start)
     
-    # Get sessions grouped by local date using PostgreSQL timezone conversion
-    sessions_query = (
+    # Local date expression for grouping
+    local_date_expr = func.date(text(f"created_at AT TIME ZONE '{user_timezone}'"))
+    
+    # Get completed sessions grouped by local date
+    completed_sessions_query = (
         select(
-            func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")).label('activity_date'),
+            local_date_expr.label('activity_date'),
             func.count(Session.id).label('sessions_count')
         )
-        .where(and_(*session_conditions))
-        .group_by(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
+        .where(and_(*base_session_conditions, Session.status == 'completed'))
+        .group_by(local_date_expr)
+    )
+    
+    # Get abandoned sessions grouped by local date
+    abandoned_sessions_query = (
+        select(
+            local_date_expr.label('activity_date'),
+            func.count(Session.id).label('abandoned_count')
+        )
+        .where(and_(*base_session_conditions, Session.status == 'abandoned'))
+        .group_by(local_date_expr)
     )
     
     # Get notes grouped by local date using PostgreSQL timezone conversion  
@@ -234,24 +371,25 @@ async def get_daily_activity(
         .group_by(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
     )
     
-    # Execute both queries
-    sessions_result = await db.execute(sessions_query)
+    # Execute all queries
+    completed_result = await db.execute(completed_sessions_query)
+    abandoned_result = await db.execute(abandoned_sessions_query)
     notes_result = await db.execute(notes_query)
     
     # Convert to dictionaries for easier merging
-    sessions_by_date = {row.activity_date: row.sessions_count for row in sessions_result.fetchall()}
+    completed_by_date = {row.activity_date: row.sessions_count for row in completed_result.fetchall()}
+    abandoned_by_date = {row.activity_date: row.abandoned_count for row in abandoned_result.fetchall()}
     notes_by_date = {row.activity_date: row.notes_count for row in notes_result.fetchall()}
     
-    # Merge data and create response
-    all_dates = set(sessions_by_date.keys()) | set(notes_by_date.keys())
-    
+    # Build complete response with all dates in range
     activity_data = [
         DailyActivityResponse(
             date=activity_date,
-            sessions_count=sessions_by_date.get(activity_date, 0),
+            sessions_count=completed_by_date.get(activity_date, 0),
+            abandoned_sessions_count=abandoned_by_date.get(activity_date, 0),
             notes_count=notes_by_date.get(activity_date, 0)
         )
-        for activity_date in sorted(all_dates)
+        for activity_date in all_dates
     ]
     
     return activity_data

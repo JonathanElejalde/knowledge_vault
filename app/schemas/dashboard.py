@@ -30,7 +30,8 @@ class ProjectStatsResponse(BaseModel):
 class DailyActivityResponse(BaseModel):
     """Schema for daily activity chart data (timezone-aware)."""
     date: dt.date = Field(description="Date of activity in user's local timezone")
-    sessions_count: int = Field(description="Number of sessions on this local date")
+    sessions_count: int = Field(description="Number of completed sessions on this local date")
+    abandoned_sessions_count: int = Field(description="Number of abandoned sessions on this local date")
     notes_count: int = Field(description="Number of notes created on this local date")
 
     class Config:
