@@ -7,9 +7,40 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+const AUTH_PATHS_TO_SKIP_REFRESH = ['/auth/login/access-token', '/auth/register', '/auth/refresh-token'];
+
+let refreshPromise: Promise<void> | null = null;
+
+const shouldSkipRefresh = (url?: string): boolean => {
+  if (!url) return false;
+  return AUTH_PATHS_TO_SKIP_REFRESH.some((path) => url.includes(path));
+};
+
+const refreshClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+const refreshAccessToken = async (): Promise<void> => {
+  if (!refreshPromise) {
+    refreshPromise = refreshClient
+      .post('/auth/refresh-token')
+      .then(() => undefined)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+};
+
 // Create base axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_BASE_URL,
   withCredentials: true, // CRITICAL: Enable cookies
   headers: {
     'Content-Type': 'application/json',
@@ -23,7 +54,7 @@ api.interceptors.request.use(
     try {
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       config.headers['X-Timezone'] = userTimezone;
-    } catch (error) {
+    } catch {
       // Fallback to UTC if timezone detection fails
       config.headers['X-Timezone'] = 'UTC';
     }
@@ -39,15 +70,22 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    // Handle 401 errors (authentication failures)
-    if (error.response?.status === 401) {
-      // Clear auth state and redirect to login
-      clearAuthState();
-      
-      // Redirect to login if not already there
-      if (window.location.pathname !== '/auth/login') {
-        window.location.href = '/auth/login';
+    const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !shouldSkipRefresh(originalRequest.url)) {
+      originalRequest._retry = true;
+
+      try {
+        await refreshAccessToken();
+        return api(originalRequest);
+      } catch (refreshError) {
+        clearAuthState();
+        return Promise.reject(refreshError);
       }
+    }
+
+    if (error.response?.status === 401) {
+      clearAuthState();
     }
     
     return Promise.reject(error);

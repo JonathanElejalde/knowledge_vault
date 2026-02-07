@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { NoteEditor } from '@/components/atoms/NoteEditor';
 import { useNotes } from '../hooks/internal';
@@ -30,24 +30,21 @@ export default function EditCreateNotePage() {
   }, [id, noteToEdit, notes.length, navigate]);
 
   const handleSave = async (data: NoteCreate) => {
-    try {
-      if (isEditMode && noteToEdit) {
-        await updateNote(noteToEdit.id, data);
-      } else {
-        await createNote(data);
-      }
-      // Navigate back to notes list after successful save
-      navigate('/notes');
-    } catch (error) {
-      // Error is already logged in the hook
-      // Could add toast notification here
-      throw error;
+    if (isEditMode && noteToEdit) {
+      await updateNote(noteToEdit.id, data);
+    } else {
+      await createNote(data);
     }
+
+    // Navigate back to notes list after successful save
+    navigate('/notes');
   };
 
   const handleCancel = () => {
     navigate('/notes');
   };
+
+  const draftKey = id ? `note-editor:edit:${id}` : 'note-editor:create';
 
   // Show loading state while waiting for note data in edit mode
   if (isLoadingNote) {
@@ -71,6 +68,7 @@ export default function EditCreateNotePage() {
           initialTags={noteToEdit?.tags || []}
           projectId={noteToEdit?.learning_project_id || undefined}
           isEditMode={isEditMode}
+          draftKey={draftKey}
           onSave={handleSave}
           onCancel={handleCancel}
           className="flex-1 min-h-0"

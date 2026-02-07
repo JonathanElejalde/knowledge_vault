@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { MarkdownRenderer } from "@/components/atoms/MarkdownRenderer"
 import { Button } from "@/components/atoms/Button"
 import { Textarea } from "@/components/atoms/Textarea"
@@ -25,7 +25,20 @@ interface NoteEditorProps {
   initialTags?: string[];
   disableProjectSelection?: boolean; // For popup mode where project is fixed
   isEditMode?: boolean; // Whether we're editing an existing note
+  draftKey?: string; // Storage key suffix for autosaved drafts
 }
+
+interface SavedDraft {
+  version: number;
+  title: string;
+  content: string;
+  tags: string[];
+  selectedProjectId: string | null;
+  updatedAt: string;
+}
+
+const DRAFT_STORAGE_PREFIX = 'kv-note-draft:';
+const DRAFT_STORAGE_VERSION = 1;
 
 export function NoteEditor({ 
   projectId,
@@ -37,8 +50,19 @@ export function NoteEditor({
   initialContent = "",
   initialTags = [],
   disableProjectSelection = false,
-  isEditMode = false
+  isEditMode = false,
+  draftKey,
 }: NoteEditorProps) {
+  const draftStorageKey = useMemo(() => {
+    if (draftKey) {
+      return `${DRAFT_STORAGE_PREFIX}${draftKey}`;
+    }
+
+    const modeKey = isEditMode ? 'edit' : mode;
+    const projectKey = projectId ?? 'none';
+    return `${DRAFT_STORAGE_PREFIX}${modeKey}:${projectKey}`;
+  }, [draftKey, isEditMode, mode, projectId]);
+
   const [title, setTitle] = useState(initialTitle)
   const [content, setContent] = useState(initialContent)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectId || null)
@@ -52,6 +76,100 @@ export function NoteEditor({
     content?: boolean;
     project?: boolean;
   }>({})
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false)
+  const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null)
+  const dismissRestoredDraftNotice = useCallback(() => {
+    setHasRestoredDraft(false)
+  }, [])
+
+  const clearDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(draftStorageKey)
+    } catch (error) {
+      console.warn('Failed to clear note draft:', error)
+    }
+    setHasRestoredDraft(false)
+    setRestoredDraftAt(null)
+  }, [draftStorageKey])
+
+  useEffect(() => {
+    try {
+      const rawDraft = localStorage.getItem(draftStorageKey)
+      if (!rawDraft) {
+        return
+      }
+
+      const parsedDraft = JSON.parse(rawDraft) as SavedDraft
+      if (parsedDraft.version !== DRAFT_STORAGE_VERSION) {
+        localStorage.removeItem(draftStorageKey)
+        return
+      }
+
+      const hasDraftData = Boolean(
+        parsedDraft.title?.trim() ||
+        parsedDraft.content?.trim() ||
+        parsedDraft.tags?.length ||
+        parsedDraft.selectedProjectId
+      )
+
+      if (!hasDraftData) {
+        localStorage.removeItem(draftStorageKey)
+        return
+      }
+
+      setTitle(parsedDraft.title ?? "")
+      setContent(parsedDraft.content ?? "")
+      setTags(parsedDraft.tags ?? [])
+      setSelectedProjectId(parsedDraft.selectedProjectId ?? projectId ?? null)
+      setCurrentTag("")
+      setHasRestoredDraft(true)
+      setRestoredDraftAt(parsedDraft.updatedAt ?? null)
+      setValidationErrors({})
+    } catch (error) {
+      console.warn('Failed to restore note draft:', error)
+    }
+  }, [draftStorageKey, projectId])
+
+  useEffect(() => {
+    if (disableProjectSelection) {
+      setSelectedProjectId(projectId || null)
+    }
+  }, [disableProjectSelection, projectId])
+
+  useEffect(() => {
+    const saveTimeout = window.setTimeout(() => {
+      try {
+        const hasMeaningfulContent = Boolean(
+          title.trim() ||
+          content.trim() ||
+          tags.length ||
+          selectedProjectId
+        )
+
+        if (!hasMeaningfulContent) {
+          localStorage.removeItem(draftStorageKey)
+          return
+        }
+
+        const draft: SavedDraft = {
+          version: DRAFT_STORAGE_VERSION,
+          title,
+          content,
+          tags,
+          selectedProjectId,
+          updatedAt: new Date().toISOString(),
+        }
+
+        localStorage.setItem(draftStorageKey, JSON.stringify(draft))
+      } catch (error) {
+        console.warn('Failed to save note draft:', error)
+      }
+    }, 300)
+
+    return () => {
+      window.clearTimeout(saveTimeout)
+    }
+  }, [title, content, tags, selectedProjectId, draftStorageKey])
 
   const addTag = useCallback(() => {
     if (currentTag && !tags.includes(currentTag)) {
@@ -96,6 +214,7 @@ export function NoteEditor({
       };
       
       await onSave?.(noteData);
+      clearDraft()
       
       // Reset form after successful save
       setTitle("");
@@ -111,9 +230,11 @@ export function NoteEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [title, content, selectedProjectId, tags, projectId, onSave])
+  }, [title, content, selectedProjectId, tags, projectId, onSave, clearDraft])
 
   const handleCancel = useCallback(() => {
+    clearDraft()
+
     // Reset form
     setTitle(initialTitle);
     setContent(initialContent);
@@ -123,7 +244,7 @@ export function NoteEditor({
     setShowPreview(false);
     setValidationErrors({});
     onCancel?.();
-  }, [initialTitle, initialContent, initialTags, projectId, onCancel])
+  }, [initialTitle, initialContent, initialTags, projectId, onCancel, clearDraft])
 
   const togglePreview = useCallback(() => {
     setShowPreview(prev => !prev)
@@ -175,6 +296,17 @@ export function NoteEditor({
           {showPreview ? "Edit" : "Preview"}
         </Button>
       </div>
+
+      {hasRestoredDraft && (
+        <div className="px-3 py-2 border-b bg-accent-primary-subtle/50 text-xs flex items-center justify-between gap-3">
+          <p className="text-text-secondary">
+            Restored unsaved draft{restoredDraftAt ? ` from ${new Date(restoredDraftAt).toLocaleString()}` : ''}.
+          </p>
+          <Button size="sm" variant="ghost" onClick={dismissRestoredDraftNotice} type="button" className="h-7 px-2 text-xs">
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {/* Form Fields */}
       <div className="p-3 border-b flex-shrink-0 space-y-3">

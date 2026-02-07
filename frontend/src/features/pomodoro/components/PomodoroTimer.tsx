@@ -47,6 +47,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
   // Project name state
   const [selectedProjectName, setSelectedProjectName] = useState<string | null>(null)
   const [isLoadingProjectName, setIsLoadingProjectName] = useState(false)
+  const quickNoteDraftKey = `note-editor:pomodoro:${currentSession?.id ?? 'none'}:${selectedProjectId ?? 'none'}`
   
   // Simple cache for project names to avoid repeated API calls
   const projectNameCacheRef = useRef<Map<string, string>>(new Map())
@@ -100,7 +101,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
     }
 
     fetchProjectName()
-  }, [selectedProjectId])
+  }, [selectedProjectId, onProjectNameUpdate])
 
   // Calculate progress for the circular timer
   const totalTime = getTotalTimeForState(timerState, preferences)
@@ -232,6 +233,7 @@ export function PomodoroTimer({ selectedProjectId, onProjectNameUpdate }: Pomodo
             mode="popup"
             onSave={handleNoteSave}
             disableProjectSelection={true}
+            draftKey={quickNoteDraftKey}
           />
         </div>
       );

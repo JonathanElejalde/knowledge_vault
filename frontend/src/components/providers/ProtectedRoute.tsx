@@ -13,6 +13,9 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  const redirectState = location.state as {
+    from?: { pathname?: string; search?: string; hash?: string };
+  } | null;
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -30,7 +33,14 @@ export function ProtectedRoute({
 
   // If authentication is not required and user is authenticated, redirect to dashboard
   if (!requireAuth && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    const fromPath = redirectState?.from?.pathname;
+    const fromSearch = redirectState?.from?.search ?? '';
+    const fromHash = redirectState?.from?.hash ?? '';
+    const safeRedirectPath = fromPath && !fromPath.startsWith('/auth')
+      ? `${fromPath}${fromSearch}${fromHash}`
+      : '/dashboard';
+
+    return <Navigate to={safeRedirectPath} replace />;
   }
 
   // Wrap children in a fragment to prevent unnecessary DOM nesting
