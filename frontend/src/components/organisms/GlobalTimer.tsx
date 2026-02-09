@@ -1,7 +1,9 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Timer, Play, Pause, Eye } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { usePomodoroStore } from '@/store/pomodoroStore';
+import { pomodoroApi } from '@/services/api/pomodoro';
 import { cn } from '@/lib/utils';
 
 export function GlobalTimer() {
@@ -16,9 +18,90 @@ export function GlobalTimer() {
     workDuration,
     breakDuration,
     longBreakDuration,
+    startTimer: startGlobalTimer,
+    resetTimer: resetGlobalTimer,
     pauseTimer,
     resumeTimer,
   } = usePomodoroStore();
+
+  const syncInFlightRef = useRef(false);
+
+  const syncActiveSession = useCallback(async () => {
+    if (syncInFlightRef.current) {
+      return;
+    }
+    syncInFlightRef.current = true;
+
+    try {
+      const sessions = await pomodoroApi.getSessions({
+        status: 'in_progress',
+        limit: 1,
+        skip: 0,
+      });
+      const activeSession = sessions?.[0] ?? null;
+      const state = usePomodoroStore.getState();
+      const localSessionId = state.currentSessionId;
+
+      if (!activeSession) {
+        // Keep fallback local-only sessions untouched; clear stale backend sessions.
+        if (localSessionId && !localSessionId.startsWith('fallback-')) {
+          resetGlobalTimer();
+        }
+        return;
+      }
+
+      const sessionStartMs = new Date(activeSession.start_time).getTime();
+      const shouldHydrateFromBackend = !localSessionId || localSessionId !== activeSession.id;
+
+      if (shouldHydrateFromBackend) {
+        startGlobalTimer(
+          activeSession.id,
+          activeSession.learning_project_id ?? undefined,
+          Number.isFinite(sessionStartMs) ? sessionStartMs : undefined
+        );
+      } else if (state.timerState === 'idle') {
+        // Recover stale local idle state for the active backend session.
+        startGlobalTimer(
+          activeSession.id,
+          activeSession.learning_project_id ?? undefined,
+          Number.isFinite(sessionStartMs) ? sessionStartMs : undefined
+        );
+      } else if (activeSession.learning_project_id && state.selectedProjectId !== activeSession.learning_project_id) {
+        state.setSelectedProjectId(activeSession.learning_project_id);
+      }
+    } catch {
+      // Ignore transient failures; next sync/focus will retry.
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, [resetGlobalTimer, startGlobalTimer]);
+
+  useEffect(() => {
+    void syncActiveSession();
+
+    const intervalId = window.setInterval(() => {
+      void syncActiveSession();
+    }, 15000);
+
+    const handleFocus = () => {
+      void syncActiveSession();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void syncActiveSession();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [syncActiveSession]);
 
   // Don't show if:
   // - Not running

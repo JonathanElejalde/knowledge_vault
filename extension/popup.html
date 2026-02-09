@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knowledge Vault Focus</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <section id="authSection" class="card auth-card">
+        <h1 class="title">Knowledge Vault Focus</h1>
+        <p class="muted">Sign in to use the mini player.</p>
+
+        <form id="loginForm" class="stack">
+          <label class="field">
+            <span>Email</span>
+            <input id="email" class="input" type="email" autocomplete="email" required />
+          </label>
+
+          <label class="field">
+            <span>Password</span>
+            <input id="password" class="input" type="password" autocomplete="current-password" required />
+          </label>
+
+          <button id="loginButton" class="btn btn-primary" type="submit">Sign In</button>
+        </form>
+      </section>
+
+      <section id="appSection" class="card app-card hidden">
+        <header class="app-header">
+          <div>
+            <p class="muted">Signed in as</p>
+            <p id="userIdentity" class="identity">-</p>
+          </div>
+          <button id="logoutButton" class="btn btn-ghost" type="button">Log out</button>
+        </header>
+
+        <section id="miniPlayer" class="mini-player" aria-live="polite">
+          <button id="primaryButton" class="btn btn-primary player-control" type="button">Start</button>
+
+          <div class="timer-stack">
+            <p id="timerStateBadge" class="state-badge state-idle">Idle</p>
+            <p id="timerDisplay" class="timer">25:00</p>
+          </div>
+
+          <button id="openNotesButton" class="btn btn-outline notes-button" type="button">Notes</button>
+        </section>
+
+        <section class="project-section">
+          <p class="field-caption">Project</p>
+          <div id="projectCombobox" class="combobox">
+            <button
+              id="projectTrigger"
+              class="btn btn-outline combobox-trigger"
+              type="button"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="projectOptions"
+            >
+              No project
+            </button>
+            <div id="projectDropdown" class="combobox-dropdown hidden">
+              <input
+                id="projectSearch"
+                class="input combobox-search"
+                type="search"
+                placeholder="Search projects..."
+                autocomplete="off"
+              />
+              <div id="projectOptions" class="project-options" role="listbox"></div>
+            </div>
+          </div>
+          <p id="projectHint" class="hint">Project is optional when starting a session.</p>
+        </section>
+
+        <button id="abandonButton" class="btn btn-destructive-soft" type="button" disabled>
+          Abandon
+        </button>
+      </section>
+
+      <p id="feedback" class="feedback" role="status"></p>
+    </main>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>

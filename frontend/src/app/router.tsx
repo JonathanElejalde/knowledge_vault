@@ -20,6 +20,7 @@ import PomodoroPage from '@/features/pomodoro/pages/PomodoroPage';
 const Notes = React.lazy(() => import('@/features/notes/pages/NotesPage'));
 const CreateNote = React.lazy(() => import('@/features/notes/pages/CreateNotePage'));
 const ViewNote = React.lazy(() => import('@/features/notes/pages/ViewNotePage'));
+const QuickNote = React.lazy(() => import('@/features/notes/pages/QuickNotePage'));
 const Projects = React.lazy(() => import('@/features/projects/pages/ProjectsPage'));
 const Anki = React.lazy(() => import('@/features/anki/pages/AnkiPage'));
 
@@ -42,8 +43,9 @@ const withSuspense = (Component: React.LazyExoticComponent<any>) => (
 function RootLayout() {
   const location = useLocation();
   const isAuthRoute = location.pathname.startsWith('/auth/');
+  const isStandaloneNotesRoute = location.pathname === '/notes/quick';
 
-  if (isAuthRoute) {
+  if (isAuthRoute || isStandaloneNotesRoute) {
     return <Outlet />;
   }
 
@@ -115,6 +117,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             {withSuspense(ViewNote)}
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/notes/quick',
+        element: (
+          <ProtectedRoute>
+            {withSuspense(QuickNote)}
           </ProtectedRoute>
         ),
       },

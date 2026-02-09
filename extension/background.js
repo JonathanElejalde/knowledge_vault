@@ -16,6 +16,7 @@ function toTimerState(session) {
   return {
     sessionId: session.id,
     projectId: session.learning_project_id ?? null,
+    sessionType: session.session_type ?? "work",
     startedAt: new Date(session.start_time).getTime(),
     workDurationMinutes: session.work_duration,
     status: session.status,
@@ -207,7 +208,7 @@ async function buildNotesWindowUrl(projectId) {
   }
   params.set("source", "extension");
   const query = params.toString();
-  return query ? `${frontendBaseUrl}/notes/new?${query}` : `${frontendBaseUrl}/notes/new`;
+  return query ? `${frontendBaseUrl}/notes/quick?${query}` : `${frontendBaseUrl}/notes/quick`;
 }
 
 async function openNotesWindow(projectId) {
@@ -231,26 +232,12 @@ async function openNotesWindow(projectId) {
   const created = await chrome.windows.create({
     url: notesUrl,
     type: "popup",
-    width: 1280,
-    height: 840,
+    width: 460,
+    height: 640,
   });
 
   notesWindowId = created.id ?? null;
 }
-
-function configureSidePanelBehavior() {
-  if (chrome.sidePanel?.setPanelBehavior) {
-    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-  }
-}
-
-chrome.runtime.onInstalled.addListener(() => {
-  configureSidePanelBehavior();
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  configureSidePanelBehavior();
-});
 
 chrome.windows.onRemoved.addListener((windowId) => {
   if (windowId === notesWindowId) {
