@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Knowledge Vault Focus",
+  "version": "0.1.0",
+  "description": "Start, complete, abandon pomodoros and capture quick notes without leaving your current page.",
+  "permissions": ["storage", "sidePanel", "alarms"],
+  "host_permissions": ["http://localhost:8000/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Knowledge Vault Focus"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  }
+}

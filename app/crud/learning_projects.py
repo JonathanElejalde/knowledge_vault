@@ -9,6 +9,47 @@ from app.db.models import LearningProject, Category, Session, Note
 from app.schemas.learning_projects import LearningProjectCreate, LearningProjectUpdate
 
 
+async def validate_project_ownership(
+    db: AsyncSession,
+    project_id: UUID,
+    user_id: UUID,
+    allow_archived: bool = True
+) -> Optional[LearningProject]:
+    """Validate that a project exists and belongs to the user.
+    
+    This is a lightweight check for ownership validation when linking
+    notes or sessions to a project. Does not eager load relationships.
+    
+    Args:
+        db: The database session.
+        project_id: The ID of the project to validate.
+        user_id: The ID of the user who should own the project.
+        allow_archived: If False, archived projects return None.
+        
+    Returns:
+        The project if it exists and belongs to the user (and is not archived
+        if allow_archived=False), None otherwise.
+    """
+    result = await db.execute(
+        select(LearningProject).where(
+            and_(LearningProject.id == project_id, LearningProject.user_id == user_id)
+        )
+    )
+    project = result.scalars().first()
+    
+    if not project:
+        return None
+    
+    if not allow_archived and project.status == "archived":
+        logger.info(
+            f"Project {project_id} is archived and allow_archived=False. "
+            f"Returning None for user {user_id}."
+        )
+        return None
+    
+    return project
+
+
 async def create_learning_project(
     db: AsyncSession, user_id: UUID, project_in: LearningProjectCreate, category_id: Optional[UUID] = None
 ) -> LearningProject:
@@ -215,16 +256,27 @@ def _build_project_query_with_counts(user_id: UUID, project_id: Optional[UUID] =
         A SQLAlchemy select query with counts.
     """
     # Create subqueries for counting notes and sessions
+    # Filter by user_id to prevent cross-tenant data leakage
     notes_subquery = (
         select(func.count(Note.id))
-        .where(Note.learning_project_id == LearningProject.id)
+        .where(
+            and_(
+                Note.learning_project_id == LearningProject.id,
+                Note.user_id == LearningProject.user_id
+            )
+        )
         .scalar_subquery()
         .label('notes_count')
     )
     
     sessions_subquery = (
         select(func.count(Session.id))
-        .where(Session.learning_project_id == LearningProject.id)
+        .where(
+            and_(
+                Session.learning_project_id == LearningProject.id,
+                Session.user_id == LearningProject.user_id
+            )
+        )
         .scalar_subquery()
         .label('sessions_count')
     )
@@ -279,9 +331,15 @@ async def _convert_project_row_to_dict(db: AsyncSession, row, include_sessions: 
     }
     
     # Include sessions data if requested
+    # Filter by user_id to prevent cross-tenant data leakage
     if include_sessions:
         sessions_result = await db.execute(
-            select(Session).where(Session.learning_project_id == project.id)
+            select(Session).where(
+                and_(
+                    Session.learning_project_id == project.id,
+                    Session.user_id == project.user_id
+                )
+            )
             .order_by(Session.start_time.desc())
         )
         sessions = sessions_result.scalars().all()

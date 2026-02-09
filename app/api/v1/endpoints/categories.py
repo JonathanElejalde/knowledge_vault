@@ -23,7 +23,7 @@ async def list_categories(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100)
 ) -> List[CategoryResponse]:
-    """List all categories in the system with optional pagination.
+    """List categories for the current user with optional pagination.
 
     Args:
         current_user: The authenticated user.
@@ -32,10 +32,11 @@ async def list_categories(
         limit: Maximum number of records to return (for pagination).
 
     Returns:
-        A list of categories ordered by name.
+        A list of the user's categories ordered by name.
     """
     categories = await crud_categories.get_all_categories(
         db=db,
+        user_id=current_user.id,
         skip=skip,
         limit=limit
     )

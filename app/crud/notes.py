@@ -1,5 +1,6 @@
 from typing import Optional, List, Union, Dict, Any
 from uuid import UUID
+import tiktoken
 from sqlalchemy import select, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -7,19 +8,41 @@ from loguru import logger
 import openai
 
 from app.db.models import Note, User, Session, LearningProject
+from app.db.session import AsyncSessionLocal
 from app.schemas.notes import NoteCreate, NoteUpdate
 from app.core.config import get_settings
 from app.services.vector_store import get_default_vector_store, generate_query_embedding
+from app.crud.learning_projects import validate_project_ownership
+
+
+class InvalidLearningProjectError(Exception):
+    """Raised when a note update specifies a learning_project_id the user does not own."""
+
+
+# Slightly under text-embedding-3-small max (8191) to avoid API errors.
+EMBEDDING_MAX_TOKENS = 8000
+EMBEDDING_TIMEOUT_SEC = 60.0
+
+# text-embedding-3-small uses cl100k_base.
+_encoding = tiktoken.get_encoding("cl100k_base")
+
+
+def _truncate_to_tokens(text: str, max_tokens: int) -> str:
+    """Truncate text to at most max_tokens (preserving whole tokens)."""
+    tokens = _encoding.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    return _encoding.decode(tokens[:max_tokens])
 
 
 async def _generate_embedding_for_note(note_content: str, note_title: Optional[str] = None, note_tags: Optional[List[str]] = None) -> Optional[List[float]]:
-    """Generate embedding for note content.
-    
+    """Generate embedding for note content. Truncates to EMBEDDING_MAX_TOKENS and uses a request timeout.
+
     Args:
         note_content: The note content
         note_title: Optional note title
         note_tags: Optional note tags
-        
+
     Returns:
         Embedding vector or None if generation fails
     """
@@ -28,7 +51,7 @@ async def _generate_embedding_for_note(note_content: str, note_title: Optional[s
         if not settings.OPENAI_API_KEY:
             logger.warning("OPENAI_API_KEY not configured, skipping embedding generation")
             return None
-            
+
         # Prepare text for embedding (same logic as in embed_notes.py)
         text_parts = []
         if note_title and note_title.strip():
@@ -38,21 +61,22 @@ async def _generate_embedding_for_note(note_content: str, note_title: Optional[s
         if note_tags:
             tags_str = ", ".join(note_tags)
             text_parts.append(f"Tags: {tags_str}")
-            
+
         combined_text = "\n".join(text_parts)
         if not combined_text.strip():
             return None
-            
-        # Generate embedding
-        client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+        combined_text = _truncate_to_tokens(combined_text, EMBEDDING_MAX_TOKENS)
+
+        client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=EMBEDDING_TIMEOUT_SEC)
         response = await client.embeddings.create(
             model="text-embedding-3-small",
             input=[combined_text],
             encoding_format="float"
         )
-        
+
         return response.data[0].embedding
-        
+
     except Exception as e:
         logger.error(f"Failed to generate embedding: {e}")
         return None
@@ -60,7 +84,7 @@ async def _generate_embedding_for_note(note_content: str, note_title: Optional[s
 
 async def create_note(
     db: AsyncSession, user_id: UUID, note_in: NoteCreate
-) -> Note:
+) -> Optional[Note]:
     """Create a new note for the user.
 
     Args:
@@ -69,21 +93,27 @@ async def create_note(
         note_in: The data for the new note.
 
     Returns:
-        The created note.
+        The created note, or None if the learning_project_id doesn't belong to the user.
     """
     note_data = note_in.model_dump()
     
-    # Generate embedding for new note
-    embedding = await _generate_embedding_for_note(
-        note_data.get("content", ""),
-        note_data.get("title"),
-        note_data.get("tags", [])
-    )
-    
+    # Validate project ownership if learning_project_id is provided
+    if note_data.get("learning_project_id"):
+        project = await validate_project_ownership(
+            db, note_data["learning_project_id"], user_id, allow_archived=True
+        )
+        if not project:
+            logger.warning(
+                f"User {user_id} attempted to create note for project "
+                f"{note_data['learning_project_id']} they don't own. Denying creation."
+            )
+            return None
+
+    # Persist note without embedding; caller schedules background_embed_note.
     note = Note(
         **note_data,
         user_id=user_id,
-        embedding=embedding
+        embedding=None
     )
     db.add(note)
     await db.commit()
@@ -259,26 +289,47 @@ async def update_note(
         return None
 
     update_data = note_in.model_dump(exclude_unset=True)
-    
-    # Check if content-related fields changed to regenerate embedding
+
+    # Validate project ownership if learning_project_id is being changed to another project.
+    if "learning_project_id" in update_data and update_data["learning_project_id"] is not None:
+        project = await validate_project_ownership(
+            db, update_data["learning_project_id"], user_id, allow_archived=True
+        )
+        if not project:
+            logger.warning(
+                f"User {user_id} attempted to link note {note_id} to project "
+                f"{update_data['learning_project_id']} they don't own. Denying update."
+            )
+            raise InvalidLearningProjectError()
+
+    # If content-related fields changed, clear embedding; caller schedules background_embed_note.
     content_changed = any(key in update_data for key in ['content', 'title', 'tags'])
-    
+    if content_changed:
+        note.embedding = None
+
     for key, value in update_data.items():
         setattr(note, key, value)
-
-    # Regenerate embedding if content changed
-    if content_changed:
-        new_embedding = await _generate_embedding_for_note(
-            note.content,
-            note.title,
-            note.tags
-        )
-        if new_embedding:
-            note.embedding = new_embedding
 
     await db.commit()
     await db.refresh(note, attribute_names=['learning_project', 'user'])
     return note
+
+
+async def background_embed_note(note_id: UUID, user_id: UUID) -> None:
+    """Generate embedding for a note and update it. Intended for FastAPI BackgroundTasks.
+
+    Uses its own DB session so it can run after the request session is closed.
+    """
+    async with AsyncSessionLocal() as db:
+        note = await get_note(db, note_id=note_id, user_id=user_id)
+        if not note:
+            logger.warning(f"background_embed_note: note {note_id} not found for user {user_id}")
+            return
+        embedding = await _generate_embedding_for_note(note.content, note.title, note.tags)
+        if embedding:
+            note.embedding = embedding
+            await db.commit()
+        # If embedding failed, note stays with embedding=None; semantic search will skip it until retried.
 
 
 async def delete_note(db: AsyncSession, note_id: UUID, user_id: UUID) -> Optional[Note]:

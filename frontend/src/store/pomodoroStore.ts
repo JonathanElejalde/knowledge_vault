@@ -38,7 +38,7 @@ export interface PomodoroStoreState {
   showGlobalTimer: boolean; // Whether to show the persistent timer bar
   
   // Actions
-  startTimer: (sessionId: string, projectId?: string) => void;
+  startTimer: (sessionId: string, projectId?: string, startedAtMs?: number) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
   resetTimer: () => void;
@@ -217,9 +217,9 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       _intervalId: null,
 
       // Actions
-      startTimer: (sessionId: string, projectId?: string) => {
+      startTimer: (sessionId: string, projectId?: string, startedAtMs?: number) => {
         const state = get();
-        const now = Date.now();
+        const now = Number.isFinite(startedAtMs) ? Number(startedAtMs) : Date.now();
         
         // Request notification permission early
         requestNotificationPermission();

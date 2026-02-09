@@ -1,19 +1,12 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db, check_db_connection
+from fastapi import APIRouter
 from app.schemas.health import HealthCheck
 
 router = APIRouter()
 
 @router.get("/health", response_model=HealthCheck)
-async def health_check(db: AsyncSession = Depends(get_db)) -> HealthCheck:
+async def health_check() -> HealthCheck:
     """
-    Health check endpoint that verifies database connectivity.
-    Returns the health status of the application.
+    Public liveness check. Returns a fixed response when the API is reachable.
+    No internal state (e.g. DB) is checked or exposed.
     """
-    db_status = await check_db_connection()
-    
-    return HealthCheck(
-        status=db_status,
-        message="Database connection is healthy" if db_status else "Database connection failed"
-    ) 
+    return HealthCheck(status=True, message="ok")

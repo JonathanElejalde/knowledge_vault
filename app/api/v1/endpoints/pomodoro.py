@@ -69,14 +69,11 @@ async def update_pomodoro_preferences(
             - 401: If the user is not authenticated
             - 404: If the user is not found
     """
-    logger.info("Received preferences update request for user {}", current_user.id)
-    logger.info("Current user preferences: {}", current_user.preferences)
-    logger.info("New preferences data: {}", preferences.model_dump())
-    
+    logger.info("Preferences update request for user {}", current_user.id)
+
     # Convert to dict with exclude_unset=True to only include fields that were actually set
     preferences_dict = preferences.model_dump(exclude_unset=True)
-    logger.info("Preferences dict after model_dump: {}", preferences_dict)
-    
+
     user = await crud.update_user_preferences(
         db=db,
         user_id=current_user.id,
@@ -89,7 +86,7 @@ async def update_pomodoro_preferences(
             detail="User not found"
         )
     
-    logger.info("Updated user preferences: {}", user.preferences)
+    logger.info("Preferences updated for user {}", current_user.id)
     return PomodoroPreferences(**user.preferences.get("pomodoro", {}))
 
 
@@ -103,7 +100,8 @@ async def start_session(
     
     Creates a new Pomodoro session (work or break) for the current user. The session
     is created with an 'in_progress' status and the current UTC timestamp as the
-    start time. Prevents creation if the linked learning project is archived.
+    start time. Validates that the linked learning project (if any) belongs to the
+    user and is not archived.
     
     Args:
         session_in: The session data including type, durations, and optional learning project
@@ -113,7 +111,7 @@ async def start_session(
         
     Raises:
         HTTPException: 
-            - 400: If the session is linked to an archived learning project
+            - 400: If the learning project doesn't exist, is archived, or doesn't belong to the user
             - 401: If the user is not authenticated
             - 422: If the request data is invalid
     """
@@ -123,10 +121,10 @@ async def start_session(
         session_in=session_in
     )
     if not session:
-        # This occurs if the learning project is archived
+        # This occurs if the learning project is archived or doesn't belong to the user
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot create session for an archived learning project."
+            detail="Cannot create session: the specified learning project does not exist, is archived, or does not belong to you."
         )
     return session
 

@@ -2,11 +2,13 @@ from datetime import datetime, UTC, timedelta
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy import select, and_, func, or_, case
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from loguru import logger
 from app.db.models import Session, User, LearningProject, Note
 from app.schemas.pomodoro import SessionStart, SessionComplete, SessionAbandon, SessionSummaryResponse, WeeklyStatisticsResponse
+from app.crud.learning_projects import validate_project_ownership
 
 
 async def create_session(
@@ -34,16 +36,34 @@ async def create_session(
         The session is automatically committed to the database and refreshed
         to include any database-generated values.
     """
-    if session_in.learning_project_id:
-        # Check if the learning project is archived
-        project_result = await db.execute(
-            select(LearningProject).where(LearningProject.id == session_in.learning_project_id)
+    existing_session_result = await db.execute(
+        select(Session)
+        .where(
+            and_(
+                Session.user_id == user_id,
+                Session.status == "in_progress"
+            )
         )
-        project = project_result.scalars().first()
-        if project and project.status == "archived":
+        .order_by(Session.start_time.desc())
+        .limit(1)
+    )
+    existing_session = existing_session_result.scalars().first()
+    if existing_session:
+        logger.info(
+            f"User {user_id} attempted to start a new session while session "
+            f"{existing_session.id} is already in progress. Returning existing session."
+        )
+        return existing_session
+
+    if session_in.learning_project_id:
+        # Validate project ownership and ensure it's not archived
+        project = await validate_project_ownership(
+            db, session_in.learning_project_id, user_id, allow_archived=False
+        )
+        if not project:
             logger.warning(
-                f"User {user_id} attempt to create session for archived learning project "
-                f"{session_in.learning_project_id}. Denying creation."
+                f"User {user_id} attempted to create session for project "
+                f"{session_in.learning_project_id} they don't own or is archived. Denying creation."
             )
             return None
 
@@ -58,9 +78,28 @@ async def create_session(
         status="in_progress"
     )
     db.add(session)
-    await db.commit()
-    await db.refresh(session)
-    return session
+    try:
+        await db.commit()
+        await db.refresh(session)
+        return session
+    except IntegrityError:
+        await db.rollback()
+        # Handle race conditions where another request created an in-progress session first.
+        conflict_result = await db.execute(
+            select(Session)
+            .where(
+                and_(
+                    Session.user_id == user_id,
+                    Session.status == "in_progress"
+                )
+            )
+            .order_by(Session.start_time.desc())
+            .limit(1)
+        )
+        conflict_session = conflict_result.scalars().first()
+        if conflict_session:
+            return conflict_session
+        raise
 
 
 async def get_session(
@@ -532,4 +571,3 @@ async def get_weekly_statistics(
         week_start_date=start_of_week,
         week_end_date=end_of_week
     )
-

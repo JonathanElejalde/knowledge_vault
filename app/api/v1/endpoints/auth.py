@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.core.security import (
     verify_password,
     get_password_hash,
     create_access_token,
     create_refresh_token,
     verify_refresh_token,
+    rotate_refresh_token,
     revoke_refresh_token,
     revoke_all_user_refresh_tokens,
     set_auth_cookies,
@@ -19,9 +20,11 @@ from app.core.security import (
 )
 from app.db.models import User
 from app.schemas.auth import (
+    Token,
+    UserLogin,
     UserCreate,
     UserPublic,
-    RefreshTokenResponse
+    RefreshTokenCreate,
 )
 from app.api.dependencies import (
     get_current_active_user,
@@ -31,10 +34,60 @@ from app.api.dependencies import (
 )
 from app.db.session import get_db
 from app.core.config import get_settings
+from app.core.client_ip import get_client_ip
 from loguru import logger
 
 settings = get_settings()
 router = APIRouter()
+
+
+async def _authenticate_user(
+    db: AsyncSession,
+    email: str,
+    password: str,
+    client_ip: str
+) -> User:
+    result = await db.execute(select(User).filter(func.lower(User.email) == email.lower()))
+    user = result.scalars().first()
+    if not user:
+        logger.warning("SECURITY: Login attempt for non-existent account from IP: [REDACTED]")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not verify_password(password, user.password_hash):
+        logger.warning(f"SECURITY: Failed login attempt (user_id={user.id}) from IP: [REDACTED]")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
+
+
+def _create_access_token_for_user(user: User) -> str:
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires
+    )
+
+
+def _build_extension_token_response(
+    user: User,
+    access_token: str,
+    refresh_token: str
+) -> Token:
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user=UserPublic.model_validate(user),
+    )
 
 
 @router.post("/register", response_model=UserPublic)
@@ -45,24 +98,24 @@ async def register(
     _: Annotated[bool, register_rate_limit]  # Rate limit: 2 registrations per minute per IP
 ) -> UserPublic:
     """Register a new user."""
-    # Check if user with email exists
-    result = await db.execute(select(User).filter(User.email == user_in.email))
+    # Check if user with email exists (case-insensitive; user_in.email is normalized to lowercase)
+    result = await db.execute(select(User).filter(func.lower(User.email) == user_in.email))
     existing_user = result.scalars().first()
     if existing_user:
-        logger.warning(f"SECURITY: Registration attempt with existing email: {user_in.email}")
+        logger.warning("SECURITY: Registration attempt with existing account")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Registration failed. Please use a different email or username.",
         )
-    
+
     # Check if username is taken
     result = await db.execute(select(User).filter(User.username == user_in.username))
     existing_username = result.scalars().first()
     if existing_username:
-        logger.warning(f"SECURITY: Registration attempt with existing username: {user_in.username}")
+        logger.warning("SECURITY: Registration attempt with existing account")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
+            detail="Registration failed. Please use a different email or username.",
         )
     
     # Create new user
@@ -90,7 +143,7 @@ async def register(
     set_auth_cookies(response, access_token, refresh_token)
     
     # Log successful registration
-    logger.info(f"SECURITY: User registered successfully: {user.email} (ID: {user.id})")
+    logger.info(f"SECURITY: User registered successfully (user_id={user.id})")
     
     return UserPublic.model_validate(user)
 
@@ -104,38 +157,20 @@ async def login_access_token(
     _: Annotated[bool, login_rate_limit]  # Rate limit: 5 attempts per minute per IP
 ) -> UserPublic:
     """OAuth2 compatible token login, set HTTP-only cookies for future requests."""
-    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
-    
-    # Find user by email
-    result = await db.execute(select(User).filter(User.email == form_data.username))
-    user = result.scalars().first()
-    if not user:
-        logger.warning(f"SECURITY: Login attempt with non-existent email: {form_data.username} from IP: {client_ip}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Verify password
-    if not verify_password(form_data.password, user.password_hash):
-        logger.warning(f"SECURITY: Failed login attempt for user: {user.email} from IP: {client_ip}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    client_ip = get_client_ip(request)
+    user = await _authenticate_user(
+        db=db,
+        email=form_data.username,
+        password=form_data.password,
+        client_ip=client_ip
+    )
     
     # Update last login
     user.last_login = datetime.now(UTC)
     await db.commit()
     
     # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=access_token_expires
-    )
+    access_token = _create_access_token_for_user(user)
     
     # Create refresh token
     refresh_token, _ = await create_refresh_token(db=db, user=user)
@@ -144,7 +179,7 @@ async def login_access_token(
     set_auth_cookies(response, access_token, refresh_token)
     
     # Log successful login
-    logger.info(f"SECURITY: User logged in successfully: {user.email} from IP: {client_ip}")
+    logger.info(f"SECURITY: User logged in successfully (user_id={user.id}) from IP: [REDACTED]")
     
     return UserPublic.model_validate(user)
 
@@ -157,58 +192,110 @@ async def refresh_token(
     _: Annotated[bool, refresh_rate_limit]  # Rate limit: 10 requests per minute per user
 ) -> UserPublic:
     """Get a new access token using a refresh token from HTTP-only cookie."""
-    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+    client_ip = get_client_ip(request)
     
     # Get refresh token from cookie
     refresh_token_value = get_token_from_cookie(request, REFRESH_TOKEN_COOKIE_NAME)
     if not refresh_token_value:
-        logger.warning(f"SECURITY: Refresh token request without token from IP: {client_ip}")
+        logger.warning("SECURITY: Refresh token request without token from IP: [REDACTED]")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Verify refresh token
-    refresh_token = await verify_refresh_token(db=db, token=refresh_token_value)
-    if not refresh_token:
-        logger.warning(f"SECURITY: Invalid refresh token used from IP: {client_ip}")
+    # Atomic rotate: consume old token and issue new one (single-use, no replay window)
+    new_refresh_token, _, user = await rotate_refresh_token(db=db, token=refresh_token_value)
+    if not user:
+        logger.warning("SECURITY: Invalid refresh token used from IP: [REDACTED]")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Get user
-    user = await db.get(User, refresh_token.user_id)
-    if not user or not user.is_active:
-        logger.warning(f"SECURITY: Refresh token for inactive/non-existent user: {refresh_token.user_id} from IP: {client_ip}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Create new access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=access_token_expires
-    )
-    
-    # Create new refresh token (rotate refresh token)
-    new_refresh_token, _ = await create_refresh_token(db=db, user=user)
-    
-    # Revoke old refresh token
-    await revoke_refresh_token(db=db, token=refresh_token_value)
-    
-    # Set new HTTP-only cookies
+    access_token = _create_access_token_for_user(user)
     set_auth_cookies(response, access_token, new_refresh_token)
     
     # Log successful token refresh
-    logger.info(f"SECURITY: Token refreshed for user: {user.email} from IP: {client_ip}")
+    logger.info(f"SECURITY: Token refreshed (user_id={user.id}) from IP: [REDACTED]")
     
     return UserPublic.model_validate(user)
+
+
+@router.post("/extension/login", response_model=Token)
+async def extension_login(
+    request: Request,
+    payload: UserLogin,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[bool, login_rate_limit]
+) -> Token:
+    """Login endpoint for browser extensions using bearer + refresh tokens."""
+    client_ip = get_client_ip(request)
+    user = await _authenticate_user(
+        db=db,
+        email=payload.email,
+        password=payload.password,
+        client_ip=client_ip
+    )
+
+    user.last_login = datetime.now(UTC)
+    await db.commit()
+
+    access_token = _create_access_token_for_user(user)
+    refresh_token, _ = await create_refresh_token(db=db, user=user)
+
+    logger.info(f"SECURITY: Extension login successful (user_id={user.id}) from IP: [REDACTED]")
+
+    return _build_extension_token_response(
+        user=user,
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+
+@router.post("/extension/refresh-token", response_model=Token)
+async def extension_refresh_token(
+    request: Request,
+    payload: RefreshTokenCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[bool, refresh_rate_limit]
+) -> Token:
+    """Rotate refresh token and return new bearer token pair for extensions."""
+    client_ip = get_client_ip(request)
+
+    new_refresh_token, _, user = await rotate_refresh_token(db=db, token=payload.refresh_token)
+    if not user:
+        logger.warning("SECURITY: Invalid extension refresh token used from IP: [REDACTED]")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = _create_access_token_for_user(user)
+    logger.info(f"SECURITY: Extension token refreshed (user_id={user.id}) from IP: [REDACTED]")
+
+    return _build_extension_token_response(
+        user=user,
+        access_token=access_token,
+        refresh_token=new_refresh_token
+    )
+
+
+@router.post("/extension/logout")
+async def extension_logout(
+    request: Request,
+    payload: RefreshTokenCreate,
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
+    """Logout extension session by revoking provided refresh token."""
+    client_ip = get_client_ip(request)
+    revoked = await revoke_refresh_token(db=db, token=payload.refresh_token)
+    logger.info(
+        f"SECURITY: Extension logout token revocation {'succeeded' if revoked else 'not_found'} from IP: [REDACTED]"
+    )
+    return {"message": "Successfully logged out"}
 
 
 @router.post("/logout")
@@ -218,7 +305,7 @@ async def logout(
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Logout by revoking the refresh token and clearing cookies."""
-    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+    client_ip = get_client_ip(request)
     
     # Get refresh token from cookie
     refresh_token_value = get_token_from_cookie(request, REFRESH_TOKEN_COOKIE_NAME)
@@ -231,7 +318,7 @@ async def logout(
             if refresh_token:
                 user = await db.get(User, refresh_token.user_id)
                 if user:
-                    user_info = user.email
+                    user_info = f"user_id={user.id}"
         except Exception:
             pass
         
@@ -242,7 +329,7 @@ async def logout(
     clear_auth_cookies(response)
     
     # Log logout
-    logger.info(f"SECURITY: User logged out: {user_info} from IP: {client_ip}")
+    logger.info(f"SECURITY: User logged out: {user_info} from IP: [REDACTED]")
     
     return {"message": "Successfully logged out"}
 
@@ -255,7 +342,7 @@ async def revoke_all_tokens(
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Revoke all refresh tokens for the current user (security endpoint)."""
-    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+    client_ip = get_client_ip(request)
     
     # Revoke all refresh tokens for this user
     revoked_count = await revoke_all_user_refresh_tokens(db=db, user_id=str(current_user.id))
@@ -265,9 +352,8 @@ async def revoke_all_tokens(
     
     # Log security action
     logger.warning(
-        f"SECURITY: All refresh tokens revoked for user: {current_user.email} | "
-        f"Tokens revoked: {revoked_count} | "
-        f"IP: {client_ip}"
+        f"SECURITY: All refresh tokens revoked (user_id={current_user.id}) | "
+        f"Tokens revoked: {revoked_count} | IP: [REDACTED]"
     )
     
     return {

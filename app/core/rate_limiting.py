@@ -10,9 +10,7 @@ from typing import Dict, List, Optional, Tuple
 from collections import defaultdict, deque
 from fastapi import Request
 from loguru import logger
-from app.core.config import get_settings
-
-settings = get_settings()
+from app.core.client_ip import get_client_ip
 
 
 class SlidingWindowRateLimiter:
@@ -129,27 +127,6 @@ def parse_rate_limit(rate_string: str) -> Tuple[int, int]:
     except (ValueError, KeyError):
         logger.warning(f"Invalid rate limit format: {rate_string}, using default 5/minute")
         return 5, 60
-
-
-def get_client_ip(request: Request) -> str:
-    """
-    Extract client IP address from request.
-    
-    Handles common proxy headers for production deployments.
-    """
-    # Check for forwarded IP (common in production behind load balancers)
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        # X-Forwarded-For can contain multiple IPs, use the first one
-        return forwarded_for.split(",")[0].strip()
-    
-    # Check for real IP (some proxies use this)
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
-    
-    # Fallback to direct client IP
-    return request.client.host if request.client else "unknown"
 
 
 def get_rate_limit_key(request: Request, identifier_type: str, user_id: Optional[str] = None) -> str:

@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vite.dev/config/
+// Load .env from repo root so frontend and extension build share the same env
 export default defineConfig({
+  envDir: path.resolve(__dirname, '..'),
   plugins: [react()],
   resolve: {
     alias: {

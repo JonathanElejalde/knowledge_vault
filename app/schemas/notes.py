@@ -4,9 +4,14 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+# Max content length: slightly under text-embedding-3-small token limit (8191).
+# ~4 chars/token -> 8000 tokens ≈ 32_000 chars.
+NOTE_CONTENT_MAX_LENGTH = 32_000
+
+
 class NoteBase(BaseModel):
     """Base schema for note."""
-    content: str = Field(min_length=1, description="The content of the note")
+    content: str = Field(min_length=1, max_length=NOTE_CONTENT_MAX_LENGTH, description="The content of the note")
     title: Optional[str] = Field(default=None, max_length=255, description="Optional title for the note")
     tags: List[str] = Field(default_factory=list, description="List of tags for the note")
     meta_data: Dict = Field(default_factory=dict, description="Additional metadata for the note")
@@ -19,7 +24,7 @@ class NoteCreate(NoteBase):
 
 class NoteUpdate(BaseModel):
     """Schema for updating an existing note."""
-    content: Optional[str] = Field(default=None, min_length=1, description="The content of the note")
+    content: Optional[str] = Field(default=None, min_length=1, max_length=NOTE_CONTENT_MAX_LENGTH, description="The content of the note")
     title: Optional[str] = Field(default=None, max_length=255, description="Optional title for the note")
     tags: Optional[List[str]] = Field(default=None, description="List of tags for the note")
     meta_data: Optional[Dict] = Field(default=None, description="Additional metadata for the note")

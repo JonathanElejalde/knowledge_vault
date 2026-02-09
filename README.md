@@ -35,6 +35,7 @@ A modern productivity application that combines Pomodoro time management with in
 - [Installation](#installation)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
+- [Client IP and Proxies](#client-ip-and-proxies)
 - [Development Notes](#development-notes)
 - [Known Limitations](#known-limitations)
 - [Contributing](#contributing)
@@ -167,6 +168,11 @@ ALGORITHM=HS256
 
 # AI Features
 OPENAI_API_KEY=your-openai-api-key
+
+# Proxy (optional). If the app is behind nginx/load balancer, set to that proxy's
+# IP(s) so rate limiting and auth logging use the real client IP from X-Forwarded-For.
+# Comma-separated, e.g. TRUSTED_PROXY_IPS=127.0.0.1,::1 . Leave empty if not behind a proxy.
+TRUSTED_PROXY_IPS=
 ```
 
 ## Usage
@@ -212,6 +218,10 @@ knowledge_vault/
 │   ├── alembic/               # Database migrations
 │   └── docs/                  # Additional documentation
 ```
+
+## Client IP and Proxies
+
+Rate limiting and auth/security logging use the client IP. To avoid spoofing, we only trust `X-Forwarded-For` when the **direct** connection is from a configured trusted proxy (`TRUSTED_PROXY_IPS`). If empty or when the connection is not from a trusted proxy, we use the socket peer IP only. Set `TRUSTED_PROXY_IPS` to your proxy IP(s) when behind nginx or a load balancer so limits and logs are per real client.
 
 ## Development Notes
 

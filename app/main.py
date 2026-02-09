@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from app.api.v1.endpoints import health
 from app.api.v1.api import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.core.security import validate_origin_for_cookie_auth
+from app.core.client_ip import get_client_ip
 from loguru import logger
 from contextlib import asynccontextmanager
 import json
@@ -33,6 +36,8 @@ def get_allowed_origins():
     browsers treat them as different origins.
     """
     origins = parse_allowed_origins(settings.ALLOWED_ORIGINS)
+    extension_origins = parse_allowed_origins(settings.ALLOWED_EXTENSION_ORIGINS)
+    origins = list({*origins, *extension_origins})
     
     if settings.ENVIRONMENT == "development":
         dev_origins = set(origins)
@@ -106,6 +111,38 @@ app = FastAPI(
     redoc_url="/redoc" if settings.ENABLE_DOCS else None,
     openapi_url="/openapi.json" if settings.ENABLE_DOCS else None,
 )
+
+
+# CSRF Origin validation middleware
+@app.middleware("http")
+async def csrf_origin_validation(request: Request, call_next):
+    """Validate Origin/Referer for cookie-authenticated state-changing requests.
+    
+    This provides defense-in-depth CSRF protection alongside SameSite=Lax cookies.
+    Only validates requests that:
+    1. Are state-changing (POST, PUT, DELETE, PATCH)
+    2. Use cookie authentication (not Bearer token)
+    """
+    if not validate_origin_for_cookie_auth(request, allowed_origins):
+        client_ip = get_client_ip(request)
+        origin = request.headers.get("Origin", "missing")
+        referer = request.headers.get("Referer", "missing")
+        
+        logger.warning(
+            f"SECURITY: CSRF origin validation failed | "
+            f"IP: {client_ip} | "
+            f"Method: {request.method} | "
+            f"Path: {request.url.path} | "
+            f"Origin: {origin} | "
+            f"Referer: {referer}"
+        )
+        
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Invalid request origin"}
+        )
+    
+    return await call_next(request)
 
 
 # Security headers middleware

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knowledge Vault Focus</title>
+    <link rel="stylesheet" href="./panel.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <section id="authSection" class="card">
+        <h1>Knowledge Vault Focus</h1>
+        <p class="muted">Sign in to control pomodoro sessions from this panel.</p>
+
+        <form id="loginForm" class="stack">
+          <label>
+            Email
+            <input id="email" type="email" autocomplete="email" required />
+          </label>
+
+          <label>
+            Password
+            <input id="password" type="password" autocomplete="current-password" required />
+          </label>
+
+          <button id="loginButton" type="submit">Sign In</button>
+        </form>
+      </section>
+
+      <section id="appSection" class="card hidden">
+        <header class="header">
+          <div>
+            <p class="muted">Signed in as</p>
+            <p id="userIdentity" class="identity">-</p>
+          </div>
+          <button id="logoutButton" class="ghost" type="button">Log out</button>
+        </header>
+
+        <div class="timer-card">
+          <p id="timerStatus" class="status">No active session</p>
+          <p id="timerDisplay" class="timer">25:00</p>
+        </div>
+
+        <label>
+          Project
+          <select id="projectSelect">
+            <option value="">No project</option>
+          </select>
+        </label>
+
+        <div class="actions">
+          <button id="startButton" type="button">Start</button>
+          <button id="stopButton" type="button" class="secondary">Stop</button>
+          <button id="abandonButton" type="button" class="danger">Abandon</button>
+        </div>
+
+        <button id="openNotesButton" type="button" class="secondary full-width">Open Quick Notes</button>
+      </section>
+
+      <p id="feedback" class="feedback" role="status"></p>
+    </main>
+
+    <script type="module" src="./panel.js"></script>
+  </body>
+</html>

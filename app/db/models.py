@@ -24,22 +24,26 @@ class User(BaseModel, table=True):
     sessions: List["Session"] = Relationship(back_populates="user")
     anki_decks: List["AnkiDeck"] = Relationship(back_populates="user")
     learning_projects: List["LearningProject"] = Relationship(back_populates="user")
+    categories: List["Category"] = Relationship(back_populates="user")
     notes: List["Note"] = Relationship(back_populates="user")
     refresh_tokens: List["RefreshToken"] = Relationship(back_populates="user")
 
 
 class Category(BaseModel, table=True):
-    """Category model for organizing learning projects."""
+    """Category model for organizing learning projects. Scoped per user."""
     __tablename__ = "categories"
     __table_args__ = (
-        Index('idx_categories_name', 'name'),
+        Index('idx_categories_user_id_name', 'user_id', 'name', unique=True),
+        Index('idx_categories_user_id', 'user_id'),
     )
 
-    name: str = Field(sa_type=String(100), unique=True, index=True)
+    user_id: UUID = Field(foreign_key="users.id", index=True)
+    name: str = Field(sa_type=String(100), index=True)
     description: Optional[str] = Field(sa_type=Text, default=None)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
+    user: "User" = Relationship(back_populates="categories")
     learning_projects: List["LearningProject"] = Relationship(back_populates="category")
 
 
@@ -70,6 +74,12 @@ class Session(BaseModel, table=True):
     __table_args__ = (
         Index('idx_sessions_start_time', 'start_time'),
         Index('idx_sessions_learning_project_id', 'learning_project_id'),
+        Index(
+            'uq_sessions_user_in_progress',
+            'user_id',
+            unique=True,
+            postgresql_where=sa.text("status = 'in_progress'")
+        ),
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)

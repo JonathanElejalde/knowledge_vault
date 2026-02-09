@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, UTC
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
+from urllib.parse import urlparse
 from jose import jwt
 from passlib.context import CryptContext
 from fastapi import Response, Request
+from fastapi.security.utils import get_authorization_scheme_param
 from app.core.config import get_settings
 from app.db.models import User, RefreshToken
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,54 @@ import secrets
 import hashlib
 
 settings = get_settings()
+
+
+def validate_origin_for_cookie_auth(
+    request: Request,
+    allowed_origins: List[str]
+) -> bool:
+    """Validate Origin/Referer header for cookie-authenticated requests.
+    
+    This provides defense-in-depth against CSRF attacks for requests that:
+    1. Use cookie authentication (not Bearer token)
+    2. Are state-changing (POST, PUT, DELETE, PATCH)
+    
+    Returns True if the request is safe, False if it should be rejected.
+    
+    Logic:
+    - If request has Authorization header with Bearer token, skip check (extension auth)
+    - For cookie-auth requests, validate Origin header (preferred) or Referer header
+    - Origin/Referer must match one of the allowed origins
+    - If neither header is present on a state-changing request, reject it
+    """
+    # Skip validation for safe methods
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return True
+    
+    # Check if request uses Bearer token auth (extension) - skip CSRF check
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return True
+    
+    # For cookie-auth requests, validate Origin or Referer
+    origin = request.headers.get("Origin")
+    referer = request.headers.get("Referer")
+    
+    # Extract origin from Referer if Origin is not present
+    check_origin = origin
+    if not check_origin and referer:
+        try:
+            parsed = urlparse(referer)
+            check_origin = f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            check_origin = None
+    
+    # If no Origin or Referer on a state-changing request, reject
+    if not check_origin:
+        return False
+    
+    # Validate against allowed origins
+    return check_origin in allowed_origins
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -101,6 +151,17 @@ def get_token_from_cookie(request: Request, cookie_name: str) -> Optional[str]:
     return request.cookies.get(cookie_name)
 
 
+def get_access_token_from_request(request: Request) -> Optional[str]:
+    """Extract access token from Authorization header (Bearer) or auth cookie."""
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        scheme, token = get_authorization_scheme_param(auth_header)
+        if scheme.lower() == "bearer" and token:
+            return token
+
+    return get_token_from_cookie(request, ACCESS_TOKEN_COOKIE_NAME)
+
+
 def generate_refresh_token() -> str:
     """Generate a secure random refresh token."""
     return secrets.token_urlsafe(32)
@@ -164,6 +225,46 @@ async def verify_refresh_token(
         )
     )
     return result.scalars().first()
+
+
+async def rotate_refresh_token(
+    db: AsyncSession,
+    token: str
+) -> Tuple[Optional[str], Optional[RefreshToken], Optional[User]]:
+    """Atomically consume a refresh token and issue a new one (single-use rotation).
+    
+    Uses SELECT ... FOR UPDATE so concurrent requests with the same token
+    cannot both succeed; the second sees the token already revoked.
+    
+    Returns:
+        (new_plaintext_token, new_refresh_token_record, user) if valid,
+        (None, None, None) if token invalid, expired, revoked, or user inactive.
+    """
+    token_hash = hash_refresh_token(token)
+    result = await db.execute(
+        select(RefreshToken)
+        .where(RefreshToken.token_hash == token_hash)
+        .with_for_update()
+    )
+    row = result.scalars().first()
+    if not row or row.expires_at <= datetime.now(UTC) or row.is_revoked:
+        return (None, None, None)
+    user = await db.get(User, row.user_id)
+    if not user or not user.is_active:
+        return (None, None, None)
+    row.is_revoked = True
+    new_plaintext = generate_refresh_token()
+    new_hash = hash_refresh_token(new_plaintext)
+    expires_at = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    new_rt = RefreshToken(
+        user_id=user.id,
+        token_hash=new_hash,
+        expires_at=expires_at
+    )
+    db.add(new_rt)
+    await db.commit()
+    await db.refresh(new_rt)
+    return (new_plaintext, new_rt, user)
 
 
 async def revoke_refresh_token(

@@ -18,5 +18,6 @@ dependencies = [
     "python-multipart>=0.0.20",
     "slowapi>=0.1.9",
     "sqlmodel>=0.0.24",
+    "tiktoken>=0.12.0",
     "uvicorn>=0.34.2",
 ]

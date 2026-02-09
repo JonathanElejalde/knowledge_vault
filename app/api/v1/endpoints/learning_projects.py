@@ -29,8 +29,10 @@ def _map_project_to_response(project: Union[LearningProject, dict]) -> dict:
     
     # Handle ORM object (for backward compatibility)
     response_data = project.__dict__.copy()
-    if project.category:
-        response_data['category_name'] = project.category.name
+    # Avoid triggering lazy loads in async contexts; only use already-loaded relationships.
+    loaded_category = project.__dict__.get('category')
+    if loaded_category:
+        response_data['category_name'] = loaded_category.name
     else:
         response_data['category_name'] = None
     
@@ -40,10 +42,11 @@ def _map_project_to_response(project: Union[LearningProject, dict]) -> dict:
     if 'sessions_count' not in response_data:
         response_data['sessions_count'] = 0
     
-    # Handle sessions for detail response (if present)
-    if hasattr(project, 'sessions') and project.sessions:
+    # Handle sessions for detail response only when relationship was preloaded.
+    loaded_sessions = project.__dict__.get('sessions')
+    if loaded_sessions:
         sessions_data = []
-        for session in project.sessions:
+        for session in loaded_sessions:
             session_dict = {
                 'id': session.id,
                 'user_id': session.user_id,
@@ -83,7 +86,9 @@ async def create_learning_project(
     """
     category_id: Optional[UUID] = None
     if project_in.category_name:
-        category = await crud_categories.get_or_create_category_by_name(db=db, name=project_in.category_name)
+        category = await crud_categories.get_or_create_category_by_name(
+            db=db, user_id=current_user.id, name=project_in.category_name
+        )
         category_id = category.id
     
     created_project = await crud_lp.create_learning_project(
@@ -189,7 +194,9 @@ async def update_learning_project(
     category_id_to_update: Optional[UUID] = existing_project.category_id # Keep existing if not changed
 
     if project_in.category_name is not None:
-        category = await crud_categories.get_or_create_category_by_name(db=db, name=project_in.category_name)
+        category = await crud_categories.get_or_create_category_by_name(
+            db=db, user_id=current_user.id, name=project_in.category_name
+        )
         category_id_to_update = category.id
     elif 'category_name' in project_in.model_fields_set and project_in.category_name is None:
         # Explicitly setting category to None

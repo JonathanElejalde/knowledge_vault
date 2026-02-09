@@ -156,6 +156,7 @@ export function usePomodoro(): UsePomodoroState {
       };
       
       const session = await pomodoroApi.startSession(sessionData);
+      const sessionStartTime = new Date(session.start_time).getTime();
       
       setCurrentSession(session);
       
@@ -164,7 +165,11 @@ export function usePomodoro(): UsePomodoroState {
       completionInProgressRef.current = false;
       sessionIdRef.current = session.id;
       
-      startGlobalTimer(session.id, projectId || selectedProjectId || undefined);
+      startGlobalTimer(
+        session.id,
+        session.learning_project_id || projectId || selectedProjectId || undefined,
+        Number.isFinite(sessionStartTime) ? sessionStartTime : undefined
+      );
       
     } catch (error) {
       console.warn('⚠️ API session creation failed, using fallback:', error);

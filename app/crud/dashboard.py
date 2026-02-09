@@ -21,6 +21,26 @@ from app.schemas.dashboard import (
 )
 
 
+def _safe_timezone_expr(column_expr: str, timezone: str) -> text:
+    """Safely construct PostgreSQL AT TIME ZONE expression.
+    
+    IMPORTANT: The timezone parameter MUST be validated against IANA timezone
+    database before calling this function. This function assumes the timezone
+    is already validated and safe to use in SQL.
+    
+    Args:
+        column_expr: Column expression (e.g., "created_at", "start_time")
+        timezone: Validated IANA timezone name (e.g., "America/New_York")
+        
+    Returns:
+        SQLAlchemy text() expression for AT TIME ZONE conversion
+    """
+    # Escape single quotes in timezone name (defense in depth, though
+    # validated IANA timezones shouldn't contain quotes)
+    escaped_timezone = timezone.replace("'", "''")
+    return text(f"{column_expr} AT TIME ZONE '{escaped_timezone}'")
+
+
 def _get_date_range(period: str) -> Tuple[datetime, datetime]:
     """Get the date range based on the period selection (UTC-based).
     
@@ -266,9 +286,11 @@ async def _get_earliest_activity_date(
         The earliest activity date in user's local timezone, or None if no activity.
     """
     # Get earliest session date
+    # Note: user_timezone is validated at endpoint level before reaching here
+    timezone_expr = _safe_timezone_expr("created_at", user_timezone)
     earliest_session_query = (
         select(
-            func.min(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
+            func.min(func.date(timezone_expr))
         )
         .where(Session.user_id == user_id)
     )
@@ -276,7 +298,7 @@ async def _get_earliest_activity_date(
     # Get earliest note date
     earliest_note_query = (
         select(
-            func.min(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
+            func.min(func.date(timezone_expr))
         )
         .where(Note.user_id == user_id)
     )
@@ -339,7 +361,9 @@ async def get_daily_activity(
         note_conditions.append(Note.created_at >= utc_start)
     
     # Local date expression for grouping
-    local_date_expr = func.date(text(f"created_at AT TIME ZONE '{user_timezone}'"))
+    # Note: user_timezone is validated at endpoint level before reaching here
+    timezone_expr = _safe_timezone_expr("created_at", user_timezone)
+    local_date_expr = func.date(timezone_expr)
     
     # Get completed sessions grouped by local date
     completed_sessions_query = (
@@ -361,14 +385,15 @@ async def get_daily_activity(
         .group_by(local_date_expr)
     )
     
-    # Get notes grouped by local date using PostgreSQL timezone conversion  
+    # Get notes grouped by local date using PostgreSQL timezone conversion
+    # Note: user_timezone is validated at endpoint level before reaching here
     notes_query = (
         select(
-            func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")).label('activity_date'),
+            func.date(timezone_expr).label('activity_date'),
             func.count(Note.id).label('notes_count')
         )
         .where(and_(*note_conditions))
-        .group_by(func.date(text(f"created_at AT TIME ZONE '{user_timezone}'")))
+        .group_by(func.date(timezone_expr))
     )
     
     # Execute all queries
@@ -472,7 +497,8 @@ async def get_focus_heatmap(
     
     # PostgreSQL: Extract day of week and hour from start_time converted to user's timezone
     # ISODOW gives 1=Monday, 7=Sunday, so we subtract 1 to get 0=Monday, 6=Sunday
-    local_time_expr = text(f"start_time AT TIME ZONE '{user_timezone}'")
+    # Note: user_timezone is validated at endpoint level before reaching here
+    local_time_expr = _safe_timezone_expr("start_time", user_timezone)
     day_of_week_expr = func.extract('isodow', local_time_expr) - 1
     hour_expr = func.extract('hour', local_time_expr)
     

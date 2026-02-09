@@ -1,6 +1,8 @@
-from typing import Annotated, List
+from typing import Annotated, List, Optional
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User
@@ -33,16 +35,54 @@ def validate_period(period: str) -> str:
     return period
 
 
+def validate_timezone(timezone: Optional[str]) -> str:
+    """Validate timezone against IANA timezone database.
+    
+    This function prevents SQL injection by ensuring only valid IANA timezone
+    names are accepted. Invalid timezones are rejected with a 400 error.
+    
+    Args:
+        timezone: Timezone string from header (e.g., "America/New_York")
+        
+    Returns:
+        Validated timezone string
+        
+    Raises:
+        HTTPException: 400 if timezone is invalid (not a valid IANA timezone)
+    """
+    if not timezone:
+        return "UTC"  # Default for missing header
+    
+    try:
+        # Validate against IANA timezone database
+        # This will raise ValueError if timezone is invalid
+        ZoneInfo(timezone)
+        return timezone
+    except ValueError:
+        # Invalid timezone - log and reject
+        logger.warning(f"SECURITY: Invalid timezone received: {timezone}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid timezone '{timezone}'. Must be a valid IANA timezone name (e.g., 'America/New_York', 'UTC', 'Europe/London')."
+        )
+
+
 def get_user_timezone(x_timezone: str = Header(None)) -> str:
-    """Extract user timezone from headers.
+    """Extract and validate user timezone from headers.
+    
+    Validates the timezone against the IANA timezone database to prevent
+    SQL injection attacks. Returns UTC as fallback if header is missing.
     
     Args:
         x_timezone: Timezone from X-Timezone header (e.g., "America/Bogota")
         
     Returns:
-        User's timezone string or UTC as fallback
+        Validated timezone string or UTC as fallback
+        
+    Raises:
+        HTTPException: 400 if timezone is invalid
     """
-    return x_timezone or "UTC"
+    return validate_timezone(x_timezone)
 
 
 @router.get("/", response_model=DashboardResponse)

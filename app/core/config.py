@@ -1,4 +1,5 @@
 from typing import List
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -20,10 +21,11 @@ class Settings(BaseSettings):
     # CORS settings
     # Note: Origins list is expanded in main.py to include 127.0.0.1 variants for development
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    ALLOWED_EXTENSION_ORIGINS: List[str] = []
     ALLOW_CREDENTIALS: bool = True  # Enable credentials for cookie support
 
     # Security settings
-    SECRET_KEY: str
+    SECRET_KEY: str = Field(..., min_length=64)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for refresh tokens
@@ -32,6 +34,10 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False  # Set to True in production (HTTPS only)
     COOKIE_SAMESITE: str = "lax"  # "strict" for production, "lax" for development
     COOKIE_HTTP_ONLY: bool = True
+
+    # Trusted proxy IPs (comma-separated): only when the direct connection is from
+    # one of these do we trust X-Forwarded-For / X-Real-IP. Empty = never trust.
+    TRUSTED_PROXY_IPS: str = ""
 
     # Rate limiting settings (requests per minute)
     RATE_LIMIT_LOGIN: str = "5/minute"
@@ -56,6 +62,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra env vars (e.g. VITE_* for frontend); backend only uses fields above
 
 
 @lru_cache()

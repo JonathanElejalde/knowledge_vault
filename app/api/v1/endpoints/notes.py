@@ -1,12 +1,13 @@
 from typing import Annotated, List, Optional, Union
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User, Note
 from app.db.session import get_db
 from app.crud import notes as crud_notes
+from app.crud.notes import InvalidLearningProjectError
 from app.schemas.notes import (
     NoteCreate,
     NoteUpdate,
@@ -45,6 +46,7 @@ def _map_note_to_response(note: Union[Note, dict]) -> dict:
 @router.post("/", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
 async def create_note(
     note_in: NoteCreate,
+    background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> NoteResponse:
@@ -52,6 +54,7 @@ async def create_note(
 
     Args:
         note_in: The note data to create.
+        background_tasks: FastAPI background tasks (embedding runs after response).
         current_user: The authenticated user creating the note.
         db: The database session.
 
@@ -61,6 +64,12 @@ async def create_note(
     created_note = await crud_notes.create_note(
         db=db, user_id=current_user.id, note_in=note_in
     )
+    if not created_note:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot create note: the specified learning project does not exist or does not belong to you."
+        )
+    background_tasks.add_task(crud_notes.background_embed_note, created_note.id, current_user.id)
     return NoteResponse.model_validate(_map_note_to_response(created_note))
 
 
@@ -132,6 +141,7 @@ async def get_note(
 async def update_note(
     note_id: UUID,
     note_in: NoteUpdate,
+    background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> NoteResponse:
@@ -140,6 +150,7 @@ async def update_note(
     Args:
         note_id: The ID of the note to update.
         note_in: The note data to update.
+        background_tasks: FastAPI background tasks (embedding runs after response).
         current_user: The authenticated user.
         db: The database session.
 
@@ -149,11 +160,20 @@ async def update_note(
     Raises:
         HTTPException: 404 if the note is not found.
     """
-    updated_note = await crud_notes.update_note(
-        db=db, note_id=note_id, user_id=current_user.id, note_in=note_in
-    )
+    content_changed = any(k in note_in.model_dump(exclude_unset=True) for k in ("content", "title", "tags"))
+    try:
+        updated_note = await crud_notes.update_note(
+            db=db, note_id=note_id, user_id=current_user.id, note_in=note_in
+        )
+    except InvalidLearningProjectError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot update note: the specified learning project does not exist or does not belong to you."
+        )
     if not updated_note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+    if content_changed:
+        background_tasks.add_task(crud_notes.background_embed_note, note_id, current_user.id)
     return NoteResponse.model_validate(_map_note_to_response(updated_note))
 
 

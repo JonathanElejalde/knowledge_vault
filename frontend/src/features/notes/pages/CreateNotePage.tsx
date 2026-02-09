@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { NoteEditor } from '@/components/atoms/NoteEditor';
 import { useNotes } from '../hooks/internal';
 import type { NoteCreate } from '@/services/api/types/notes';
@@ -7,6 +7,7 @@ import type { NoteCreate } from '@/services/api/types/notes';
 export default function EditCreateNotePage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { createNote, updateNote, notes } = useNotes();
   
   // Find the note to edit if we're in edit mode
@@ -45,6 +46,10 @@ export default function EditCreateNotePage() {
   };
 
   const draftKey = id ? `note-editor:edit:${id}` : 'note-editor:create';
+  const queryProjectId = searchParams.get('projectId') || undefined;
+  const initialProjectId = isEditMode
+    ? noteToEdit?.learning_project_id || undefined
+    : queryProjectId;
 
   // Show loading state while waiting for note data in edit mode
   if (isLoadingNote) {
@@ -66,7 +71,7 @@ export default function EditCreateNotePage() {
           initialTitle={noteToEdit?.title || ''}
           initialContent={noteToEdit?.content || ''}
           initialTags={noteToEdit?.tags || []}
-          projectId={noteToEdit?.learning_project_id || undefined}
+          projectId={initialProjectId}
           isEditMode={isEditMode}
           draftKey={draftKey}
           onSave={handleSave}
