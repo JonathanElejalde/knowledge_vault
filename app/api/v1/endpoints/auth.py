@@ -35,6 +35,7 @@ from app.api.dependencies import (
 from app.db.session import get_db
 from app.core.config import get_settings
 from app.core.client_ip import get_client_ip
+from app.core.rate_limiting import check_rate_limit
 from loguru import logger
 
 settings = get_settings()
@@ -157,6 +158,25 @@ async def login_access_token(
     _: Annotated[bool, login_rate_limit]  # Rate limit: 5 attempts per minute per IP
 ) -> UserPublic:
     """OAuth2 compatible token login, set HTTP-only cookies for future requests."""
+    # Per-account rate limit (defense against credential stuffing from distributed IPs)
+    is_allowed, rate_info = check_rate_limit(
+        request, settings.RATE_LIMIT_LOGIN_ACCOUNT, "email", email=form_data.username
+    )
+    if not is_allowed:
+        logger.warning(
+            "SECURITY: Login rate limit exceeded (per account) | "
+            f"Email: [REDACTED] | Limit: {rate_info['limit']}/{rate_info.get('retry_after', 0)}s"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Try again in {rate_info['retry_after']} seconds.",
+            headers={
+                "X-RateLimit-Limit": str(rate_info["limit"]),
+                "X-RateLimit-Remaining": str(rate_info["remaining"]),
+                "X-RateLimit-Reset": str(rate_info["reset"]),
+                "Retry-After": str(rate_info["retry_after"]),
+            },
+        )
     client_ip = get_client_ip(request)
     user = await _authenticate_user(
         db=db,
@@ -231,6 +251,25 @@ async def extension_login(
     _: Annotated[bool, login_rate_limit]
 ) -> Token:
     """Login endpoint for browser extensions using bearer + refresh tokens."""
+    # Per-account rate limit (defense against credential stuffing from distributed IPs)
+    is_allowed, rate_info = check_rate_limit(
+        request, settings.RATE_LIMIT_LOGIN_ACCOUNT, "email", email=payload.email
+    )
+    if not is_allowed:
+        logger.warning(
+            "SECURITY: Extension login rate limit exceeded (per account) | "
+            f"Email: [REDACTED] | Limit: {rate_info['limit']}/{rate_info.get('retry_after', 0)}s"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Try again in {rate_info['retry_after']} seconds.",
+            headers={
+                "X-RateLimit-Limit": str(rate_info["limit"]),
+                "X-RateLimit-Remaining": str(rate_info["remaining"]),
+                "X-RateLimit-Reset": str(rate_info["reset"]),
+                "Retry-After": str(rate_info["retry_after"]),
+            },
+        )
     client_ip = get_client_ip(request)
     user = await _authenticate_user(
         db=db,

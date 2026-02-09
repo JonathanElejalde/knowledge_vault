@@ -209,7 +209,7 @@ async def get_user_notes(
                     for note_id in result_ids[skip:skip + limit]:  # Apply pagination
                         note_result = await db.execute(
                             select(Note)
-                            .where(Note.id == UUID(note_id))
+                            .where(and_(Note.id == UUID(note_id), Note.user_id == user_id))
                             .options(selectinload(Note.learning_project))
                         )
                         note = note_result.scalars().first()

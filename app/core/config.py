@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     # Rate limiting settings (requests per minute)
     RATE_LIMIT_LOGIN: str = "5/minute"
+    RATE_LIMIT_LOGIN_ACCOUNT: str = "5/minute"  # Per email/account (defense against credential stuffing)
     RATE_LIMIT_LOGIN_USER: str = "3/minute"
     RATE_LIMIT_REGISTER: str = "2/minute"
     RATE_LIMIT_REFRESH: str = "10/minute"

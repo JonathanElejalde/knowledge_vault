@@ -129,14 +129,20 @@ def parse_rate_limit(rate_string: str) -> Tuple[int, int]:
         return 5, 60
 
 
-def get_rate_limit_key(request: Request, identifier_type: str, user_id: Optional[str] = None) -> str:
+def get_rate_limit_key(
+    request: Request,
+    identifier_type: str,
+    user_id: Optional[str] = None,
+    email: Optional[str] = None,
+) -> str:
     """
     Generate rate limit key based on identifier type.
     
     Args:
         request: FastAPI request object
-        identifier_type: Type of identifier ("ip", "user", "ip_user")
+        identifier_type: Type of identifier ("ip", "user", "ip_user", "email")
         user_id: User ID for user-based rate limiting
+        email: Email for account-based rate limiting (login)
         
     Returns:
         Rate limit key string
@@ -149,16 +155,20 @@ def get_rate_limit_key(request: Request, identifier_type: str, user_id: Optional
         return f"user:{user_id}"
     elif identifier_type == "ip_user" and user_id:
         return f"ip_user:{client_ip}:{user_id}"
+    elif identifier_type == "email" and email:
+        normalized = email.strip().lower()
+        return f"email:{normalized}"
     else:
         # Fallback to IP-based limiting
         return f"ip:{client_ip}"
 
 
 def check_rate_limit(
-    request: Request, 
-    rate_limit_string: str, 
+    request: Request,
+    rate_limit_string: str,
     identifier_type: str = "ip",
-    user_id: Optional[str] = None
+    user_id: Optional[str] = None,
+    email: Optional[str] = None,
 ) -> Tuple[bool, Dict[str, int]]:
     """
     Check if request is within rate limit.
@@ -166,8 +176,9 @@ def check_rate_limit(
     Args:
         request: FastAPI request object
         rate_limit_string: Rate limit string (e.g., "5/minute")
-        identifier_type: Type of identifier ("ip", "user", "ip_user")
+        identifier_type: Type of identifier ("ip", "user", "ip_user", "email")
         user_id: User ID for user-based rate limiting
+        email: Email for account-based rate limiting (login)
         
     Returns:
         Tuple of (is_allowed, rate_limit_headers)
@@ -176,7 +187,7 @@ def check_rate_limit(
     limit, window_seconds = parse_rate_limit(rate_limit_string)
     
     # Generate rate limit key
-    key = get_rate_limit_key(request, identifier_type, user_id)
+    key = get_rate_limit_key(request, identifier_type, user_id, email)
     
     # Check rate limit
     is_allowed, rate_info = rate_limiter.is_allowed(key, limit, window_seconds)
