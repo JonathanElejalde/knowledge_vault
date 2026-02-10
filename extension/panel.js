@@ -22,7 +22,6 @@ const elements = {
 
 let activeTimerState = null;
 let timerIntervalId = null;
-let syncIntervalId = null;
 
 function setFeedback(message) {
   elements.feedback.textContent = message || "";
@@ -96,27 +95,12 @@ function startTimerRendering() {
   }
   timerIntervalId = window.setInterval(renderTimer, 1000);
   renderTimer();
-
-  if (syncIntervalId) {
-    window.clearInterval(syncIntervalId);
-  }
-  syncIntervalId = window.setInterval(async () => {
-    try {
-      await syncTimerState();
-    } catch {
-      // Ignore intermittent sync errors; user actions can still retry explicitly.
-    }
-  }, 15000);
 }
 
 function stopTimerRendering() {
   if (timerIntervalId) {
     window.clearInterval(timerIntervalId);
     timerIntervalId = null;
-  }
-  if (syncIntervalId) {
-    window.clearInterval(syncIntervalId);
-    syncIntervalId = null;
   }
 }
 

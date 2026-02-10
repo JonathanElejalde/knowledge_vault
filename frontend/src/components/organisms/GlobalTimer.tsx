@@ -43,8 +43,7 @@ export function GlobalTimer() {
       const localSessionId = state.currentSessionId;
 
       if (!activeSession) {
-        // Keep fallback local-only sessions untouched; clear stale backend sessions.
-        if (localSessionId && !localSessionId.startsWith('fallback-')) {
+        if (localSessionId) {
           resetGlobalTimer();
         }
         return;
@@ -79,10 +78,6 @@ export function GlobalTimer() {
   useEffect(() => {
     void syncActiveSession();
 
-    const intervalId = window.setInterval(() => {
-      void syncActiveSession();
-    }, 15000);
-
     const handleFocus = () => {
       void syncActiveSession();
     };
@@ -97,7 +92,6 @@ export function GlobalTimer() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.clearInterval(intervalId);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };

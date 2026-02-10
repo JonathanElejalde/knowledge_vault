@@ -97,7 +97,7 @@ export const pomodoroApi = {
    */
   getSessions: async (filters?: SessionFilters): Promise<PomodoroSessionWithProject[]> => {
     try {
-      const response = await api.get<PomodoroSessionWithProject[]>('/pomodoro/sessions/', {
+      const response = await api.get<PomodoroSessionWithProject[]>('/pomodoro/sessions', {
         params: filters,
       });
       return response.data;

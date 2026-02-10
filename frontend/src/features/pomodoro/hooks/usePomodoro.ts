@@ -95,8 +95,7 @@ export function usePomodoro(): UsePomodoroState {
       completedIntervals > previousCompletedIntervalsRef.current &&
       previousTimerStateRef.current === 'work' &&
       !completionInProgressRef.current &&
-      sessionIdRef.current &&
-      !sessionIdRef.current.startsWith('fallback-') // Don't complete fallback sessions
+      sessionIdRef.current
     );
 
     if (shouldCompleteSession) {
@@ -107,7 +106,7 @@ export function usePomodoro(): UsePomodoroState {
       const completeWorkSession = async () => {
         try {
           const sessionId = sessionIdRef.current;
-          if (sessionId && !sessionId.startsWith('fallback-')) {
+          if (sessionId) {
             console.log('🎯 Completing work session:', sessionId);
             
             await pomodoroApi.completeSession(sessionId, {
@@ -145,8 +144,28 @@ export function usePomodoro(): UsePomodoroState {
     }
   }, [isRunning, currentSessionId, updateHeartbeat]);
 
-  // ✅ IMPROVED: Start timer action with better error handling
+  // ✅ IMPROVED: Start timer action with backend-first consistency
   const startTimer = useCallback(async (projectId?: string) => {
+    const hydrateSession = (
+      session: PomodoroSession,
+      fallbackProjectId?: string | null
+    ) => {
+      const sessionStartTime = new Date(session.start_time).getTime();
+
+      setCurrentSession(session);
+
+      // Reset completion tracking refs for the hydrated server session
+      previousCompletedIntervalsRef.current = completedIntervals;
+      completionInProgressRef.current = false;
+      sessionIdRef.current = session.id;
+
+      startGlobalTimer(
+        session.id,
+        session.learning_project_id || fallbackProjectId || selectedProjectId || undefined,
+        Number.isFinite(sessionStartTime) ? sessionStartTime : undefined
+      );
+    };
+
     try {
       const sessionData = {
         learning_project_id: projectId || selectedProjectId || undefined,
@@ -156,49 +175,28 @@ export function usePomodoro(): UsePomodoroState {
       };
       
       const session = await pomodoroApi.startSession(sessionData);
-      const sessionStartTime = new Date(session.start_time).getTime();
-      
-      setCurrentSession(session);
-      
-      // Reset the completion tracking refs for the new session
-      previousCompletedIntervalsRef.current = completedIntervals;
-      completionInProgressRef.current = false;
-      sessionIdRef.current = session.id;
-      
-      startGlobalTimer(
-        session.id,
-        session.learning_project_id || projectId || selectedProjectId || undefined,
-        Number.isFinite(sessionStartTime) ? sessionStartTime : undefined
-      );
-      
+      hydrateSession(session, projectId);
     } catch (error) {
-      console.warn('⚠️ API session creation failed, using fallback:', error);
-      
-      // Fallback: start timer without API session
-      const fallbackSessionId = `fallback-${Date.now()}`;
-      const fallbackSession = {
-        id: fallbackSessionId,
-        user_id: 'unknown',
-        learning_project_id: projectId || selectedProjectId || undefined,
-        session_type: 'work',
-        status: 'in_progress',
-        start_time: new Date().toISOString(),
-        work_duration: safePreferences.work_duration,
-        break_duration: safePreferences.break_duration,
-        actual_duration: undefined,
-        end_time: undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as PomodoroSession;
-      
-      setCurrentSession(fallbackSession);
-      
-      // Reset the completion tracking refs for the fallback session too
-      previousCompletedIntervalsRef.current = completedIntervals;
-      completionInProgressRef.current = false;
-      sessionIdRef.current = fallbackSessionId;
-      
-      startGlobalTimer(fallbackSessionId, projectId || selectedProjectId || undefined);
+      console.warn('⚠️ Session start failed, attempting active-session recovery:', error);
+
+      // If start fails (network/race), try hydrating an already-running session.
+      try {
+        const sessions = await pomodoroApi.getSessions({
+          status: 'in_progress',
+          limit: 1,
+          skip: 0,
+        });
+        const activeSession = sessions?.[0];
+
+        if (activeSession) {
+          hydrateSession(activeSession, projectId);
+          return;
+        }
+      } catch (recoveryError) {
+        console.error('❌ Active session recovery failed:', recoveryError);
+      }
+
+      throw error;
     }
   }, [safePreferences, selectedProjectId, startGlobalTimer, completedIntervals]);
 
@@ -218,7 +216,7 @@ export function usePomodoro(): UsePomodoroState {
       const sessionId = currentSessionId || sessionIdRef.current;
       
       // Only call API if we have a valid session
-      if (sessionId && !sessionId.startsWith('fallback-')) {
+      if (sessionId) {
         // Calculate actual duration worked using store state
         const storeState = usePomodoroStore.getState();
         let actualDurationSeconds = 0;
@@ -239,9 +237,6 @@ export function usePomodoro(): UsePomodoroState {
         
         triggerSummaryRefresh();
         triggerWeeklyStatsRefresh();
-      } else {
-        // Clear session state for fallback sessions
-        setCurrentSession(null);
       }
       
       // Always reset timer regardless of API success/failure or session state
@@ -285,7 +280,7 @@ export function usePomodoro(): UsePomodoroState {
   // ✅ RECOVERY: Initialize session recovery if needed
   useEffect(() => {
     // If we have a persisted currentSessionId but no currentSession, try to recover
-    if (currentSessionId && !currentSession && !currentSessionId.startsWith('fallback-')) {
+    if (currentSessionId && !currentSession) {
       // Create a placeholder session for UI purposes
       const recoveredSession = {
         id: currentSessionId,

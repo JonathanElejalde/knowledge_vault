@@ -31,7 +31,6 @@ let activeTimerState = null;
 let selectedProjectId = null;
 let availableProjects = [];
 let timerIntervalId = null;
-let syncIntervalId = null;
 let abandonDeadlineMs = 0;
 let abandonResetTimeoutId = null;
 let themeMediaQuery = null;
@@ -289,27 +288,12 @@ function startTimerRendering() {
   }
   timerIntervalId = window.setInterval(renderTimer, 1000);
   renderTimer();
-
-  if (syncIntervalId) {
-    window.clearInterval(syncIntervalId);
-  }
-  syncIntervalId = window.setInterval(async () => {
-    try {
-      await syncTimerState();
-    } catch {
-      // Ignore transient sync failures while popup is open.
-    }
-  }, 15000);
 }
 
 function stopTimerRendering() {
   if (timerIntervalId) {
     window.clearInterval(timerIntervalId);
     timerIntervalId = null;
-  }
-  if (syncIntervalId) {
-    window.clearInterval(syncIntervalId);
-    syncIntervalId = null;
   }
 }
 
