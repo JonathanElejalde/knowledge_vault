@@ -8,16 +8,11 @@ from app.db.models import User, Note
 from app.db.session import get_db
 from app.crud import notes as crud_notes
 from app.crud.notes import InvalidLearningProjectError
-from app.schemas.notes import (
-    NoteCreate,
-    NoteUpdate,
-    NoteResponse,
-    NoteDetailResponse
-)
+from app.schemas.notes import NoteCreate, NoteUpdate, NoteResponse, NoteDetailResponse
 
 router = APIRouter(
     tags=["Notes"],
-    dependencies=[general_rate_limit]  # Apply rate limiting to all notes endpoints
+    dependencies=[general_rate_limit],  # Apply rate limiting to all notes endpoints
 )
 
 
@@ -26,20 +21,20 @@ def _map_note_to_response(note: Union[Note, dict]) -> dict:
     if isinstance(note, dict):
         # Already a dictionary from semantic search with similarity score
         return note
-    
+
     # Handle ORM object (for backward compatibility)
     response_data = note.__dict__.copy()
-    
+
     # Add related data for detail response if available
-    if hasattr(note, 'learning_project') and note.learning_project:
-        response_data['learning_project_name'] = note.learning_project.name
-    elif 'learning_project_name' not in response_data:
-        response_data['learning_project_name'] = None
-    
+    if hasattr(note, "learning_project") and note.learning_project:
+        response_data["learning_project_name"] = note.learning_project.name
+    elif "learning_project_name" not in response_data:
+        response_data["learning_project_name"] = None
+
     # For regular (non-semantic) search, similarity_score is None
-    if 'similarity_score' not in response_data:
-        response_data['similarity_score'] = None
-    
+    if "similarity_score" not in response_data:
+        response_data["similarity_score"] = None
+
     return response_data
 
 
@@ -48,7 +43,7 @@ async def create_note(
     note_in: NoteCreate,
     background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> NoteResponse:
     """Create a new note for the current user.
 
@@ -67,9 +62,11 @@ async def create_note(
     if not created_note:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot create note: the specified learning project does not exist or does not belong to you."
+            detail="Cannot create note: the specified learning project does not exist or does not belong to you.",
         )
-    background_tasks.add_task(crud_notes.background_embed_note, created_note.id, current_user.id)
+    background_tasks.add_task(
+        crud_notes.background_embed_note, created_note.id, current_user.id
+    )
     return NoteResponse.model_validate(_map_note_to_response(created_note))
 
 
@@ -79,10 +76,22 @@ async def list_notes(
     db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    learning_project_id: Optional[UUID] = Query(None, description="Filter notes by learning project ID"),
-    tags: Optional[List[str]] = Query(None, description="Filter notes containing any of these tags"),
-    q: Optional[str] = Query(None, max_length=255, description="Search query to filter notes by title or content (case-insensitive partial match)"),
-    semantic_q: Optional[str] = Query(None, max_length=255, description="Semantic search query using AI embeddings for natural language search")
+    learning_project_id: Optional[UUID] = Query(
+        None, description="Filter notes by learning project ID"
+    ),
+    tags: Optional[List[str]] = Query(
+        None, description="Filter notes containing any of these tags"
+    ),
+    q: Optional[str] = Query(
+        None,
+        max_length=255,
+        description="Search query to filter notes by title or content (case-insensitive partial match)",
+    ),
+    semantic_q: Optional[str] = Query(
+        None,
+        max_length=255,
+        description="Semantic search query using AI embeddings for natural language search",
+    ),
 ) -> List[NoteDetailResponse]:
     """List notes for the current user with optional filters and semantic search.
 
@@ -107,7 +116,7 @@ async def list_notes(
         learning_project_id=learning_project_id,
         tags=tags,
         search_query=q,
-        semantic_query=semantic_q
+        semantic_query=semantic_q,
     )
     return [NoteDetailResponse.model_validate(_map_note_to_response(n)) for n in notes]
 
@@ -116,7 +125,7 @@ async def list_notes(
 async def get_note(
     note_id: UUID,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> NoteDetailResponse:
     """Get a specific note by ID, including related data.
 
@@ -133,7 +142,9 @@ async def get_note(
     """
     note = await crud_notes.get_note(db=db, note_id=note_id, user_id=current_user.id)
     if not note:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
+        )
     return NoteDetailResponse.model_validate(_map_note_to_response(note))
 
 
@@ -143,7 +154,7 @@ async def update_note(
     note_in: NoteUpdate,
     background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> NoteResponse:
     """Update an existing note.
 
@@ -160,7 +171,10 @@ async def update_note(
     Raises:
         HTTPException: 404 if the note is not found.
     """
-    content_changed = any(k in note_in.model_dump(exclude_unset=True) for k in ("content", "title", "tags"))
+    content_changed = any(
+        k in note_in.model_dump(exclude_unset=True)
+        for k in ("content", "title", "tags")
+    )
     try:
         updated_note = await crud_notes.update_note(
             db=db, note_id=note_id, user_id=current_user.id, note_in=note_in
@@ -168,20 +182,26 @@ async def update_note(
     except InvalidLearningProjectError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot update note: the specified learning project does not exist or does not belong to you."
+            detail="Cannot update note: the specified learning project does not exist or does not belong to you.",
         )
     if not updated_note:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
+        )
     if content_changed:
-        background_tasks.add_task(crud_notes.background_embed_note, note_id, current_user.id)
+        background_tasks.add_task(
+            crud_notes.background_embed_note, note_id, current_user.id
+        )
     return NoteResponse.model_validate(_map_note_to_response(updated_note))
 
 
-@router.delete("/{note_id}", response_model=NoteResponse, status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{note_id}", response_model=NoteResponse, status_code=status.HTTP_200_OK
+)
 async def delete_note(
     note_id: UUID,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> NoteResponse:
     """Delete a note.
 
@@ -200,5 +220,7 @@ async def delete_note(
         db=db, note_id=note_id, user_id=current_user.id
     )
     if not deleted_note:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
+        )
     return NoteResponse.model_validate(_map_note_to_response(deleted_note))

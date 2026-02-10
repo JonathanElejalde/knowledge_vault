@@ -13,16 +13,16 @@ from app.schemas.dashboard import (
     ProjectStatsResponse,
     DailyActivityResponse,
     SessionTimeResponse,
-    DashboardResponse
+    DashboardResponse,
 )
 
 router = APIRouter(
     tags=["Dashboard"],
-    dependencies=[general_rate_limit]  # Apply rate limiting to all dashboard endpoints
+    dependencies=[general_rate_limit],  # Apply rate limiting to all dashboard endpoints
 )
 
 # Valid period options
-VALID_PERIODS = ['7d', '2w', '4w', '3m', '1y', 'all']
+VALID_PERIODS = ["7d", "2w", "4w", "3m", "1y", "all"]
 
 
 def validate_period(period: str) -> str:
@@ -30,29 +30,29 @@ def validate_period(period: str) -> str:
     if period not in VALID_PERIODS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid period. Must be one of: {', '.join(VALID_PERIODS)}"
+            detail=f"Invalid period. Must be one of: {', '.join(VALID_PERIODS)}",
         )
     return period
 
 
 def validate_timezone(timezone: Optional[str]) -> str:
     """Validate timezone against IANA timezone database.
-    
+
     This function prevents SQL injection by ensuring only valid IANA timezone
     names are accepted. Invalid timezones are rejected with a 400 error.
-    
+
     Args:
         timezone: Timezone string from header (e.g., "America/New_York")
-        
+
     Returns:
         Validated timezone string
-        
+
     Raises:
         HTTPException: 400 if timezone is invalid (not a valid IANA timezone)
     """
     if not timezone:
         return "UTC"  # Default for missing header
-    
+
     try:
         # Validate against IANA timezone database
         # This will raise ValueError if timezone is invalid
@@ -63,22 +63,22 @@ def validate_timezone(timezone: Optional[str]) -> str:
         logger.warning(f"SECURITY: Invalid timezone received: {timezone}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid timezone '{timezone}'. Must be a valid IANA timezone name (e.g., 'America/New_York', 'UTC', 'Europe/London')."
+            detail=f"Invalid timezone '{timezone}'. Must be a valid IANA timezone name (e.g., 'America/New_York', 'UTC', 'Europe/London').",
         )
 
 
 def get_user_timezone(x_timezone: str = Header(None)) -> str:
     """Extract and validate user timezone from headers.
-    
+
     Validates the timezone against the IANA timezone database to prevent
     SQL injection attacks. Returns UTC as fallback if header is missing.
-    
+
     Args:
         x_timezone: Timezone from X-Timezone header (e.g., "America/Bogota")
-        
+
     Returns:
         Validated timezone string or UTC as fallback
-        
+
     Raises:
         HTTPException: 400 if timezone is invalid
     """
@@ -90,11 +90,11 @@ async def get_dashboard(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     period: str = Query(
-        default='7d',
+        default="7d",
         description="Time period for dashboard data",
-        regex='^(7d|2w|4w|3m|1y|all)$'
+        regex="^(7d|2w|4w|3m|1y|all)$",
     ),
-    user_timezone: str = Depends(get_user_timezone)
+    user_timezone: str = Depends(get_user_timezone),
 ) -> DashboardResponse:
     """Get complete dashboard data for the current user.
 
@@ -108,11 +108,14 @@ async def get_dashboard(
         Complete dashboard data including stats, project stats, and chart data.
     """
     validated_period = validate_period(period)
-    
+
     dashboard_data = await crud_dashboard.get_dashboard_data(
-        db=db, user_id=current_user.id, period=validated_period, user_timezone=user_timezone
+        db=db,
+        user_id=current_user.id,
+        period=validated_period,
+        user_timezone=user_timezone,
     )
-    
+
     return dashboard_data
 
 
@@ -121,10 +124,10 @@ async def get_dashboard_stats(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     period: str = Query(
-        default='7d',
+        default="7d",
         description="Time period for dashboard statistics",
-        regex='^(7d|2w|4w|3m|1y|all)$'
-    )
+        regex="^(7d|2w|4w|3m|1y|all)$",
+    ),
 ) -> DashboardStatsResponse:
     """Get dashboard statistics for the current user.
 
@@ -137,11 +140,11 @@ async def get_dashboard_stats(
         Dashboard statistics including focus time, notes created, and project counts.
     """
     validated_period = validate_period(period)
-    
+
     stats = await crud_dashboard.get_dashboard_stats(
         db=db, user_id=current_user.id, period=validated_period
     )
-    
+
     return stats
 
 
@@ -150,10 +153,10 @@ async def get_project_stats(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     period: str = Query(
-        default='7d',
+        default="7d",
         description="Time period for project statistics",
-        regex='^(7d|2w|4w|3m|1y|all)$'
-    )
+        regex="^(7d|2w|4w|3m|1y|all)$",
+    ),
 ) -> List[ProjectStatsResponse]:
     """Get project statistics for the current user.
 
@@ -166,11 +169,11 @@ async def get_project_stats(
         List of project statistics showing sessions and notes count per project.
     """
     validated_period = validate_period(period)
-    
+
     project_stats = await crud_dashboard.get_project_stats(
         db=db, user_id=current_user.id, period=validated_period
     )
-    
+
     return project_stats
 
 
@@ -179,11 +182,11 @@ async def get_daily_activity(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     period: str = Query(
-        default='7d',
+        default="7d",
         description="Time period for daily activity data",
-        regex='^(7d|2w|4w|3m|1y|all)$'
+        regex="^(7d|2w|4w|3m|1y|all)$",
     ),
-    user_timezone: str = Depends(get_user_timezone)
+    user_timezone: str = Depends(get_user_timezone),
 ) -> List[DailyActivityResponse]:
     """Get daily activity chart data for the current user.
 
@@ -197,11 +200,14 @@ async def get_daily_activity(
         List of daily activity data grouped by user's local timezone.
     """
     validated_period = validate_period(period)
-    
+
     daily_activity = await crud_dashboard.get_daily_activity(
-        db=db, user_id=current_user.id, period=validated_period, user_timezone=user_timezone
+        db=db,
+        user_id=current_user.id,
+        period=validated_period,
+        user_timezone=user_timezone,
     )
-    
+
     return daily_activity
 
 
@@ -210,10 +216,10 @@ async def get_session_times(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     period: str = Query(
-        default='7d',
+        default="7d",
         description="Time period for session times data",
-        regex='^(7d|2w|4w|3m|1y|all)$'
-    )
+        regex="^(7d|2w|4w|3m|1y|all)$",
+    ),
 ) -> List[SessionTimeResponse]:
     """Get session times chart data for the current user.
 
@@ -226,9 +232,9 @@ async def get_session_times(
         List of session times data showing when sessions occurred with their duration.
     """
     validated_period = validate_period(period)
-    
+
     session_times = await crud_dashboard.get_session_times(
         db=db, user_id=current_user.id, period=validated_period
     )
-    
-    return session_times 
+
+    return session_times

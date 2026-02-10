@@ -27,6 +27,7 @@ def _validate_password(v: str) -> str:
 
 class Token(BaseModel):
     """Token response schema."""
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -36,17 +37,20 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     """Token data schema."""
+
     sub: str  # subject (user identifier)
     exp: Optional[datetime] = None
 
 
 class RefreshTokenCreate(BaseModel):
     """Refresh token creation schema."""
+
     refresh_token: str
 
 
 class RefreshTokenResponse(BaseModel):
     """Refresh token response schema."""
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -55,6 +59,7 @@ class RefreshTokenResponse(BaseModel):
 
 class UserCreate(BaseModel):
     """User registration schema."""
+
     email: EmailStr
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=8, max_length=_PASSWORD_MAX_LEN)
@@ -65,6 +70,7 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """User login schema."""
+
     email: EmailStr
     password: str
 
@@ -73,6 +79,7 @@ class UserLogin(BaseModel):
 
 class UserPublic(BaseModel):
     """Public user data schema."""
+
     id: UUID4
     email: EmailStr
     username: str
@@ -84,4 +91,4 @@ class UserPublic(BaseModel):
 
 
 # Update Token to include UserPublic
-Token.model_rebuild() 
+Token.model_rebuild()

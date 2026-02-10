@@ -6,6 +6,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     """Application settings."""
+
     # Database settings
     DB_USERNAME: str
     DB_PASSWORD: str
@@ -41,7 +42,9 @@ class Settings(BaseSettings):
 
     # Rate limiting settings (requests per minute)
     RATE_LIMIT_LOGIN: str = "5/minute"
-    RATE_LIMIT_LOGIN_ACCOUNT: str = "5/minute"  # Per email/account (defense against credential stuffing)
+    RATE_LIMIT_LOGIN_ACCOUNT: str = (
+        "5/minute"  # Per email/account (defense against credential stuffing)
+    )
     RATE_LIMIT_LOGIN_USER: str = "3/minute"
     RATE_LIMIT_REGISTER: str = "2/minute"
     RATE_LIMIT_REFRESH: str = "10/minute"
@@ -50,7 +53,7 @@ class Settings(BaseSettings):
     # AI
     DEEPSEEK_API_KEY: str
     OPENAI_API_KEY: str
-    
+
     # Vector Search Settings
     VECTOR_DISTANCE: str = "cosine"
     VECTOR_DIM: int = 1536

@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Category
 
 
-async def get_category_by_name(db: AsyncSession, user_id: UUID, name: str) -> Optional[Category]:
+async def get_category_by_name(
+    db: AsyncSession, user_id: UUID, name: str
+) -> Optional[Category]:
     """
     Get a category by name for the given user.
 
@@ -25,7 +27,9 @@ async def get_category_by_name(db: AsyncSession, user_id: UUID, name: str) -> Op
     return result.scalars().first()
 
 
-async def get_category_by_id(db: AsyncSession, category_id: UUID, user_id: UUID) -> Optional[Category]:
+async def get_category_by_id(
+    db: AsyncSession, category_id: UUID, user_id: UUID
+) -> Optional[Category]:
     """
     Get a category by ID if it belongs to the given user.
 
@@ -44,10 +48,7 @@ async def get_category_by_id(db: AsyncSession, category_id: UUID, user_id: UUID)
 
 
 async def get_all_categories(
-    db: AsyncSession,
-    user_id: UUID,
-    skip: int = 0,
-    limit: int = 100
+    db: AsyncSession, user_id: UUID, skip: int = 0, limit: int = 100
 ) -> List[Category]:
     """
     Get all categories for the given user with pagination.
@@ -73,10 +74,7 @@ async def get_all_categories(
 
 
 async def create_category(
-    db: AsyncSession,
-    user_id: UUID,
-    name: str,
-    description: Optional[str] = None
+    db: AsyncSession, user_id: UUID, name: str, description: Optional[str] = None
 ) -> Category:
     """
     Create a new category for the given user.
@@ -98,10 +96,7 @@ async def create_category(
 
 
 async def get_or_create_category_by_name(
-    db: AsyncSession,
-    user_id: UUID,
-    name: str,
-    description: Optional[str] = None
+    db: AsyncSession, user_id: UUID, name: str, description: Optional[str] = None
 ) -> Category:
     """
     Get an existing category by name for the user, or create it if it doesn't exist.
@@ -117,5 +112,7 @@ async def get_or_create_category_by_name(
     """
     category = await get_category_by_name(db=db, user_id=user_id, name=name)
     if not category:
-        category = await create_category(db=db, user_id=user_id, name=name, description=description)
+        category = await create_category(
+            db=db, user_id=user_id, name=name, description=description
+        )
     return category

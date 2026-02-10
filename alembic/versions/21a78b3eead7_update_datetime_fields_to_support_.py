@@ -5,12 +5,13 @@ Revises: 119bc53d93a1
 Create Date: 2025-05-21 15:42:59.379936
 
 """
+
 from typing import Sequence, Union
 
 
 # revision identifiers, used by Alembic.
-revision: str = '21a78b3eead7'
-down_revision: Union[str, None] = '119bc53d93a1'
+revision: str = "21a78b3eead7"
+down_revision: Union[str, None] = "119bc53d93a1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

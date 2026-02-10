@@ -28,6 +28,7 @@ AsyncSessionLocal = sessionmaker(
     autoflush=False,
 )
 
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting async database sessions."""
     async with AsyncSessionLocal() as session:
@@ -40,6 +41,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+
 async def check_db_connection() -> bool:
     """Check if the database connection is working."""
     try:
@@ -49,4 +51,4 @@ async def check_db_connection() -> bool:
             return True
     except SQLAlchemyError as e:
         logger.error("Database connection check failed: {}", str(e))
-        return False 
+        return False

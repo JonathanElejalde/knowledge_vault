@@ -31,14 +31,14 @@ def parse_allowed_origins(origins):
 
 def get_allowed_origins():
     """Get allowed origins with development-friendly additions.
-    
+
     In development, adds both localhost and 127.0.0.1 variants since
     browsers treat them as different origins.
     """
     origins = parse_allowed_origins(settings.ALLOWED_ORIGINS)
     extension_origins = parse_allowed_origins(settings.ALLOWED_EXTENSION_ORIGINS)
     origins = list({*origins, *extension_origins})
-    
+
     if settings.ENVIRONMENT == "development":
         dev_origins = set(origins)
         for origin in list(dev_origins):
@@ -47,7 +47,7 @@ def get_allowed_origins():
             if "127.0.0.1" in origin:
                 dev_origins.add(origin.replace("127.0.0.1", "localhost"))
         return list(dev_origins)
-    
+
     return origins
 
 
@@ -55,19 +55,19 @@ def get_trusted_hosts(origins: list, environment: str) -> list:
     """Get list of trusted hosts for TrustedHostMiddleware."""
     if environment == "development":
         return ["*"]  # Allow all hosts in development (needed for WSL)
-    
+
     hosts = ["localhost", "127.0.0.1"]
-    
+
     for origin in origins:
         if isinstance(origin, str):
             hostname = origin.replace("http://", "").replace("https://", "")
             hostname = hostname.split(":")[0]
             if hostname and hostname not in hosts:
                 hosts.append(hostname)
-    
+
     if environment == "production":
         hosts.append("*.fly.dev")
-    
+
     return hosts
 
 
@@ -117,7 +117,7 @@ app = FastAPI(
 @app.middleware("http")
 async def csrf_origin_validation(request: Request, call_next):
     """Validate Origin/Referer for cookie-authenticated state-changing requests.
-    
+
     This provides defense-in-depth CSRF protection alongside SameSite=Lax cookies.
     Only validates requests that:
     1. Are state-changing (POST, PUT, DELETE, PATCH)
@@ -127,7 +127,7 @@ async def csrf_origin_validation(request: Request, call_next):
         client_ip = get_client_ip(request)
         origin = request.headers.get("Origin", "missing")
         referer = request.headers.get("Referer", "missing")
-        
+
         logger.warning(
             f"SECURITY: CSRF origin validation failed | "
             f"IP: {client_ip} | "
@@ -136,12 +136,11 @@ async def csrf_origin_validation(request: Request, call_next):
             f"Origin: {origin} | "
             f"Referer: {referer}"
         )
-        
+
         return JSONResponse(
-            status_code=403,
-            content={"detail": "Invalid request origin"}
+            status_code=403, content={"detail": "Invalid request origin"}
         )
-    
+
     return await call_next(request)
 
 
@@ -150,12 +149,12 @@ async def csrf_origin_validation(request: Request, call_next):
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
     response = await call_next(request)
-    
+
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
+
     # Content Security Policy
     if settings.ENABLE_DOCS and request.url.path in ["/docs", "/redoc"]:
         csp_policy = (
@@ -182,9 +181,9 @@ async def add_security_headers(request: Request, call_next):
             "base-uri 'self'; "
             "form-action 'self';"
         )
-    
+
     response.headers["Content-Security-Policy"] = csp_policy
-    
+
     return response
 
 
@@ -202,10 +201,7 @@ app.add_middleware(
 # Trusted Host Middleware (runs first due to being added last)
 trusted_hosts = get_trusted_hosts(allowed_origins, settings.ENVIRONMENT)
 logger.info(f"Trusted hosts: {trusted_hosts}")
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=trusted_hosts
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
 
 # Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["health"])

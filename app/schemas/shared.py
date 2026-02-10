@@ -3,8 +3,10 @@ from typing import Optional, Dict
 from uuid import UUID
 from pydantic import BaseModel, Field
 
+
 class SessionResponseBase(BaseModel):
     """Base schema for Pomodoro session response."""
+
     id: UUID
     user_id: UUID
     learning_project_id: Optional[UUID]
@@ -21,8 +23,10 @@ class SessionResponseBase(BaseModel):
     class Config:
         from_attributes = True
 
+
 class LearningProjectResponseBase(BaseModel):
     """Base schema for learning project response."""
+
     id: UUID
     user_id: UUID
     name: str
@@ -31,8 +35,13 @@ class LearningProjectResponseBase(BaseModel):
     status: str
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
-    notes_count: int = Field(default=0, description="Number of notes associated with this learning project")
-    sessions_count: int = Field(default=0, description="Number of sessions associated with this learning project")
+    notes_count: int = Field(
+        default=0, description="Number of notes associated with this learning project"
+    )
+    sessions_count: int = Field(
+        default=0,
+        description="Number of sessions associated with this learning project",
+    )
 
     class Config:
-        from_attributes = True 
+        from_attributes = True

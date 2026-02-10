@@ -10,12 +10,15 @@ from uuid import UUID
 
 class User(BaseModel, table=True):
     """User model for authentication and user management."""
+
     __tablename__ = "users"
 
     email: str = Field(sa_type=String(255), unique=True, index=True)
     username: str = Field(sa_type=String(50), unique=True, index=True)
     password_hash: str = Field(sa_type=String(255))
-    last_login: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
+    last_login: Optional[datetime] = Field(
+        default=None, sa_type=sa.TIMESTAMP(timezone=True)
+    )
     is_active: bool = Field(default=True)
     preferences: Dict = Field(default_factory=dict, sa_type=JSON)
 
@@ -30,10 +33,11 @@ class User(BaseModel, table=True):
 
 class Category(BaseModel, table=True):
     """Category model for organizing learning projects. Scoped per user."""
+
     __tablename__ = "categories"
     __table_args__ = (
-        Index('idx_categories_user_id_name', 'user_id', 'name', unique=True),
-        Index('idx_categories_user_id', 'user_id'),
+        Index("idx_categories_user_id_name", "user_id", "name", unique=True),
+        Index("idx_categories_user_id", "user_id"),
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
@@ -48,15 +52,18 @@ class Category(BaseModel, table=True):
 
 class LearningProject(BaseModel, table=True):
     """LearningProject model for organizing learning sessions."""
+
     __tablename__ = "learning_projects"
     __table_args__ = (
-        Index('idx_learning_projects_category_id', 'category_id'),
-        Index('idx_learning_projects_status', 'status'),
+        Index("idx_learning_projects_category_id", "category_id"),
+        Index("idx_learning_projects_status", "status"),
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
     name: str = Field(sa_type=String(255))
-    category_id: Optional[UUID] = Field(foreign_key="categories.id", index=True, default=None)
+    category_id: Optional[UUID] = Field(
+        foreign_key="categories.id", index=True, default=None
+    )
     status: str = Field(sa_type=String(50), default="in_progress")
     description: Optional[str] = Field(sa_type=Text, default=None)
 
@@ -69,22 +76,27 @@ class LearningProject(BaseModel, table=True):
 
 class Session(BaseModel, table=True):
     """Session model for tracking Pomodoro sessions."""
+
     __tablename__ = "sessions"
     __table_args__ = (
-        Index('idx_sessions_start_time', 'start_time'),
-        Index('idx_sessions_learning_project_id', 'learning_project_id'),
+        Index("idx_sessions_start_time", "start_time"),
+        Index("idx_sessions_learning_project_id", "learning_project_id"),
         Index(
-            'uq_sessions_user_in_progress',
-            'user_id',
+            "uq_sessions_user_in_progress",
+            "user_id",
             unique=True,
-            postgresql_where=sa.text("status = 'in_progress'")
+            postgresql_where=sa.text("status = 'in_progress'"),
         ),
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    learning_project_id: Optional[UUID] = Field(foreign_key="learning_projects.id", index=True, default=None)
+    learning_project_id: Optional[UUID] = Field(
+        foreign_key="learning_projects.id", index=True, default=None
+    )
     start_time: datetime = Field(sa_type=sa.TIMESTAMP(timezone=True))
-    end_time: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
+    end_time: Optional[datetime] = Field(
+        default=None, sa_type=sa.TIMESTAMP(timezone=True)
+    )
     work_duration: int = Field()  # in minutes
     break_duration: int = Field()  # in minutes
     actual_duration: Optional[int] = Field(default=None)  # in minutes
@@ -95,21 +107,34 @@ class Session(BaseModel, table=True):
 
     # Relationships
     user: User = Relationship(back_populates="sessions")
-    learning_project: Optional[LearningProject] = Relationship(back_populates="sessions")
+    learning_project: Optional[LearningProject] = Relationship(
+        back_populates="sessions"
+    )
     notes: List["Note"] = Relationship(back_populates="session")
 
 
 class Note(BaseModel, table=True):
     """Note model for storing session notes."""
+
     __tablename__ = "notes"
     __table_args__ = (
-        Index('idx_notes_tags', 'tags', postgresql_using='gin'),
-        Index('idx_notes_embedding_hnsw', 'embedding', postgresql_using='hnsw', postgresql_with={'m': 16, 'ef_construction': 64}, postgresql_ops={'embedding': 'vector_cosine_ops'}),
+        Index("idx_notes_tags", "tags", postgresql_using="gin"),
+        Index(
+            "idx_notes_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     user_id: Optional[UUID] = Field(foreign_key="users.id", index=True, default=None)
-    session_id: Optional[UUID] = Field(foreign_key="sessions.id", index=True, default=None)
-    learning_project_id: Optional[UUID] = Field(foreign_key="learning_projects.id", index=True, default=None)
+    session_id: Optional[UUID] = Field(
+        foreign_key="sessions.id", index=True, default=None
+    )
+    learning_project_id: Optional[UUID] = Field(
+        foreign_key="learning_projects.id", index=True, default=None
+    )
     content: str = Field(sa_type=Text)
     title: Optional[str] = Field(sa_type=String(255), default=None)
     tags: List[str] = Field(sa_type=ARRAY(String), default_factory=list)
@@ -125,10 +150,11 @@ class Note(BaseModel, table=True):
 
 class Flashcard(BaseModel, table=True):
     """Flashcard model for storing learning cards."""
+
     __tablename__ = "flashcards"
     __table_args__ = (
-        Index('idx_flashcards_status', 'status'),
-        Index('idx_flashcards_next_review', 'next_review'),
+        Index("idx_flashcards_status", "status"),
+        Index("idx_flashcards_next_review", "next_review"),
     )
 
     note_id: UUID = Field(foreign_key="notes.id", index=True)
@@ -136,33 +162,45 @@ class Flashcard(BaseModel, table=True):
     answer: str = Field(sa_type=Text)
     status: str = Field(sa_type=String(20), default="draft")
     difficulty: int = Field(default=1)  # 1-5 scale
-    last_reviewed: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
-    next_review: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
+    last_reviewed: Optional[datetime] = Field(
+        default=None, sa_type=sa.TIMESTAMP(timezone=True)
+    )
+    next_review: Optional[datetime] = Field(
+        default=None, sa_type=sa.TIMESTAMP(timezone=True)
+    )
     review_count: int = Field(default=0)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
     note: Note = Relationship(back_populates="flashcards")
-    anki_deck_flashcards: List["AnkiDeckFlashcard"] = Relationship(back_populates="flashcard")
+    anki_deck_flashcards: List["AnkiDeckFlashcard"] = Relationship(
+        back_populates="flashcard"
+    )
 
 
 class AnkiDeck(BaseModel, table=True):
     """AnkiDeck model for managing Anki export decks."""
+
     __tablename__ = "anki_decks"
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
     name: str = Field(sa_type=String(255))
     description: Optional[str] = Field(sa_type=Text, default=None)
-    last_exported: Optional[datetime] = Field(default=None, sa_type=sa.TIMESTAMP(timezone=True))
+    last_exported: Optional[datetime] = Field(
+        default=None, sa_type=sa.TIMESTAMP(timezone=True)
+    )
     export_settings: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
     user: User = Relationship(back_populates="anki_decks")
-    anki_deck_flashcards: List["AnkiDeckFlashcard"] = Relationship(back_populates="deck")
+    anki_deck_flashcards: List["AnkiDeckFlashcard"] = Relationship(
+        back_populates="deck"
+    )
 
 
 class AnkiDeckFlashcard(BaseModel, table=True):
     """Junction table for AnkiDeck and Flashcard many-to-many relationship."""
+
     __tablename__ = "anki_deck_flashcards"
 
     deck_id: UUID = Field(foreign_key="anki_decks.id", index=True)
@@ -175,18 +213,23 @@ class AnkiDeckFlashcard(BaseModel, table=True):
 
 class RefreshToken(BaseModel, table=True):
     """Refresh token model for managing long-lived refresh tokens."""
+
     __tablename__ = "refresh_tokens"
     __table_args__ = (
-        Index('idx_refresh_tokens_user_id', 'user_id'),
-        Index('idx_refresh_tokens_expires_at', 'expires_at'),
-        Index('idx_refresh_tokens_token_hash', 'token_hash'),  # Index on hash for fast lookups
+        Index("idx_refresh_tokens_user_id", "user_id"),
+        Index("idx_refresh_tokens_expires_at", "expires_at"),
+        Index(
+            "idx_refresh_tokens_token_hash", "token_hash"
+        ),  # Index on hash for fast lookups
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    token_hash: str = Field(sa_type=String(64), unique=True, index=True)  # SHA-256 hash (64 chars)
+    token_hash: str = Field(
+        sa_type=String(64), unique=True, index=True
+    )  # SHA-256 hash (64 chars)
     expires_at: datetime = Field(sa_type=sa.TIMESTAMP(timezone=True))
     is_revoked: bool = Field(default=False)
     meta_data: Dict = Field(default_factory=dict, sa_type=JSON)
 
     # Relationships
-    user: User = Relationship(back_populates="refresh_tokens") 
+    user: User = Relationship(back_populates="refresh_tokens")

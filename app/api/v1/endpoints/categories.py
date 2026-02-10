@@ -6,13 +6,11 @@ from app.api.dependencies import get_current_active_user, general_rate_limit
 from app.db.models import User
 from app.db.session import get_db
 from app.crud import categories as crud_categories
-from app.schemas.categories import (
-    CategoryResponse
-)
+from app.schemas.categories import CategoryResponse
 
 router = APIRouter(
     tags=["Categories"],
-    dependencies=[general_rate_limit]  # Apply rate limiting to all category endpoints
+    dependencies=[general_rate_limit],  # Apply rate limiting to all category endpoints
 )
 
 
@@ -21,7 +19,7 @@ async def list_categories(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100)
+    limit: int = Query(100, ge=1, le=100),
 ) -> List[CategoryResponse]:
     """List categories for the current user with optional pagination.
 
@@ -35,9 +33,6 @@ async def list_categories(
         A list of the user's categories ordered by name.
     """
     categories = await crud_categories.get_all_categories(
-        db=db,
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit
+        db=db, user_id=current_user.id, skip=skip, limit=limit
     )
-    return [CategoryResponse.model_validate(category) for category in categories] 
+    return [CategoryResponse.model_validate(category) for category in categories]

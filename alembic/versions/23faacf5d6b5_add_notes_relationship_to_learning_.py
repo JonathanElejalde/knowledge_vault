@@ -5,12 +5,13 @@ Revises: 0ad7eb6067cc
 Create Date: 2025-05-23 17:54:08.115873
 
 """
+
 from typing import Sequence, Union
 
 
 # revision identifiers, used by Alembic.
-revision: str = '23faacf5d6b5'
-down_revision: Union[str, None] = '0ad7eb6067cc'
+revision: str = "23faacf5d6b5"
+down_revision: Union[str, None] = "0ad7eb6067cc"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
