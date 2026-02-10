@@ -14,11 +14,11 @@ PROD_MAX_OVERFLOW = 1
 DEFAULT_POOL_SIZE = 20
 DEFAULT_MAX_OVERFLOW = 10
 
-pool_size = PROD_POOL_SIZE if settings.ENVIRONMENT == "production" else DEFAULT_POOL_SIZE
+pool_size = (
+    PROD_POOL_SIZE if settings.ENVIRONMENT == "production" else DEFAULT_POOL_SIZE
+)
 max_overflow = (
-    PROD_MAX_OVERFLOW
-    if settings.ENVIRONMENT == "production"
-    else DEFAULT_MAX_OVERFLOW
+    PROD_MAX_OVERFLOW if settings.ENVIRONMENT == "production" else DEFAULT_MAX_OVERFLOW
 )
 
 # Create async engine with connection pooling

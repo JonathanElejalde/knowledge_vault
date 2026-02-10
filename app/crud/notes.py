@@ -23,6 +23,7 @@ class InvalidLearningProjectError(Exception):
 EMBEDDING_MAX_CHARS = 24_000
 EMBEDDING_TIMEOUT_SEC = 60.0
 
+
 def _truncate_for_embedding(text: str, max_chars: int = EMBEDDING_MAX_CHARS) -> str:
     """Truncate embedding input by characters to cap memory and request size."""
     if len(text) <= max_chars:
