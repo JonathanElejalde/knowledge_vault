@@ -8,13 +8,26 @@ from loguru import logger
 
 settings = get_settings()
 
+# Keep production connection usage small for low-memory single-instance deployments.
+PROD_POOL_SIZE = 2
+PROD_MAX_OVERFLOW = 1
+DEFAULT_POOL_SIZE = 20
+DEFAULT_MAX_OVERFLOW = 10
+
+pool_size = PROD_POOL_SIZE if settings.ENVIRONMENT == "production" else DEFAULT_POOL_SIZE
+max_overflow = (
+    PROD_MAX_OVERFLOW
+    if settings.ENVIRONMENT == "production"
+    else DEFAULT_MAX_OVERFLOW
+)
+
 # Create async engine with connection pooling
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DATABASE_ECHO,
     future=True,
-    pool_size=20,  # Maximum number of connections to keep
-    max_overflow=10,  # Maximum number of connections that can be created beyond pool_size
+    pool_size=pool_size,  # Maximum number of connections to keep
+    max_overflow=max_overflow,  # Additional burst connections beyond pool_size
     pool_timeout=30,  # Seconds to wait before giving up on getting a connection from the pool
     pool_recycle=1800,  # Recycle connections after 30 minutes
 )

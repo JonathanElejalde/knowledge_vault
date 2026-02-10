@@ -4,8 +4,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-# Max content length: slightly under text-embedding-3-small token limit (8191).
-# ~4 chars/token -> 8000 tokens ≈ 32_000 chars.
+# Max stored note length.
+# Embedding text is truncated separately in CRUD using a more conservative
+# heuristic cap (~24_000 chars, roughly ~8k tokens at ~3 chars/token).
 NOTE_CONTENT_MAX_LENGTH = 32_000
 
 

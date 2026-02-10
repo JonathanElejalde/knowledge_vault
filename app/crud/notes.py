@@ -1,6 +1,5 @@
 from typing import Optional, List, Union, Dict, Any
 from uuid import UUID
-import tiktoken
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,20 +18,16 @@ class InvalidLearningProjectError(Exception):
     """Raised when a note update specifies a learning_project_id the user does not own."""
 
 
-# Slightly under text-embedding-3-small max (8191) to avoid API errors.
-EMBEDDING_MAX_TOKENS = 8000
+# Keep embedding input conservative without loading tokenizer data into memory.
+# Rough heuristic for English-like text: ~3 chars/token.
+EMBEDDING_MAX_CHARS = 24_000
 EMBEDDING_TIMEOUT_SEC = 60.0
 
-# text-embedding-3-small uses cl100k_base.
-_encoding = tiktoken.get_encoding("cl100k_base")
-
-
-def _truncate_to_tokens(text: str, max_tokens: int) -> str:
-    """Truncate text to at most max_tokens (preserving whole tokens)."""
-    tokens = _encoding.encode(text)
-    if len(tokens) <= max_tokens:
+def _truncate_for_embedding(text: str, max_chars: int = EMBEDDING_MAX_CHARS) -> str:
+    """Truncate embedding input by characters to cap memory and request size."""
+    if len(text) <= max_chars:
         return text
-    return _encoding.decode(tokens[:max_tokens])
+    return text[:max_chars]
 
 
 async def _generate_embedding_for_note(
@@ -40,7 +35,7 @@ async def _generate_embedding_for_note(
     note_title: Optional[str] = None,
     note_tags: Optional[List[str]] = None,
 ) -> Optional[List[float]]:
-    """Generate embedding for note content. Truncates to EMBEDDING_MAX_TOKENS and uses a request timeout.
+    """Generate embedding for note content with conservative input truncation.
 
     Args:
         note_content: The note content
@@ -72,7 +67,7 @@ async def _generate_embedding_for_note(
         if not combined_text.strip():
             return None
 
-        combined_text = _truncate_to_tokens(combined_text, EMBEDDING_MAX_TOKENS)
+        combined_text = _truncate_for_embedding(combined_text)
 
         client = openai.AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY, timeout=EMBEDDING_TIMEOUT_SEC
