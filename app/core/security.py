@@ -221,7 +221,7 @@ async def verify_refresh_token(
         .filter(
             RefreshToken.token_hash == token_hash,
             RefreshToken.expires_at > datetime.now(UTC),
-            RefreshToken.is_revoked == False
+            RefreshToken.is_revoked.is_(False)
         )
     )
     return result.scalars().first()
@@ -311,7 +311,7 @@ async def revoke_all_user_refresh_tokens(
         select(RefreshToken)
         .filter(
             RefreshToken.user_id == user_id,
-            RefreshToken.is_revoked == False
+            RefreshToken.is_revoked.is_(False)
         )
     )
     tokens = result.scalars().all()

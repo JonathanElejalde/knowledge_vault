@@ -1,6 +1,6 @@
 from typing import Annotated, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 from app.api.dependencies import get_current_active_user, general_rate_limit
@@ -19,7 +19,7 @@ from app.schemas.pomodoro import (
     WeeklyStatisticsResponse
 )
 from app.schemas.learning_projects import LearningProjectResponse
-from datetime import datetime, date
+from datetime import datetime
 
 router = APIRouter(
     tags=["Pomodoro"],

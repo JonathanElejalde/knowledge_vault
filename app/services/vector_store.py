@@ -11,7 +11,6 @@ from uuid import UUID
 import openai
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from loguru import logger
 
 from app.core.config import get_settings

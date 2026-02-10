@@ -3,13 +3,12 @@ from typing import List, Tuple, Optional
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, func, and_, case, text, union_all
+from sqlalchemy import select, func, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from dateutil.relativedelta import relativedelta
 from loguru import logger
 
-from app.db.models import Session, Note, LearningProject, User
+from app.db.models import Session, Note, LearningProject
 from app.schemas.dashboard import (
     DashboardStatsResponse,
     ProjectStatsResponse,

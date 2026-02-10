@@ -1,7 +1,7 @@
 from datetime import datetime, UTC, timedelta
 from typing import Optional, List
 from uuid import UUID
-from sqlalchemy import select, and_, func, or_, case
+from sqlalchemy import select, and_, func, case
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload

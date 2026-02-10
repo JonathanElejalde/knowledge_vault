@@ -6,7 +6,7 @@ Production-ready for single-instance deployments.
 """
 
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from collections import defaultdict, deque
 from fastapi import Request
 from loguru import logger

@@ -16,20 +16,19 @@ import asyncio
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from loguru import logger
 import openai
-from sqlalchemy import select, and_, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Add the project root to Python path so we can import app modules
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.core.config import get_settings
-from app.db.session import AsyncSessionLocal
-from app.db.models import Note
-from app.schemas.notes import NoteResponse
+from app.core.config import get_settings  # noqa: E402
+from app.db.session import AsyncSessionLocal  # noqa: E402
+from app.db.models import Note  # noqa: E402
 
 
 class EmbeddingGenerator:

@@ -1,6 +1,4 @@
-from datetime import datetime
-from typing import Optional, List, Dict
-from uuid import UUID
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from .shared import LearningProjectResponseBase, SessionResponseBase

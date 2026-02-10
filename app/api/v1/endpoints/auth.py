@@ -212,8 +212,6 @@ async def refresh_token(
     _: Annotated[bool, refresh_rate_limit]  # Rate limit: 10 requests per minute per user
 ) -> UserPublic:
     """Get a new access token using a refresh token from HTTP-only cookie."""
-    client_ip = get_client_ip(request)
-    
     # Get refresh token from cookie
     refresh_token_value = get_token_from_cookie(request, REFRESH_TOKEN_COOKIE_NAME)
     if not refresh_token_value:
@@ -301,8 +299,6 @@ async def extension_refresh_token(
     _: Annotated[bool, refresh_rate_limit]
 ) -> Token:
     """Rotate refresh token and return new bearer token pair for extensions."""
-    client_ip = get_client_ip(request)
-
     new_refresh_token, _, user = await rotate_refresh_token(db=db, token=payload.refresh_token)
     if not user:
         logger.warning("SECURITY: Invalid extension refresh token used from IP: [REDACTED]")
@@ -329,7 +325,6 @@ async def extension_logout(
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Logout extension session by revoking provided refresh token."""
-    client_ip = get_client_ip(request)
     revoked = await revoke_refresh_token(db=db, token=payload.refresh_token)
     logger.info(
         f"SECURITY: Extension logout token revocation {'succeeded' if revoked else 'not_found'} from IP: [REDACTED]"
@@ -344,8 +339,6 @@ async def logout(
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Logout by revoking the refresh token and clearing cookies."""
-    client_ip = get_client_ip(request)
-    
     # Get refresh token from cookie
     refresh_token_value = get_token_from_cookie(request, REFRESH_TOKEN_COOKIE_NAME)
     
@@ -381,8 +374,6 @@ async def revoke_all_tokens(
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Revoke all refresh tokens for the current user (security endpoint)."""
-    client_ip = get_client_ip(request)
-    
     # Revoke all refresh tokens for this user
     revoked_count = await revoke_all_user_refresh_tokens(db=db, user_id=str(current_user.id))
     

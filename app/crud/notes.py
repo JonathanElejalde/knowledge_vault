@@ -1,13 +1,13 @@
 from typing import Optional, List, Union, Dict, Any
 from uuid import UUID
 import tiktoken
-from sqlalchemy import select, and_, or_, text
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from loguru import logger
 import openai
 
-from app.db.models import Note, User, Session, LearningProject
+from app.db.models import Note
 from app.db.session import AsyncSessionLocal
 from app.schemas.notes import NoteCreate, NoteUpdate
 from app.core.config import get_settings

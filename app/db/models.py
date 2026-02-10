@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from sqlmodel import Field, Relationship
 from sqlalchemy import JSON, String, ARRAY, Text, Index
-from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from pgvector.sqlalchemy import Vector
 import sqlalchemy as sa
 from app.db.base import BaseModel
