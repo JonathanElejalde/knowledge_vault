@@ -16,6 +16,7 @@ dependencies = [
     "python-dateutil>=2.9.0",
     "python-jose[cryptography]>=3.4.0",
     "python-multipart>=0.0.20",
+    "ruff>=0.15.0",
     "slowapi>=0.1.9",
     "sqlmodel>=0.0.24",
     "tiktoken>=0.12.0",
