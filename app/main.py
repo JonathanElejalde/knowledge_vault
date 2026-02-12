@@ -82,6 +82,7 @@ ALLOWED_HEADERS = [
     "Content-Type",
     "Authorization",
     "X-Timezone",
+    "X-Client",
     "X-Requested-With",
     "Cache-Control",
     "Pragma",
