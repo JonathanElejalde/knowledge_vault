@@ -1,4 +1,4 @@
-import { extensionLogin, extensionLogout, isAuthenticated } from "./lib/auth.js";
+import { extensionLogin, extensionLogout, isAuthenticated, getStoredUser } from "./lib/auth.js";
 import { listLearningProjects, getCurrentUser } from "./lib/api.js";
 
 const ABANDON_CONFIRM_WINDOW_MS = 4000;
@@ -35,6 +35,7 @@ let abandonDeadlineMs = 0;
 let abandonResetTimeoutId = null;
 let themeMediaQuery = null;
 let themeMediaListener = null;
+let isHydratingAuthenticatedView = false;
 
 function setFeedback(message) {
   elements.feedback.textContent = message || "";
@@ -107,8 +108,9 @@ function calculateRemainingSeconds(timerState) {
   const elapsedSeconds = Math.floor(
     (referenceNow - timerState.startedAt - (timerState.accumulatedPausedMs || 0)) / 1000
   );
+  const safeElapsedSeconds = Math.max(0, elapsedSeconds);
   const totalSeconds = timerState.workDurationMinutes * 60;
-  return Math.max(0, totalSeconds - elapsedSeconds);
+  return Math.max(0, totalSeconds - safeElapsedSeconds);
 }
 
 function normalizeSessionType(timerState) {
@@ -139,6 +141,9 @@ function getProjectLabel(projectId) {
   const project = availableProjects.find((item) => item.id === projectId);
   if (project?.name) {
     return project.name;
+  }
+  if (isHydratingAuthenticatedView) {
+    return "Loading project...";
   }
   return `Project ${projectId}`;
 }
@@ -383,15 +388,48 @@ function attachProjectDropdownEvents() {
   });
 }
 
-async function initializeAuthenticatedView() {
-  const user = await getCurrentUser();
-  const userDisplay = user.username || user.email || "Signed in";
+async function initializeAuthenticatedShell() {
+  toggleAuthenticatedView(true);
+  startTimerRendering();
+
+  let storedUser = null;
+  try {
+    storedUser = await getStoredUser();
+  } catch {
+    storedUser = null;
+  }
+  const userDisplay = storedUser?.username || storedUser?.email || "Signed in";
   elements.userIdentity.textContent = userDisplay;
 
-  toggleAuthenticatedView(true);
-  await syncTimerState();
-  await loadProjects();
-  startTimerRendering();
+  try {
+    activeTimerState = await sendRuntimeMessage({ type: "timer:get-state" });
+    if (activeTimerState?.projectId) {
+      selectedProjectId = activeTimerState.projectId;
+    }
+  } catch {
+    activeTimerState = null;
+  }
+  renderProjectTrigger();
+  renderTimer();
+}
+
+async function hydrateAuthenticatedView() {
+  isHydratingAuthenticatedView = true;
+  renderProjectTrigger();
+  setProjectHint();
+
+  try {
+    const user = await getCurrentUser();
+    const userDisplay = user.username || user.email || "Signed in";
+    elements.userIdentity.textContent = userDisplay;
+
+    await syncTimerState();
+    await loadProjects();
+  } finally {
+    isHydratingAuthenticatedView = false;
+    renderProjectTrigger();
+    setProjectHint();
+  }
 }
 
 async function bootstrap() {
@@ -406,10 +444,17 @@ async function bootstrap() {
   }
 
   try {
-    await initializeAuthenticatedView();
+    await initializeAuthenticatedShell();
+    await hydrateAuthenticatedView();
   } catch (error) {
     await extensionLogout();
+    stopTimerRendering();
+    activeTimerState = null;
+    selectedProjectId = null;
+    availableProjects = [];
     toggleAuthenticatedView(false);
+    renderProjectTrigger();
+    renderTimer();
     setFeedback(toSafeErrorMessage(error, "Session expired. Please sign in again."));
   }
 }
@@ -422,9 +467,16 @@ elements.loginForm.addEventListener("submit", async (event) => {
   try {
     await extensionLogin(elements.email.value.trim(), elements.password.value);
     elements.password.value = "";
-    await initializeAuthenticatedView();
+    await initializeAuthenticatedShell();
+    await hydrateAuthenticatedView();
   } catch (error) {
+    stopTimerRendering();
+    activeTimerState = null;
+    selectedProjectId = null;
+    availableProjects = [];
     toggleAuthenticatedView(false);
+    renderProjectTrigger();
+    renderTimer();
     setFeedback(toSafeErrorMessage(error, "Failed to log in."));
   } finally {
     elements.loginButton.disabled = false;
