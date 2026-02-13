@@ -114,10 +114,12 @@ async function ensureOffscreenDocument() {
   }
 }
 
-async function playSound(file) {
+async function playSound(soundFile) {
   try {
+    const frontendBaseUrl = await getFrontendBaseUrl();
+    const url = `${frontendBaseUrl}/sounds/${soundFile}`;
     await ensureOffscreenDocument();
-    await chrome.runtime.sendMessage({ type: "offscreen:play-sound", file });
+    await chrome.runtime.sendMessage({ type: "offscreen:play-sound", url });
   } catch {
     // Sound is best-effort; don't break timer flow.
   }
@@ -244,7 +246,7 @@ async function handleWorkCompletion() {
   });
 
   // Play work-complete sound
-  await playSound("sounds/positive-notification.wav");
+  await playSound("positive-notification.wav");
 
   // Determine next break phase
   const prefs = timerState.preferences;
@@ -283,7 +285,7 @@ async function handleBreakCompletion() {
   }
 
   // Play break-complete sound
-  await playSound("sounds/bell-notification.wav");
+  await playSound("bell-notification.wav");
 
   await clearCompletionAlarm();
   await clearTimerState();
