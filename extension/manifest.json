@@ -3,8 +3,11 @@
   "name": "Knowledge Vault Focus",
   "version": "0.1.0",
   "description": "Start, complete, abandon pomodoros and capture quick notes without leaving your current page.",
-  "permissions": ["storage", "alarms"],
-  "host_permissions": ["http://localhost:8000/*"],
+  "permissions": ["storage", "alarms", "offscreen"],
+  "host_permissions": [
+    "https://knowledge-vault.fly.dev/*",
+    "https://knowledgevault.jonathanelejalde.com/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

@@ -9,20 +9,32 @@ import { getFrontendBaseUrl } from "./lib/config.js";
 import { getStoredValue, setStoredValue, removeStoredValue, STORAGE_AREA_LOCAL } from "./lib/storage.js";
 
 const TIMER_STATE_KEY = "kv_extension_timer_state";
-const SESSION_COMPLETION_ALARM = "kv_extension_session_completion";
+const PHASE_COMPLETION_ALARM = "kv_extension_phase_completion";
 let notesWindowId = null;
 
-function toTimerState(session) {
+// ---------------------------------------------------------------------------
+// Timer state helpers
+// ---------------------------------------------------------------------------
+
+function toTimerState(session, preferences) {
   return {
     sessionId: session.id,
     projectId: session.learning_project_id ?? null,
-    sessionType: session.session_type ?? "work",
+    phase: "work",
     startedAt: new Date(session.start_time).getTime(),
-    workDurationMinutes: session.work_duration,
-    status: session.status,
+    durationMinutes: session.work_duration,
     isPaused: false,
     pausedAt: null,
     accumulatedPausedMs: 0,
+    completedIntervals: 0,
+    preferences: preferences
+      ? {
+          work_duration: preferences.work_duration,
+          break_duration: preferences.break_duration,
+          long_break_duration: preferences.long_break_duration,
+          long_break_interval: preferences.long_break_interval,
+        }
+      : null,
   };
 }
 
@@ -38,11 +50,14 @@ async function clearTimerState() {
   await removeStoredValue(TIMER_STATE_KEY, STORAGE_AREA_LOCAL);
 }
 
+// ---------------------------------------------------------------------------
+// Duration / elapsed helpers
+// ---------------------------------------------------------------------------
+
 function getEffectiveElapsedMs(timerState) {
   if (!timerState?.startedAt) {
     return 0;
   }
-
   const now = timerState.isPaused && timerState.pausedAt ? timerState.pausedAt : Date.now();
   return Math.max(0, now - timerState.startedAt - (timerState.accumulatedPausedMs || 0));
 }
@@ -53,35 +68,73 @@ function calculateActualDurationMinutes(timerState) {
   return Math.max(1, elapsedMinutes);
 }
 
-function getSessionEndTimestamp(timerState) {
-  if (!timerState?.startedAt || !timerState?.workDurationMinutes) {
+function getPhaseEndTimestamp(timerState) {
+  if (!timerState?.startedAt || !timerState?.durationMinutes) {
     return null;
   }
-
-  const durationMs = timerState.workDurationMinutes * 60 * 1000;
+  const durationMs = timerState.durationMinutes * 60 * 1000;
   return timerState.startedAt + durationMs + (timerState.accumulatedPausedMs || 0);
 }
 
+// ---------------------------------------------------------------------------
+// Alarm management
+// ---------------------------------------------------------------------------
+
 async function scheduleCompletionAlarm(timerState) {
-  if (!timerState?.sessionId || timerState.isPaused) {
-    await chrome.alarms.clear(SESSION_COMPLETION_ALARM);
+  if (!timerState?.phase || timerState.isPaused) {
+    await chrome.alarms.clear(PHASE_COMPLETION_ALARM);
     return;
   }
 
-  const endTimestamp = getSessionEndTimestamp(timerState);
+  const endTimestamp = getPhaseEndTimestamp(timerState);
   if (!endTimestamp) {
     return;
   }
 
-  await chrome.alarms.create(SESSION_COMPLETION_ALARM, { when: endTimestamp });
+  await chrome.alarms.create(PHASE_COMPLETION_ALARM, { when: endTimestamp });
 }
 
 async function clearCompletionAlarm() {
-  await chrome.alarms.clear(SESSION_COMPLETION_ALARM);
+  await chrome.alarms.clear(PHASE_COMPLETION_ALARM);
 }
+
+// ---------------------------------------------------------------------------
+// Offscreen sound playback
+// ---------------------------------------------------------------------------
+
+async function ensureOffscreenDocument() {
+  try {
+    await chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play notification sounds when timer phases complete",
+    });
+  } catch {
+    // Document already exists or creation not supported — ignore.
+  }
+}
+
+async function playSound(file) {
+  try {
+    await ensureOffscreenDocument();
+    await chrome.runtime.sendMessage({ type: "offscreen:play-sound", file });
+  } catch {
+    // Sound is best-effort; don't break timer flow.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sync with backend
+// ---------------------------------------------------------------------------
 
 async function syncActiveSessionState() {
   const localState = await getTimerState();
+
+  // Break phases are local-only — preserve them without backend query.
+  if (localState?.phase === "break" || localState?.phase === "longBreak") {
+    return localState;
+  }
+
   const activeSession = await getActiveSession();
   if (!activeSession) {
     await clearCompletionAlarm();
@@ -89,11 +142,13 @@ async function syncActiveSessionState() {
     return null;
   }
 
-  const state = toTimerState(activeSession);
+  const state = toTimerState(activeSession, localState?.preferences);
   if (localState?.sessionId === state.sessionId) {
     state.accumulatedPausedMs = localState.accumulatedPausedMs || 0;
     state.isPaused = Boolean(localState.isPaused);
     state.pausedAt = localState.pausedAt || null;
+    state.completedIntervals = localState.completedIntervals || 0;
+    state.preferences = localState.preferences || state.preferences;
   }
 
   await setTimerState(state);
@@ -101,15 +156,18 @@ async function syncActiveSessionState() {
   return state;
 }
 
+// ---------------------------------------------------------------------------
+// Session lifecycle
+// ---------------------------------------------------------------------------
+
 async function startSession(projectId) {
   const existingState = await syncActiveSessionState();
-  if (existingState?.sessionId) {
-    if (!existingState.isPaused) {
-      return existingState;
+  if (existingState?.phase) {
+    // Already in an active phase (work running, break, etc.)
+    if (existingState.isPaused) {
+      return resumeSession(existingState);
     }
-
-    const resumedState = await resumeSession(existingState);
-    return resumedState;
+    return existingState;
   }
 
   const preferences = await getPomodoroPreferences();
@@ -122,15 +180,15 @@ async function startSession(projectId) {
   };
 
   const session = await startPomodoroSession(sessionPayload);
-  const timerState = toTimerState(session);
+  const timerState = toTimerState(session, preferences);
   await setTimerState(timerState);
   await scheduleCompletionAlarm(timerState);
   return timerState;
 }
 
 async function pauseSession() {
-  const timerState = (await getTimerState()) ?? (await syncActiveSessionState());
-  if (!timerState?.sessionId) {
+  const timerState = await getTimerState();
+  if (!timerState?.phase) {
     return null;
   }
   if (timerState.isPaused) {
@@ -148,8 +206,8 @@ async function pauseSession() {
 }
 
 async function resumeSession(stateArg) {
-  const timerState = stateArg ?? (await getTimerState()) ?? (await syncActiveSessionState());
-  if (!timerState?.sessionId) {
+  const timerState = stateArg ?? (await getTimerState());
+  if (!timerState?.phase) {
     return null;
   }
   if (!timerState.isPaused || !timerState.pausedAt) {
@@ -160,7 +218,8 @@ async function resumeSession(stateArg) {
   const resumedState = {
     ...timerState,
     isPaused: false,
-    accumulatedPausedMs: (timerState.accumulatedPausedMs || 0) + Math.max(0, Date.now() - timerState.pausedAt),
+    accumulatedPausedMs:
+      (timerState.accumulatedPausedMs || 0) + Math.max(0, Date.now() - timerState.pausedAt),
     pausedAt: null,
   };
 
@@ -169,36 +228,93 @@ async function resumeSession(stateArg) {
   return resumedState;
 }
 
-async function completeSession() {
-  const timerState = (await getTimerState()) ?? (await syncActiveSessionState());
-  if (!timerState?.sessionId) {
-    return null;
+// ---------------------------------------------------------------------------
+// Phase completion handlers
+// ---------------------------------------------------------------------------
+
+async function handleWorkCompletion() {
+  const timerState = await getTimerState();
+  if (!timerState?.sessionId || timerState.phase !== "work") {
+    return;
   }
 
+  // Complete backend session
   await completePomodoroSession(timerState.sessionId, {
     actual_duration: calculateActualDurationMinutes(timerState),
   });
 
-  await clearCompletionAlarm();
-  await clearTimerState();
-  return null;
+  // Play work-complete sound
+  await playSound("sounds/positive-notification.wav");
+
+  // Determine next break phase
+  const prefs = timerState.preferences;
+  if (!prefs) {
+    // No cached preferences — fall back to idle
+    await clearCompletionAlarm();
+    await clearTimerState();
+    return;
+  }
+
+  const newIntervals = (timerState.completedIntervals || 0) + 1;
+  const isLongBreak = newIntervals % prefs.long_break_interval === 0;
+  const now = Date.now();
+
+  const breakState = {
+    sessionId: null,
+    projectId: timerState.projectId,
+    phase: isLongBreak ? "longBreak" : "break",
+    startedAt: now,
+    durationMinutes: isLongBreak ? prefs.long_break_duration : prefs.break_duration,
+    isPaused: false,
+    pausedAt: null,
+    accumulatedPausedMs: 0,
+    completedIntervals: newIntervals,
+    preferences: prefs,
+  };
+
+  await setTimerState(breakState);
+  await scheduleCompletionAlarm(breakState);
 }
 
+async function handleBreakCompletion() {
+  const timerState = await getTimerState();
+  if (timerState?.phase !== "break" && timerState?.phase !== "longBreak") {
+    return;
+  }
+
+  // Play break-complete sound
+  await playSound("sounds/bell-notification.wav");
+
+  await clearCompletionAlarm();
+  await clearTimerState();
+}
+
+// ---------------------------------------------------------------------------
+// Abandon
+// ---------------------------------------------------------------------------
+
 async function abandonSession() {
-  const timerState = (await getTimerState()) ?? (await syncActiveSessionState());
-  if (!timerState?.sessionId) {
+  const timerState = await getTimerState();
+  if (!timerState?.phase) {
     return null;
   }
 
-  await abandonPomodoroSession(timerState.sessionId, {
-    actual_duration: calculateActualDurationMinutes(timerState),
-    reason: "Abandoned from browser extension",
-  });
+  // Only call backend abandon for work sessions with a real backend session
+  if (timerState.phase === "work" && timerState.sessionId) {
+    await abandonPomodoroSession(timerState.sessionId, {
+      actual_duration: calculateActualDurationMinutes(timerState),
+      reason: "Abandoned from browser extension",
+    });
+  }
 
   await clearCompletionAlarm();
   await clearTimerState();
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Notes window
+// ---------------------------------------------------------------------------
 
 async function buildNotesWindowUrl(projectId) {
   const frontendBaseUrl = await getFrontendBaseUrl();
@@ -245,15 +361,41 @@ chrome.windows.onRemoved.addListener((windowId) => {
   }
 });
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === SESSION_COMPLETION_ALARM) {
-    completeSession().catch(() => {
-      // Keep the existing session state if completion fails, so user can retry.
-    });
+// ---------------------------------------------------------------------------
+// Alarm listener
+// ---------------------------------------------------------------------------
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== PHASE_COMPLETION_ALARM) {
+    return;
+  }
+
+  const timerState = await getTimerState();
+  if (!timerState?.phase) {
+    return;
+  }
+
+  try {
+    if (timerState.phase === "work") {
+      await handleWorkCompletion();
+    } else {
+      await handleBreakCompletion();
+    }
+  } catch {
+    // Keep existing state so the user can retry or abandon manually.
   }
 });
 
+// ---------------------------------------------------------------------------
+// Message handler
+// ---------------------------------------------------------------------------
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // Ignore messages intended for the offscreen document
+  if (message?.type?.startsWith("offscreen:")) {
+    return false;
+  }
+
   const respond = async () => {
     switch (message?.type) {
       case "timer:get-state": {
@@ -272,9 +414,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         const state = await pauseSession();
         return { ok: true, data: state };
       }
-      case "timer:complete": {
-        await completeSession();
-        return { ok: true, data: null };
+      case "timer:resume": {
+        const state = await resumeSession();
+        return { ok: true, data: state };
       }
       case "timer:abandon": {
         await abandonSession();

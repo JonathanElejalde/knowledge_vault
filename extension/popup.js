@@ -16,6 +16,7 @@ const elements = {
   primaryButton: document.getElementById("primaryButton"),
   timerStateBadge: document.getElementById("timerStateBadge"),
   timerDisplay: document.getElementById("timerDisplay"),
+  intervalCounter: document.getElementById("intervalCounter"),
   openNotesButton: document.getElementById("openNotesButton"),
   projectTrigger: document.getElementById("projectTrigger"),
   projectDropdown: document.getElementById("projectDropdown"),
@@ -92,6 +93,10 @@ function cleanupThemeListener() {
   themeMediaListener = null;
 }
 
+// ---------------------------------------------------------------------------
+// Timer display helpers
+// ---------------------------------------------------------------------------
+
 function formatSeconds(totalSeconds) {
   const safeSeconds = Math.max(0, totalSeconds);
   const minutes = Math.floor(safeSeconds / 60);
@@ -100,7 +105,7 @@ function formatSeconds(totalSeconds) {
 }
 
 function calculateRemainingSeconds(timerState) {
-  if (!timerState?.startedAt || !timerState?.workDurationMinutes) {
+  if (!timerState?.startedAt || !timerState?.durationMinutes) {
     return 0;
   }
 
@@ -109,30 +114,32 @@ function calculateRemainingSeconds(timerState) {
     (referenceNow - timerState.startedAt - (timerState.accumulatedPausedMs || 0)) / 1000
   );
   const safeElapsedSeconds = Math.max(0, elapsedSeconds);
-  const totalSeconds = timerState.workDurationMinutes * 60;
+  const totalSeconds = timerState.durationMinutes * 60;
   return Math.max(0, totalSeconds - safeElapsedSeconds);
 }
 
-function normalizeSessionType(timerState) {
-  return String(timerState?.sessionType || "work").toLowerCase();
-}
-
 function getTimerLabel(timerState, remainingSeconds) {
-  if (!timerState?.sessionId) {
+  if (!timerState?.phase) {
     return { label: "Idle", className: "state-idle" };
   }
   if (timerState.isPaused) {
     return { label: "Paused", className: "state-paused" };
   }
-  const sessionType = normalizeSessionType(timerState);
-  if (sessionType.includes("break")) {
+  if (timerState.phase === "break") {
     return { label: "Break", className: "state-break" };
+  }
+  if (timerState.phase === "longBreak") {
+    return { label: "Long Break", className: "state-break" };
   }
   if (remainingSeconds <= 0) {
     return { label: "Completing", className: "state-running" };
   }
   return { label: "Running", className: "state-running" };
 }
+
+// ---------------------------------------------------------------------------
+// Project helpers
+// ---------------------------------------------------------------------------
 
 function getProjectLabel(projectId) {
   if (!projectId) {
@@ -149,7 +156,8 @@ function getProjectLabel(projectId) {
 }
 
 function setProjectHint() {
-  if (!activeTimerState?.sessionId) {
+  const phase = activeTimerState?.phase;
+  if (!phase) {
     elements.projectHint.textContent = "Project is optional when starting a session.";
     return;
   }
@@ -157,11 +165,15 @@ function setProjectHint() {
   elements.projectHint.textContent = `Active session project: ${label}`;
 }
 
+// ---------------------------------------------------------------------------
+// Primary button
+// ---------------------------------------------------------------------------
+
 function updatePrimaryButton() {
-  const hasActiveSession = Boolean(activeTimerState?.sessionId);
+  const hasActivePhase = Boolean(activeTimerState?.phase);
   const isPaused = Boolean(activeTimerState?.isPaused);
 
-  if (!hasActiveSession) {
+  if (!hasActivePhase) {
     elements.primaryButton.dataset.mode = "start";
     elements.primaryButton.textContent = "Start";
   } else if (isPaused) {
@@ -172,6 +184,10 @@ function updatePrimaryButton() {
     elements.primaryButton.textContent = "Pause";
   }
 }
+
+// ---------------------------------------------------------------------------
+// Abandon confirmation
+// ---------------------------------------------------------------------------
 
 function setAbandonConfirmState(enabled) {
   if (enabled) {
@@ -191,6 +207,10 @@ function resetAbandonConfirmation() {
   }
   setAbandonConfirmState(false);
 }
+
+// ---------------------------------------------------------------------------
+// Project dropdown
+// ---------------------------------------------------------------------------
 
 function renderProjectTrigger() {
   elements.projectTrigger.textContent = getProjectLabel(selectedProjectId);
@@ -257,6 +277,28 @@ function closeProjectDropdown() {
   elements.projectSearch.value = "";
 }
 
+// ---------------------------------------------------------------------------
+// Interval counter
+// ---------------------------------------------------------------------------
+
+function renderIntervalCounter() {
+  const prefs = activeTimerState?.preferences;
+  const intervals = activeTimerState?.completedIntervals || 0;
+  const longBreakInterval = prefs?.long_break_interval;
+
+  if (!activeTimerState?.phase || !longBreakInterval) {
+    elements.intervalCounter.textContent = "";
+    return;
+  }
+
+  const current = intervals % longBreakInterval;
+  elements.intervalCounter.textContent = `${current} / ${longBreakInterval}`;
+}
+
+// ---------------------------------------------------------------------------
+// Timer rendering
+// ---------------------------------------------------------------------------
+
 function renderTimer() {
   const remainingSeconds = calculateRemainingSeconds(activeTimerState);
   const { label, className } = getTimerLabel(activeTimerState, remainingSeconds);
@@ -264,27 +306,28 @@ function renderTimer() {
   elements.timerStateBadge.className = `state-badge ${className}`;
   elements.timerStateBadge.textContent = label;
 
-  if (!activeTimerState?.sessionId) {
+  if (!activeTimerState?.phase) {
     elements.timerDisplay.textContent = DEFAULT_TIMER_DISPLAY;
   } else {
     elements.timerDisplay.textContent = formatSeconds(remainingSeconds);
   }
 
-  const hasActiveSession = Boolean(activeTimerState?.sessionId);
+  const hasActivePhase = Boolean(activeTimerState?.phase);
   let visualState = "idle";
-  if (hasActiveSession && activeTimerState?.isPaused) {
+  if (hasActivePhase && activeTimerState?.isPaused) {
     visualState = "paused";
-  } else if (hasActiveSession && normalizeSessionType(activeTimerState).includes("break")) {
+  } else if (hasActivePhase && (activeTimerState.phase === "break" || activeTimerState.phase === "longBreak")) {
     visualState = "break";
-  } else if (hasActiveSession) {
+  } else if (hasActivePhase) {
     visualState = "running";
   }
 
   elements.miniPlayer.dataset.state = visualState;
-  elements.abandonButton.disabled = !hasActiveSession;
-  elements.projectTrigger.disabled = hasActiveSession;
+  elements.abandonButton.disabled = !hasActivePhase;
+  elements.projectTrigger.disabled = hasActivePhase;
   updatePrimaryButton();
   setProjectHint();
+  renderIntervalCounter();
 }
 
 function startTimerRendering() {
@@ -302,6 +345,25 @@ function stopTimerRendering() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Storage change listener — pick up phase transitions from background
+// ---------------------------------------------------------------------------
+
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (changes.kv_extension_timer_state) {
+    activeTimerState = changes.kv_extension_timer_state.newValue ?? null;
+    if (activeTimerState?.projectId) {
+      selectedProjectId = activeTimerState.projectId;
+    }
+    renderProjectTrigger();
+    renderTimer();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Runtime messaging
+// ---------------------------------------------------------------------------
+
 async function sendRuntimeMessage(message) {
   const response = await chrome.runtime.sendMessage(message);
   if (!response?.ok) {
@@ -318,6 +380,10 @@ async function syncTimerState() {
   renderProjectTrigger();
   renderTimer();
 }
+
+// ---------------------------------------------------------------------------
+// Project loading
+// ---------------------------------------------------------------------------
 
 function ensureSessionProjectInOptions() {
   if (!activeTimerState?.projectId) {
@@ -355,6 +421,10 @@ async function loadProjects() {
   setProjectHint();
 }
 
+// ---------------------------------------------------------------------------
+// Dropdown events
+// ---------------------------------------------------------------------------
+
 function attachProjectDropdownEvents() {
   elements.projectTrigger.addEventListener("click", () => {
     const isOpen = !elements.projectDropdown.classList.contains("hidden");
@@ -387,6 +457,10 @@ function attachProjectDropdownEvents() {
     }
   });
 }
+
+// ---------------------------------------------------------------------------
+// Auth bootstrap (local-first)
+// ---------------------------------------------------------------------------
 
 async function initializeAuthenticatedShell() {
   toggleAuthenticatedView(true);
@@ -459,6 +533,10 @@ async function bootstrap() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Event handlers
+// ---------------------------------------------------------------------------
+
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setFeedback("");
@@ -488,11 +566,16 @@ elements.primaryButton.addEventListener("click", async () => {
   resetAbandonConfirmation();
 
   try {
-    if (!activeTimerState?.sessionId || activeTimerState.isPaused) {
+    const hasActivePhase = Boolean(activeTimerState?.phase);
+    const isPaused = Boolean(activeTimerState?.isPaused);
+
+    if (!hasActivePhase) {
       activeTimerState = await sendRuntimeMessage({
         type: "timer:start",
-        projectId: activeTimerState?.projectId || selectedProjectId || null,
+        projectId: selectedProjectId || null,
       });
+    } else if (isPaused) {
+      activeTimerState = await sendRuntimeMessage({ type: "timer:resume" });
     } else {
       activeTimerState = await sendRuntimeMessage({ type: "timer:pause" });
     }
@@ -505,7 +588,7 @@ elements.primaryButton.addEventListener("click", async () => {
 elements.abandonButton.addEventListener("click", async () => {
   setFeedback("");
 
-  if (!activeTimerState?.sessionId) {
+  if (!activeTimerState?.phase) {
     return;
   }
 

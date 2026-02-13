@@ -268,6 +268,18 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.interval-counter {
+  margin: var(--space-0-5) 0 0;
+  min-height: 1em;
+  font-size: var(--text-xs);
+  color: hsl(var(--text-tertiary));
+}
+
+.interval-counter:empty {
+  min-height: 0;
+  margin: 0;
+}
+
 .notes-button {
   min-width: 72px;
   padding-inline: var(--space-2-5);
