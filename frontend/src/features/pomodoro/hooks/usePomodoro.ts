@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { pomodoroApi } from '@/services/api/pomodoro';
 import { usePomodoroStore } from '@/store/pomodoroStore';
 import { usePomodoroPreferences, triggerSummaryRefresh, triggerWeeklyStatsRefresh } from './internal';
@@ -70,12 +70,16 @@ export function usePomodoro(): UsePomodoroState {
   const sessionIdRef = useRef(currentSessionId);
 
   // Default preferences fallback
-  const safePreferences = preferences ?? {
-    work_duration: 25,
-    break_duration: 5,
-    long_break_duration: 15,
-    long_break_interval: 4,
-  };
+  const safePreferences = useMemo(
+    () =>
+      preferences ?? {
+        work_duration: 25,
+        break_duration: 5,
+        long_break_duration: 15,
+        long_break_interval: 4,
+      },
+    [preferences]
+  );
 
   // ✅ CORRECT: Sync preferences to store when they change
   useEffect(() => {

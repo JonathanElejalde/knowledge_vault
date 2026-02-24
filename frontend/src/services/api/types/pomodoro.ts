@@ -19,7 +19,7 @@ export interface PomodoroSession {
   session_type: 'work' | 'break';
   status: 'in_progress' | 'completed' | 'abandoned';
   title?: string;
-  meta_data?: Record<string, any>;
+  meta_data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

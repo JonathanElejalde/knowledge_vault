@@ -37,7 +37,7 @@ export interface Category {
   id: string;
   name: string;
   description?: string | null;
-  meta_data?: Record<string, any>;
+  meta_data?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
-} 
+}

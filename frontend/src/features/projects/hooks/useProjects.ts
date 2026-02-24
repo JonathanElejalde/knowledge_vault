@@ -83,37 +83,25 @@ export function useProjects(): UseProjectsState {
   
   // Action: Create project
   const createProject = useCallback(async (data: LearningProjectCreate): Promise<LearningProject> => {
-    try {
-      const newProject = await learningProjectsApi.create(data);
-      // Trigger refresh for all components
-      triggerProjectsRefresh();
-      return newProject;
-    } catch (error) {
-      throw error;
-    }
+    const newProject = await learningProjectsApi.create(data);
+    // Trigger refresh for all components
+    triggerProjectsRefresh();
+    return newProject;
   }, []);
   
   // Action: Update project
   const updateProject = useCallback(async (id: string, data: LearningProjectUpdate): Promise<LearningProject> => {
-    try {
-      const updatedProject = await learningProjectsApi.update(id, data);
-      // Trigger refresh for all components
-      triggerProjectsRefresh();
-      return updatedProject;
-    } catch (error) {
-      throw error;
-    }
+    const updatedProject = await learningProjectsApi.update(id, data);
+    // Trigger refresh for all components
+    triggerProjectsRefresh();
+    return updatedProject;
   }, []);
   
   // Action: Delete project
   const deleteProject = useCallback(async (id: string): Promise<void> => {
-    try {
-      await learningProjectsApi.delete(id);
-      // Trigger refresh for all components
-      triggerProjectsRefresh();
-    } catch (error) {
-      throw error;
-    }
+    await learningProjectsApi.delete(id);
+    // Trigger refresh for all components
+    triggerProjectsRefresh();
   }, []);
   
   // Action: Refresh projects

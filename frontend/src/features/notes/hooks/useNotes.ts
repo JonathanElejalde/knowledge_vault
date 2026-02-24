@@ -100,15 +100,7 @@ export function useNotes(): UseNotesState {
     }
     
     return filterObj;
-  }, [
-    selectedProjectId, 
-    // Only include search-related dependencies when not in semantic mode
-    // or when semantic search has been manually triggered
-    ...(isSemanticSearch 
-      ? [manualSemanticQuery] // Only manual semantic query affects filters
-      : [debouncedKeywordQuery] // Only keyword query affects filters
-    )
-  ]);
+  }, [selectedProjectId, isSemanticSearch, manualSemanticQuery, debouncedKeywordQuery]);
   
   // Get notes data with current filters
   const { 
@@ -180,38 +172,26 @@ export function useNotes(): UseNotesState {
   
   // Action: Create note
   const createNote = useCallback(async (data: NoteCreate): Promise<Note> => {
-    try {
-      const newNote = await notesApi.create(data);
-      // Trigger refresh for all components
-      triggerNotesRefresh();
-      return newNote;
-    } catch (error) {
-      throw error;
-    }
+    const newNote = await notesApi.create(data);
+    // Trigger refresh for all components
+    triggerNotesRefresh();
+    return newNote;
   }, []);
   
   // Action: Update note
   const updateNote = useCallback(async (id: string, data: NoteUpdate): Promise<Note> => {
-    try {
-      const updatedNote = await notesApi.update(id, data);
-      // Trigger refresh for all components
-      triggerNotesRefresh();
-      return updatedNote;
-    } catch (error) {
-      throw error;
-    }
+    const updatedNote = await notesApi.update(id, data);
+    // Trigger refresh for all components
+    triggerNotesRefresh();
+    return updatedNote;
   }, []);
   
   // Action: Delete note
   const deleteNote = useCallback(async (id: string): Promise<Note> => {
-    try {
-      const deletedNote = await notesApi.delete(id);
-      // Trigger refresh for all components
-      triggerNotesRefresh();
-      return deletedNote;
-    } catch (error) {
-      throw error;
-    }
+    const deletedNote = await notesApi.delete(id);
+    // Trigger refresh for all components
+    triggerNotesRefresh();
+    return deletedNote;
   }, []);
   
   // Action: Refresh notes

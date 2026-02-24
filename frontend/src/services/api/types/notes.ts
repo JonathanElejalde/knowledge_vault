@@ -5,7 +5,7 @@ export interface Note {
   content: string;
   title: string | null;
   tags: string[];
-  meta_data: Record<string, any>;
+  meta_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   learning_project_name?: string | null; // Only available in GET /{note_id}
@@ -16,7 +16,7 @@ export interface NoteCreate {
   content: string; // Required: min 1 character
   title?: string; // Optional: max 255 characters
   tags?: string[]; // Optional: default empty array
-  meta_data?: Record<string, any>; // Optional: default empty object
+  meta_data?: Record<string, unknown>; // Optional: default empty object
   learning_project_id?: string; // Optional: link to learning project
 }
 
@@ -24,7 +24,7 @@ export interface NoteUpdate {
   content?: string; // Optional: min 1 character if provided
   title?: string | null; // Optional: max 255 characters, null to remove
   tags?: string[]; // Optional: replaces existing tags
-  meta_data?: Record<string, any>; // Optional: replaces existing metadata
+  meta_data?: Record<string, unknown>; // Optional: replaces existing metadata
   learning_project_id?: string | null; // Optional: null to unlink
 }
 

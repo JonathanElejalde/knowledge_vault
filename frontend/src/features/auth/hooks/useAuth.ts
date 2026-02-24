@@ -31,7 +31,7 @@ const authStore = create<AuthStore>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error) {
+    } catch {
       // If getCurrentUser fails, user is not authenticated
       set({
         user: null,
@@ -146,7 +146,7 @@ const authStore = create<AuthStore>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error) {
+    } catch {
       set({
         user: null,
         isAuthenticated: false,

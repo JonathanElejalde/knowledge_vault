@@ -1,11 +1,11 @@
 // API cache utility to prevent duplicate API calls
-const ongoingRequests = new Map<string, Promise<any>>();
+const ongoingRequests = new Map<string, Promise<unknown>>();
 
 export function getCachedApiCall<T>(
   key: string,
   apiCall: () => Promise<T>
 ): Promise<T> {
-  let existingRequest = ongoingRequests.get(key);
+  let existingRequest = ongoingRequests.get(key) as Promise<T> | undefined;
   
   if (!existingRequest) {
     // Start new request and cache it
@@ -14,7 +14,7 @@ export function getCachedApiCall<T>(
       ongoingRequests.delete(key);
     });
     
-    ongoingRequests.set(key, existingRequest);
+    ongoingRequests.set(key, existingRequest as Promise<unknown>);
   }
   
   return existingRequest;

@@ -34,7 +34,7 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data);
-    } catch (error) {
+    } catch {
       // Error is handled by the auth store
     }
   };

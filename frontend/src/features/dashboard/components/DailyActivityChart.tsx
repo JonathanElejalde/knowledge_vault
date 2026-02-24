@@ -29,6 +29,18 @@ interface ChartData {
   notes: number;
 }
 
+interface ChartTooltipEntry {
+  color?: string;
+  name?: string | number;
+  value?: string | number;
+}
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ChartTooltipEntry[];
+  label?: string | number;
+}
+
 // Max days to show before requiring expansion
 const DEFAULT_VISIBLE_DAYS = 180; // 6 months
 
@@ -75,12 +87,12 @@ export default function DailyActivityChart({ data, className }: DailyActivityCha
   // Calculate tick interval based on visible data
   const tickInterval = getTickInterval(chartData.length);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: ChartTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-surface-base border border-border-subtle rounded-lg p-3 shadow-[var(--shadow-lg)]">
           <p className="font-medium text-text-primary mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.value}
             </p>

@@ -12,7 +12,8 @@ export interface FormInputProps extends React.InputHTMLAttributes<HTMLInputEleme
 
 const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
   ({ className, label, error, description, required, id, ...props }, ref) => {
-    const inputId = id || React.useId();
+    const generatedId = React.useId();
+    const inputId = id ?? generatedId;
     const descriptionId = `${inputId}-description`;
     const errorId = `${inputId}-error`;
 

@@ -33,7 +33,9 @@ const LoadingFallback = () => (
 );
 
 // Wrap lazy-loaded components with Suspense
-const withSuspense = (Component: React.LazyExoticComponent<any>) => (
+const withSuspense = (
+  Component: React.LazyExoticComponent<React.ComponentType>
+) => (
   <React.Suspense fallback={<LoadingFallback />}>
     <Component />
   </React.Suspense>

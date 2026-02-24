@@ -12,6 +12,10 @@ import { useProjects } from "../hooks/internal";
 import type { ProjectFormData } from "../types";
 import type { LearningProject } from "@/services/api/types/learningProjects";
 
+function isProjectStatus(status: string): status is LearningProject['status'] {
+  return status === 'in_progress' || status === 'completed' || status === 'abandoned';
+}
+
 /**
  * ProjectsPage - Deep Focus Design
  * 
@@ -64,7 +68,7 @@ export default function ProjectsPage() {
           </>
         ),
       });
-    } catch (err) {
+    } catch {
       toast({
         children: (
           <>
@@ -97,7 +101,7 @@ export default function ProjectsPage() {
           </>
         ),
       });
-    } catch (err) {
+    } catch {
       toast({
         children: (
           <>
@@ -112,8 +116,21 @@ export default function ProjectsPage() {
 
   // Handle status change
   const handleStatusChange = async (projectId: string, newStatus: string) => {
+    if (!isProjectStatus(newStatus)) {
+      toast({
+        children: (
+          <>
+            <ToastTitle>Error</ToastTitle>
+            <ToastDescription>Invalid project status</ToastDescription>
+          </>
+        ),
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      await updateProject(projectId, { status: newStatus as any });
+      await updateProject(projectId, { status: newStatus });
       toast({
         children: (
           <>
@@ -122,7 +139,7 @@ export default function ProjectsPage() {
           </>
         ),
       });
-    } catch (err) {
+    } catch {
       toast({
         children: (
           <>
@@ -147,7 +164,7 @@ export default function ProjectsPage() {
           </>
         ),
       });
-    } catch (err) {
+    } catch {
       toast({
         children: (
           <>

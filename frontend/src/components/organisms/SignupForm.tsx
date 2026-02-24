@@ -38,9 +38,10 @@ function SignupFormContent() {
 
   const onSubmit = async (data: SignupFormData) => {
     try {
-      const { confirmPassword, ...signupData } = data;
+      const signupData = { ...data };
+      delete signupData.confirmPassword;
       await signup(signupData);
-    } catch (error) {
+    } catch {
       // Error is handled by the auth store
     }
   };

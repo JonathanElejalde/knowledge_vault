@@ -177,7 +177,7 @@ export function MarkdownRenderer({ content, className, variant = 'default' }: Ma
     ),
 
     // Code blocks and inline code
-    code: ({ node, className, children, ...props }) => {
+    code: ({ className, children, ...props }) => {
       const inline = !className?.includes('language-');
       return (
         <CodeBlock className={className} inline={inline} {...props}>
