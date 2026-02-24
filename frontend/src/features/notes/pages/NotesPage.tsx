@@ -63,7 +63,7 @@ export default function NotesPage() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8">
+    <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-8 xl:px-12 py-8 lg:h-full lg:min-h-0 lg:flex lg:flex-col lg:overflow-hidden">
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
         {/* Title & Description */}
@@ -158,14 +158,14 @@ export default function NotesPage() {
       </div>
 
       {/* Main Content - 3 column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:flex-1 lg:min-h-0">
         {/* Sidebar - Projects Filter */}
-        <div className="lg:col-span-1">
-          <Card className="sticky top-4">
-            <CardHeader className="pb-2">
+        <div className="lg:col-span-1 lg:min-h-0">
+          <Card className="lg:h-full lg:min-h-0 lg:flex lg:flex-col">
+            <CardHeader className="pb-2 lg:shrink-0">
               <CardTitle className="text-base font-semibold">Filter by Project</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
               <ProjectsSidebar
                 selectedProjectId={selectedProjectId}
                 onProjectSelect={setSelectedProjectId}
@@ -175,7 +175,7 @@ export default function NotesPage() {
         </div>
 
         {/* Notes List */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
           {/* Search mode indicator */}
           {isSemanticSearch && searchQuery && !notes.length && !isLoading && (
             <div className={cn(
