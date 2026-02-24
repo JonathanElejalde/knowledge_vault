@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 export default function AnkiPage() {
   return (
     <div className="container mx-auto p-6">

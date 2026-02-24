@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -6,7 +5,6 @@ import { Button } from '@/components/atoms/Button';
 import { FormInput } from '@/components/molecules/FormInput';
 import { PasswordInput } from '@/components/molecules/PasswordInput';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import type { SignupCredentials } from '@/features/auth/types/auth.types';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 
 const signupSchema = z.object({

@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { SignupForm } from '@/components/organisms/SignupForm';
 import { AuthLayout } from '@/components/organisms/AuthLayout';

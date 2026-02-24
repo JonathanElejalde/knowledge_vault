@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/atoms/Button';
 import { useAuth } from '@/features/auth/hooks/useAuth';

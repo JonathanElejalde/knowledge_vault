@@ -46,7 +46,9 @@ export default function NotesPage() {
   };
 
   const handleNoteEdit = (note: Note) => {
-    navigate(`/notes/edit/${note.id}`);
+    navigate(`/notes/edit/${note.id}`, {
+      state: { from: location },
+    });
   };
 
   const handleNoteDelete = async (noteId: string) => {

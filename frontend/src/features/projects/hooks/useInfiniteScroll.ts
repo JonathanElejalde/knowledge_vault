@@ -13,7 +13,7 @@ export function useInfiniteScroll({
   isLoading,
   onLoadMore,
   threshold = 200,
-  rootMargin = '0px 0px 200px 0px'
+  rootMargin = `0px 0px ${threshold}px 0px`
 }: UseInfiniteScrollOptions) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);

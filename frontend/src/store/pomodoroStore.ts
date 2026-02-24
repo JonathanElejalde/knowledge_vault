@@ -244,7 +244,6 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
         
         // Calculate additional paused time
         const now = Date.now();
-        const currentSessionTime = state.startTime ? now - state.startTime : 0;
         
         set({ 
           isRunning: false,

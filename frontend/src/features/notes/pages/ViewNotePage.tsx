@@ -53,7 +53,11 @@ export default function ViewNotePage() {
 
   const handleEdit = () => {
     if (note) {
-      navigate(`/notes/edit/${note.id}`);
+      navigate(`/notes/edit/${note.id}`, {
+        state: {
+          from: location.state?.from ?? { pathname: '/notes', search: '' },
+        },
+      });
     }
   };
 

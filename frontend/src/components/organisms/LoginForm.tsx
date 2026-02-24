@@ -6,7 +6,6 @@ import { Button } from '@/components/atoms/Button';
 import { FormInput } from '@/components/molecules/FormInput';
 import { PasswordInput } from '@/components/molecules/PasswordInput';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import type { LoginCredentials } from '@/features/auth/types/auth.types';
 import { Checkbox } from '@/components/molecules/Checkbox';
 
 const loginSchema = z.object({

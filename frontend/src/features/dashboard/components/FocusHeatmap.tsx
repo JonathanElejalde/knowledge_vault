@@ -107,14 +107,7 @@ export default function FocusHeatmap({ data, className }: FocusHeatmapProps) {
         axisRight={null}
         colors={{
           type: 'sequential',
-          colors: [
-            'hsl(207, 47%, 96%)',  // Lightest - almost white with blue tint
-            'hsl(207, 47%, 89%)',  // palette-mist
-            'hsl(205, 53%, 82%)',  // palette-steel
-            'hsl(213, 47%, 72%)',  // Between steel and ocean
-            'hsl(213, 47%, 64%)',  // palette-ocean
-            'hsl(215, 50%, 52%)',  // palette-deep
-          ],
+          scheme: 'blue_green',
           minValue: 0,
           maxValue: data.max_minutes || 60,
         }}

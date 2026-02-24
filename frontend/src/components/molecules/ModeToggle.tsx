@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
  * Uses the new DesignSystem provider.
  */
 export function ModeToggle() {
-  const { colorMode, resolvedColorMode, setColorMode } = useColorMode();
+  const { colorMode, setColorMode } = useColorMode();
 
   return (
     <DropdownMenu>

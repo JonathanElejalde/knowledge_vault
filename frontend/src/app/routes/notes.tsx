@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 export default function NotesPage() {
   return (
     <div className="container mx-auto p-6">

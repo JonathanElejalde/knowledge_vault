@@ -1,48 +1,80 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { NoteEditor } from '@/components/atoms/NoteEditor';
 import { useNotes } from '../hooks/internal';
+import { notesApi } from '@/services/api/notes';
+import type { Note } from '@/services/api/types/notes';
 import type { NoteCreate } from '@/services/api/types/notes';
 
 export default function EditCreateNotePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { createNote, updateNote, notes } = useNotes();
+  const { createNote, updateNote } = useNotes();
+  const [noteToEdit, setNoteToEdit] = useState<Note | null>(null);
+  const [isLoadingNote, setIsLoadingNote] = useState(Boolean(id));
   
-  // Find the note to edit if we're in edit mode
-  const noteToEdit = id ? notes.find(note => note.id === id) : null;
-  const isEditMode = !!id && !!noteToEdit;
-  
-  // Loading state for when we're waiting for notes to load in edit mode
-  const [isLoadingNote, setIsLoadingNote] = useState(false);
+  const returnSearch = location.state?.from?.search;
+  const safeReturnSearch =
+    typeof returnSearch === 'string' && returnSearch.startsWith('?')
+      ? returnSearch
+      : '';
 
-  // Check if we're in edit mode but note hasn't loaded yet
+  const navigateToNotesList = useCallback(() => {
+    navigate(`/notes${safeReturnSearch}`);
+  }, [navigate, safeReturnSearch]);
+
+  const isEditMode = Boolean(id);
+
   useEffect(() => {
-    if (id && !noteToEdit && notes.length === 0) {
-      // Notes haven't loaded yet, keep loading state
-      setIsLoadingNote(true);
-    } else if (id && !noteToEdit && notes.length > 0) {
-      // Notes have loaded but note not found, redirect to notes list
-      navigate('/notes');
-    } else {
+    if (!id) {
+      setNoteToEdit(null);
       setIsLoadingNote(false);
+      return;
     }
-  }, [id, noteToEdit, notes.length, navigate]);
+
+    let isMounted = true;
+
+    const fetchNoteForEdit = async () => {
+      setIsLoadingNote(true);
+      try {
+        const fetchedNote = await notesApi.get(id);
+        if (!isMounted) {
+          return;
+        }
+        setNoteToEdit(fetchedNote);
+      } catch (error) {
+        console.error('Failed to load note for editing:', error);
+        if (isMounted) {
+          navigateToNotesList();
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingNote(false);
+        }
+      }
+    };
+
+    fetchNoteForEdit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, navigateToNotesList]);
 
   const handleSave = async (data: NoteCreate) => {
-    if (isEditMode && noteToEdit) {
-      await updateNote(noteToEdit.id, data);
+    if (id) {
+      await updateNote(id, data);
     } else {
       await createNote(data);
     }
 
-    // Navigate back to notes list after successful save
-    navigate('/notes');
+    navigateToNotesList();
   };
 
   const handleCancel = () => {
-    navigate('/notes');
+    navigateToNotesList();
   };
 
   const draftKey = id ? `note-editor:edit:${id}` : 'note-editor:create';
@@ -51,8 +83,7 @@ export default function EditCreateNotePage() {
     ? noteToEdit?.learning_project_id || undefined
     : queryProjectId;
 
-  // Show loading state while waiting for note data in edit mode
-  if (isLoadingNote) {
+  if (isEditMode && isLoadingNote) {
     return (
       <div className="container mx-auto p-6 max-w-6xl">
         <div className="h-[calc(100vh-12rem)] flex flex-col items-center justify-center">
@@ -61,6 +92,10 @@ export default function EditCreateNotePage() {
         </div>
       </div>
     );
+  }
+
+  if (isEditMode && !noteToEdit) {
+    return null;
   }
 
   return (

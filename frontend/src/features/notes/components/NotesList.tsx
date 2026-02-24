@@ -1,4 +1,3 @@
-import React from 'react';
 import { NoteCard } from './NoteCard';
 import { Card } from '@/components/atoms/Card';
 import { Skeleton } from '@/components/atoms/Skeleton';

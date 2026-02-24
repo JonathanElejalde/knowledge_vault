@@ -3,8 +3,6 @@ import type {
   LoginCredentials,
   SignupCredentials,
   User,
-  ApiError,
-  ApiValidationError,
 } from '../types/auth.types';
 
 export const authApi = {
