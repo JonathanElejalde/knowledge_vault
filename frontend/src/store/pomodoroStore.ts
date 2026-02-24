@@ -241,25 +241,29 @@ export const usePomodoroStore = create<PomodoroStoreState>()(
       pauseTimer: () => {
         const state = get();
         if (!state.isRunning) return;
-        
-        // Calculate additional paused time
         const now = Date.now();
-        
-        set({ 
-          isRunning: false,
-          pausedTime: state.pausedTime + (now - (state.lastHeartbeat || now)),
-          lastHeartbeat: now,
-        });
+        set({ isRunning: false, lastHeartbeat: now });
         state._clearInterval();
       },
 
       resumeTimer: () => {
         const state = get();
         if (state.isRunning) return;
-        
+
         const now = Date.now();
-        set({ 
+        const expectedDuration =
+          state.timerState === 'work' ? state.workDuration * 60 :
+          state.timerState === 'break' ? state.breakDuration * 60 :
+          state.longBreakDuration * 60;
+
+        // Re-anchor startTime so the tick formula produces exactly the
+        // displayed timeLeft, eliminating sub-second drift across pauses.
+        const elapsedWork = expectedDuration - state.timeLeft;
+
+        set({
           isRunning: true,
+          startTime: now - elapsedWork * 1000,
+          pausedTime: 0,
           lastHeartbeat: now,
         });
         state._startInterval();
