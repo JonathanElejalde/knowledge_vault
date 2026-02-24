@@ -253,7 +253,10 @@ export function MarkdownRenderer({ content, className, variant = 'default' }: Ma
       </ul>
     ),
     li: ({ children, ...props }) => (
-      <li className="leading-relaxed" {...props}>
+      <li
+        className="leading-relaxed [&>p]:inline [&>p]:m-0 [&>ul]:mt-2 [&>ol]:mt-2"
+        {...props}
+      >
         {children}
       </li>
     ),
