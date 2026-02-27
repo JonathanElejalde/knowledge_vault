@@ -14,16 +14,36 @@ export default function EditCreateNotePage() {
   const { createNote, updateNote } = useNotes();
   const [noteToEdit, setNoteToEdit] = useState<Note | null>(null);
   const [isLoadingNote, setIsLoadingNote] = useState(Boolean(id));
-  
+
+  const returnPathname = location.state?.from?.pathname;
+  const safeReturnPathname =
+    typeof returnPathname === 'string' && returnPathname.startsWith('/')
+      ? returnPathname
+      : '/notes';
+
   const returnSearch = location.state?.from?.search;
   const safeReturnSearch =
-    typeof returnSearch === 'string' && returnSearch.startsWith('?')
+    typeof returnSearch === 'string' &&
+    (returnSearch === '' || returnSearch.startsWith('?'))
       ? returnSearch
       : '';
 
-  const navigateToNotesList = useCallback(() => {
-    navigate(`/notes${safeReturnSearch}`);
-  }, [navigate, safeReturnSearch]);
+  const returnToFromQuery = searchParams.get('returnTo');
+  const safeReturnTo =
+    typeof returnToFromQuery === 'string' &&
+    returnToFromQuery.startsWith('/') &&
+    !returnToFromQuery.startsWith('//')
+      ? returnToFromQuery
+      : null;
+
+  const navigateToOrigin = useCallback(() => {
+    if (safeReturnTo) {
+      navigate(safeReturnTo);
+      return;
+    }
+
+    navigate(`${safeReturnPathname}${safeReturnSearch}`);
+  }, [navigate, safeReturnPathname, safeReturnSearch, safeReturnTo]);
 
   const isEditMode = Boolean(id);
 
@@ -47,7 +67,7 @@ export default function EditCreateNotePage() {
       } catch (error) {
         console.error('Failed to load note for editing:', error);
         if (isMounted) {
-          navigateToNotesList();
+          navigateToOrigin();
         }
       } finally {
         if (isMounted) {
@@ -61,7 +81,7 @@ export default function EditCreateNotePage() {
     return () => {
       isMounted = false;
     };
-  }, [id, navigateToNotesList]);
+  }, [id, navigateToOrigin]);
 
   const handleSave = async (data: NoteCreate) => {
     if (id) {
@@ -70,11 +90,11 @@ export default function EditCreateNotePage() {
       await createNote(data);
     }
 
-    navigateToNotesList();
+    navigateToOrigin();
   };
 
   const handleCancel = () => {
-    navigateToNotesList();
+    navigateToOrigin();
   };
 
   const draftKey = id ? `note-editor:edit:${id}` : 'note-editor:create';

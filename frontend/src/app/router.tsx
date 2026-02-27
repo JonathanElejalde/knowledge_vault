@@ -22,6 +22,7 @@ const CreateNote = React.lazy(() => import('@/features/notes/pages/CreateNotePag
 const ViewNote = React.lazy(() => import('@/features/notes/pages/ViewNotePage'));
 const QuickNote = React.lazy(() => import('@/features/notes/pages/QuickNotePage'));
 const Projects = React.lazy(() => import('@/features/projects/pages/ProjectsPage'));
+const ProjectDetail = React.lazy(() => import('@/features/projects/pages/ProjectDetailPage'));
 const Anki = React.lazy(() => import('@/features/anki/pages/AnkiPage'));
 
 
@@ -135,6 +136,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             {withSuspense(Projects)}
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/projects/:id',
+        element: (
+          <ProtectedRoute>
+            {withSuspense(ProjectDetail)}
           </ProtectedRoute>
         ),
       },

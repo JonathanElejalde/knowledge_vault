@@ -40,14 +40,18 @@ export function EditProjectDialog({
 
   useEffect(() => {
     if (open) {
+      const currentProjectCategory = project.category_name?.trim() || null
+
       // Initialize form data based on the current project when the dialog opens
       setFormData({
         name: project.name,
-        category_name: null,
+        category_name: currentProjectCategory,
         description: project.description || "",
       })
       setIsCustomCategory(false)
-      setCustomCategory("")
+      setCustomCategory(currentProjectCategory || "")
+
+      let isMounted = true
 
       const loadCategoriesAndSetDisplayLogic = async () => {
         let fetchedCategoryNames: string[] = []
@@ -68,33 +72,46 @@ export function EditProjectDialog({
         }
 
         // Filter out any empty or whitespace-only category names
-        fetchedCategoryNames = fetchedCategoryNames.filter(name => name && name.trim() !== "")
+        fetchedCategoryNames = fetchedCategoryNames
+          .map(name => name.trim())
+          .filter(name => name.length > 0)
+
+        if (!isMounted) {
+          return
+        }
 
         setCategories(fetchedCategoryNames)
-        const currentProjectCategory = project.category_name || null
 
-        if (fetchedCategoryNames.length === 0) {
-          // No categories globally: default to custom input.
-          setIsCustomCategory(true)
-          setCustomCategory(project.category_name || "")
-          // formData.category_name remains null
-        } else {
-          // Categories exist globally: default to dropdown.
-          setIsCustomCategory(false) // Ensure dropdown is shown
-          if (currentProjectCategory && fetchedCategoryNames.includes(currentProjectCategory)) {
-            // Project's category exists in the fetched list, pre-select it.
-            setFormData(prev => ({ ...prev, category_name: currentProjectCategory }))
-            setCustomCategory("") // Clear any lingering custom category text
-          } else {
-            // Project's category is not in the list (e.g., it's new/custom) or project has no category.
-            // Dropdown will be shown, formData.category_name remains null.
-            // Pre-fill the customCategory state so if user clicks "+", project's current category name is there.
-            setCustomCategory(project.category_name || "")
-          }
+        // No existing category on project: keep dropdown mode and placeholder.
+        if (!currentProjectCategory) {
+          setIsCustomCategory(false)
+          setCustomCategory("")
+          return
         }
+
+        // Existing category should always be preserved without user intervention.
+        const categoryExistsInDropdown = fetchedCategoryNames.some(
+          (name) => name === currentProjectCategory
+        )
+
+        if (categoryExistsInDropdown) {
+          // Category is selectable in dropdown; keep select mode.
+          setIsCustomCategory(false)
+          setFormData(prev => ({ ...prev, category_name: currentProjectCategory }))
+          setCustomCategory("")
+          return
+        }
+
+        // Category is not in fetched list; switch to custom mode with current value prefilled.
+        setIsCustomCategory(true)
+        setCustomCategory(currentProjectCategory)
       }
 
       loadCategoriesAndSetDisplayLogic()
+
+      return () => {
+        isMounted = false
+      }
     }
     // Not strictly necessary to clear on close if re-init on open is robust,
     // but can be added if desired for cleanup.
