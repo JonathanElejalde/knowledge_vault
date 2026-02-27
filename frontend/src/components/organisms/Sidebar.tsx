@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils"
 import { Clock, FileText, Home, Layers, BookOpen, LogOut, Diamond } from "lucide-react"
-import { NavLink } from "react-router-dom"
+import { Link, NavLink } from "react-router-dom"
 
 const routes = [
-  { name: "Dashboard", path: "/", icon: Home },
+  { name: "Dashboard", path: "/dashboard", icon: Home },
   { name: "Pomodoro", path: "/pomodoro", icon: Clock },
   { name: "Projects", path: "/projects", icon: Layers },
   { name: "Notes", path: "/notes", icon: FileText },
@@ -32,15 +32,21 @@ export default function Sidebar() {
       aria-label="Main sidebar"
     >
       {/* Logo area */}
-      <div className={cn(
-        "h-16 flex items-center justify-center lg:justify-start lg:px-6",
-        "border-b border-border-subtle lg:border-none"
-      )}>
+      <Link
+        to="/dashboard"
+        className={cn(
+          "h-16 flex items-center justify-center lg:justify-start lg:px-6",
+          "border-b border-border-subtle lg:border-none",
+          "transition-colors hover:bg-accent-primary-subtle",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        )}
+        aria-label="Go to dashboard"
+      >
         <Diamond className="h-6 w-6 text-accent-primary flex-shrink-0" aria-hidden="true" />
         <span className="hidden lg:block ml-3 font-semibold text-lg tracking-tight text-text-primary">
           Knowledge Vault
         </span>
-      </div>
+      </Link>
       
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-1">
